@@ -17,7 +17,7 @@ Set Theme "Catppuccin Mocha"
 Set TypingSpeed 40ms
 
 Hide
-Type "export PATH=\"$PWD:$PATH\" PS1='$ ' && clear" Enter
+Type `export PATH="$PWD:$PATH" PS1='$ ' && clear` Enter
 Show
 
 Type "assay version" Enter
@@ -37,7 +37,7 @@ Sleep 3s
 
 Type "clear" Enter
 Type "# write a small encrypted audit log with a throwaway key, then verify its hash chain" Enter
-Type "export ASSAY_AUDIT_KEY=\"$(assay audit keygen)\"" Enter
+Type `export ASSAY_AUDIT_KEY="$(assay audit keygen)"` Enter
 Sleep 500ms
 Type "go run ./scripts/demo/auditlog -out /tmp/demo-audit.log" Enter
 Sleep 3s
