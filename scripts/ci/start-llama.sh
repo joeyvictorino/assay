@@ -91,7 +91,7 @@ fi
 # 3. Start the server and wait for health.
 LOG="$WORK/llama-server.log"
 echo "start-llama: starting llama-server on 127.0.0.1:$PORT with $(basename "$MODEL_PATH")"
-nohup "$SERVER" --host 127.0.0.1 --port "$PORT" -c 8192 -t 4 --jinja -m "$MODEL_PATH" >"$LOG" 2>&1 &
+nohup "$SERVER" --host 127.0.0.1 --port "$PORT" -c 16384 -t 4 --jinja -m "$MODEL_PATH" >"$LOG" 2>&1 &
 echo $! > "$WORK/llama-server.pid"
 "$(dirname "$0")/wait-for.sh" "http://127.0.0.1:$PORT/health" "${LLAMA_WAIT_SECONDS:-300}" 200 || { tail -n 50 "$LOG" >&2; exit 1; }
 echo "start-llama: ready (pid $(cat "$WORK/llama-server.pid"), log $LOG)"
