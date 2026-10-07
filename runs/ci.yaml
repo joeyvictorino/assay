@@ -1,0 +1,43 @@
+# CI run configuration. Pull requests use the scripted fake provider so the
+# pipeline exercises routing, policy, audit and overlap without spending
+# money or touching a model API. Pushes to main may swap the fake routes for
+# the anthropic ones below by setting ANTHROPIC_API_KEY.
+name: ci
+default_model: claude-sonnet-5-5
+
+providers:
+  anthropic:
+    type: anthropic
+    api_key_env: ANTHROPIC_API_KEY
+  fake:
+    type: fake
+
+models:
+  - { provider: anthropic, model: claude-sonnet-5-5 }
+  - { provider: anthropic, model: claude-haiku-4-5 }
+  - { provider: fake, model: fake-model }
+
+routes:
+  recon:     [{ provider: fake, model: fake-model }]
+  probe:     [{ provider: fake, model: fake-model }]
+  validate:  [{ provider: fake, model: fake-model }]
+  remediate: [{ provider: fake, model: fake-model }]
+  score:     [{ provider: fake, model: fake-model }]
+
+budgets:
+  per_run:   { max_usd: 15 }
+  per_model: { max_usd: 6 }
+  per_task:  { max_usd: 1.5, max_latency_ms: 120000 }
+
+# USD per million tokens. Source: owner-published skill table, 2026-09-25.
+cost_per_mtok:
+  claude-sonnet-5-5: { input_usd: 2, output_usd: 10, cache_read_usd: 0.20 }
+  claude-opus-5-5:   { input_usd: 4, output_usd: 20, cache_read_usd: 0.20 }
+  claude-haiku-4-5:  { input_usd: 1, output_usd: 5,  cache_read_usd: 0.10 }
+  fake-model:        { input_usd: 1, output_usd: 5,  cache_read_usd: 0.10 }
+
+max_failovers: 1
+
+agent:
+  max_turns: 8
+  max_tokens: 2048

@@ -1,0 +1,29 @@
+{
+  "name": "login_as",
+  "version": "1",
+  "description": "Submit lab-provided credentials to a login endpoint inside the authorized lab scope. Returns the status code, whether a session cookie was set, and up to 8 KiB of the body. Credentials are never echoed back. Only lab-seeded test accounts may be used.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "Absolute login URL, including scheme and host."
+      },
+      "username": {
+        "type": "string",
+        "description": "Lab test account username."
+      },
+      "password": {
+        "type": "string",
+        "description": "Lab test account password."
+      }
+    },
+    "required": ["url", "username", "password"],
+    "additionalProperties": false
+  },
+  "risk_tier": "high",
+  "capabilities": ["auth.login", "http.write"],
+  "side_effects": true,
+  "timeout_ms": 15000,
+  "allowed_agents": ["probe", "validate"]
+}
