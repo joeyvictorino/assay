@@ -1,0 +1,59 @@
+version: 2
+
+project_name: assay
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: assay
+    main: ./cmd/assay
+    binary: assay
+    env:
+      - CGO_ENABLED=0
+      # The workspace pulls in the lab module and its SQLite dependency;
+      # the release binary must never depend on it.
+      - GOWORK=off
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/joeyvictorino/assay/internal/version.Version={{ .Version }}
+      - -X github.com/joeyvictorino/assay/internal/version.Commit={{ .ShortCommit }}
+      - -X github.com/joeyvictorino/assay/internal/version.Date={{ .Date }}
+
+archives:
+  - id: assay
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - SECURITY.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+release:
+  github:
+    owner: joeyvictorino
+    name: assay
+  draft: false
+  prerelease: auto
+  mode: replace
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^results:"

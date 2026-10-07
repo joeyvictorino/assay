@@ -1,0 +1,160 @@
+name: full-run
+
+# Runs the whole harness against the lab containers and commits the results
+# directory plus the dashboard data. Triggered by hand, by continuous.yml,
+# or by a push to main that changes harness, lab, run or scope inputs. The
+# results commit carries [skip ci] and touches none of the filtered paths,
+# so it never retriggers this workflow.
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: false
+      OPENAI_API_KEY:
+        required: false
+      ASSAY_AUDIT_KEY:
+        required: true
+  push:
+    branches: [main]
+    paths:
+      - "internal/**"
+      - "labs/**"
+      - "runs/**"
+      - "scope/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: results-commit
+  cancel-in-progress: false
+
+jobs:
+  full-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      juice-shop:
+        image: bkimminich/juice-shop
+        ports:
+          - 3000:3000
+      dvwa:
+        image: vulnerables/web-dvwa
+        ports:
+          - 8080:80
+    env:
+      ASSAY_RESULTS_ROOT: results
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Build assay
+        run: go build -o assay ./cmd/assay
+
+      - name: Build synthetic-ops lab
+        run: |
+          cd labs/synthetic-ops
+          go build -o ../../synthetic-ops ./cmd/synthetic-ops
+
+      - name: Start synthetic-ops on 127.0.0.1:9000
+        run: |
+          nohup ./synthetic-ops -addr 127.0.0.1:9000 -public labs/synthetic-ops/public > synthetic-ops.log 2>&1 &
+          echo $! > synthetic-ops.pid
+
+      - name: Wait for lab services
+        run: |
+          sh scripts/ci/wait-for.sh http://127.0.0.1:9000/ 120
+          sh scripts/ci/wait-for.sh http://127.0.0.1:3000/ 300
+          sh scripts/ci/wait-for.sh http://127.0.0.1:8080/login.php 300
+
+      - name: Set up DVWA
+        run: sh scripts/ci/dvwa-setup.sh http://127.0.0.1:8080
+
+      - name: Cache llama.cpp release and model
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/assay-llama
+          key: llama-${{ runner.os }}-${{ hashFiles('labs/models.lock') }}
+
+      - name: Start llama-server
+        run: bash scripts/ci/start-llama.sh labs/models.lock "${RUNNER_TEMP}/assay-llama"
+
+      - name: Run the harness
+        # Model API steps are hard failures; a missing key is not. The run
+        # command drops models whose key is absent and labels the run
+        # degraded (--allow-missing-providers).
+        continue-on-error: false
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ASSAY_AUDIT_KEY: ${{ secrets.ASSAY_AUDIT_KEY }}
+        run: |
+          ./assay run \
+            --config runs/ci.yaml \
+            --mode full \
+            --out results/ \
+            --scope scope/ci.yaml \
+            --trust trust/keys \
+            --policy policy/default.yaml \
+            --audit-key-env ASSAY_AUDIT_KEY \
+            --allow-missing-providers \
+            --ci-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT"
+
+      - name: Render report and dashboard data
+        continue-on-error: false
+        run: |
+          latest="$(cat results/LATEST)"
+          ./assay report --run "results/$latest" --format md
+          ./assay report --run "results/$latest" --format dashboard --runs-root results
+
+      - name: Upload encrypted audit log
+        # The log is AES-GCM ciphertext; the key never leaves the secret
+        # store. .audit/ is gitignored, so this artifact is its only copy.
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-log-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .audit/
+            results/*/audit.log
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Commit results
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          set -eu
+          git add results docs/dashboard/data
+          if git diff --cached --quiet; then
+            echo "no result changes to commit"
+            exit 0
+          fi
+          latest="$(cat results/LATEST)"
+          git commit -m "results: $latest [skip ci]" \
+            -m "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT"
+          for attempt in 1 2 3; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo "pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "push attempt $attempt failed; retrying"
+            sleep $((attempt * 5))
+          done
+          echo "could not push results after 3 attempts" >&2
+          exit 1
+
+      - name: Stop background services
+        if: always()
+        run: |
+          [ -f synthetic-ops.pid ] && kill "$(cat synthetic-ops.pid)" 2>/dev/null || true
+          [ -f "${RUNNER_TEMP}/assay-llama/llama-server.pid" ] && kill "$(cat "${RUNNER_TEMP}/assay-llama/llama-server.pid")" 2>/dev/null || true

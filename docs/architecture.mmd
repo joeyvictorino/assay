@@ -1,0 +1,77 @@
+%% assay architecture: real packages and data flow. Rendered by the lead; do
+%% not commit an SVG from here. Package names are internal/<name>.
+flowchart LR
+  subgraph inputs[Inputs]
+    runs[runs/*.yaml]
+    policyFile[policy/default.yaml]
+    scopeDoc[scope/*.yaml signed]
+    trust[trust/keys]
+    manifests[internal/tools/manifests signed]
+  end
+
+  subgraph plane[Model plane]
+    config[config]
+    router[router]
+    provider[provider: anthropic, openaicompat, fake]
+    router -->|choose, failover once, budgets| provider
+  end
+
+  subgraph loop[Agent loop]
+    agent[agent]
+    toolsig[toolsig: Ed25519 verify]
+    policy[policy: deny wins]
+    tools[tools: executor]
+    httpx[httpx: only HTTP client]
+    scope[scope: gate fails closed]
+    labs[labs: synthetic-ops, juice-shop, dvwa]
+  end
+
+  subgraph evidence[Evidence]
+    finding[finding: dedup key]
+    validate[validate: read-only checkers]
+    chain[chain: fixed rules]
+    remediate[remediate]
+  end
+
+  subgraph publish[Publish]
+    overlap[overlap]
+    reconcile[reconcile]
+    report[report]
+    continuous[continuous]
+    results[(results/ run.json, findings, overlap, reconcile, report)]
+    dashboard[docs/dashboard/data/index.json]
+  end
+
+  audit[(audit: hash-chained AES-GCM log)]
+  zdr[zdr: NullSink discards transcripts]
+  redact[redact]
+  canon[canon: RFC 8785]
+
+  runs --> config --> router
+  policyFile --> policy
+  scopeDoc --> scope
+  trust --> toolsig
+  trust --> scope
+  manifests --> toolsig
+
+  provider -->|response + claimed tool calls| agent
+  agent --> toolsig --> policy --> tools --> httpx --> scope -->|allow| labs
+  labs -->|digests only| httpx
+  agent -->|transcript| zdr
+  agent --> finding --> validate --> chain --> remediate
+  validate --> httpx
+
+  router -.->|model_call| audit
+  agent -.->|policy_decision, tool_call| audit
+  httpx -.->|gate_decision, exchange digests| audit
+  scope -.-> audit
+  validate -.->|evidence refs| audit
+  canon -.-> audit
+  redact -.-> audit
+
+  finding --> overlap --> results
+  audit -->|export, decrypted| reconcile --> results
+  chain --> results
+  results --> report --> results
+  report --> dashboard
+  results -->|baseline vs latest| continuous
