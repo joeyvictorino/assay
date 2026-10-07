@@ -1,0 +1,8 @@
+flowchart LR
+    F_f_6f0952b0c165764d["f-6f0952b0c165764d: info-disclosure GET /contact"]
+    O_account_takeover(((account-takeover)))
+    X_config_read([config-read])
+    X_credential_exposure([credential-exposure])
+    F_f_6f0952b0c165764d --> X_config_read
+    X_config_read --> X_credential_exposure
+    X_credential_exposure --> O_account_takeover

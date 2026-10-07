@@ -1,0 +1,248 @@
+{
+  "run_id": "20261007-215749-7290ba88",
+  "git_sha": "f82da03df9d0f4a11258c12dbd39498446692b5f",
+  "ci_run_url": "https://github.com/joeyvictorino/assay/actions/runs/37692863751/attempts/1",
+  "mode": "degraded",
+  "started": "2026-10-07T21:57:49.149652547Z",
+  "finished": "2026-10-07T22:01:09.632104547Z",
+  "scope": {
+    "effect": "allow",
+    "reason": "SCOPE_VERIFIED",
+    "rationale": "scope bb2bf862d81eb4915644f89b515c060eb177ee434ad8afb4579a42ad5c7a26e2",
+    "policy_hash": "bb2bf862d81eb4915644f89b515c060eb177ee434ad8afb4579a42ad5c7a26e2"
+  },
+  "models": [
+    {
+      "ref": {
+        "provider": "local",
+        "model": "qwen2.5-3b-instruct-q4_k_m",
+        "agent": ""
+      },
+      "findings_by_state": {
+        "theorized": 5,
+        "validated": 3
+      },
+      "usage": {
+        "input_tokens": 4245,
+        "output_tokens": 1461,
+        "cache_read_tokens": 22605,
+        "cache_write_tokens": 0,
+        "cost_usd": 0,
+        "latency_ms": 200298
+      },
+      "p50_ms": 81549,
+      "p95_ms": 81549,
+      "refusals": 0,
+      "failovers": 0
+    },
+    {
+      "ref": {
+        "provider": "fake",
+        "model": "fake-model",
+        "agent": ""
+      },
+      "findings_by_state": {
+        "theorized": 6
+      },
+      "usage": {
+        "input_tokens": 1020,
+        "output_tokens": 300,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "cost_usd": 0.00252,
+        "latency_ms": 0
+      },
+      "p50_ms": 4,
+      "p95_ms": 4,
+      "refusals": 0,
+      "failovers": 0
+    }
+  ],
+  "labs": [
+    "synthetic-ops",
+    "juice-shop",
+    "dvwa"
+  ],
+  "overlap": {
+    "models": [
+      "fake-model",
+      "qwen2.5-3b-instruct-q4_k_m"
+    ],
+    "keys": [
+      "10c342dcddab30aa9efc85bbc15d66cf26a431910fea574216dbfd1dcc535d44",
+      "35376b17f2ae9932c231df1b340c875f8026175798f048e2d36a852d7d4bd8c8",
+      "519b08b0a9f130aea6adc5755077fa19b680fbd70a03726db6cbffb1b2d70c66",
+      "6f0952b0c165764de007e8261d90c495db0a87ec7b06e591f9de5913da99e372",
+      "721096924adab789c4faf6b380179cf728eb5d7f13a8681baffcb370d7c479ad",
+      "7c770924cf9accddc2780b2339eaac2eef33709e19a7dbbefeaf13da71afafa1",
+      "90546cef3b61dd9179a6e80a1b6020d09f75256f1433045eea3371aa227becbe",
+      "992c00d459b72fe17385ebcda573f29e5acc402eb84c0568c81b675eeb5dd4bb",
+      "ace1df9ca8aa4b7cf6d23eefcc604d03a0bde4004e0c0da8e739a4ed0f36db0c",
+      "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d",
+      "d675fe5fb94855d748bba525502ec44effbfb0b1754b3bb0ba3ec6c3064118c2",
+      "dcdb1eb3c7b63146869db98a3a8e2d9ee3df9d4e033bdbc4d0af140cd183dc34",
+      "efad13ea43d7c7b75aaa13270f055fe432532881e92132edf0a7e24a553f3982",
+      "fac9346cb6f024d96c8fd7754a05f6ebd9d4bfc3d4fa4639195ebd887839edf5"
+    ],
+    "membership": {
+      "10c342dcddab30aa9efc85bbc15d66cf26a431910fea574216dbfd1dcc535d44": [
+        1
+      ],
+      "35376b17f2ae9932c231df1b340c875f8026175798f048e2d36a852d7d4bd8c8": [
+        0
+      ],
+      "519b08b0a9f130aea6adc5755077fa19b680fbd70a03726db6cbffb1b2d70c66": [
+        0
+      ],
+      "6f0952b0c165764de007e8261d90c495db0a87ec7b06e591f9de5913da99e372": [
+        1
+      ],
+      "721096924adab789c4faf6b380179cf728eb5d7f13a8681baffcb370d7c479ad": [
+        1
+      ],
+      "7c770924cf9accddc2780b2339eaac2eef33709e19a7dbbefeaf13da71afafa1": [
+        0
+      ],
+      "90546cef3b61dd9179a6e80a1b6020d09f75256f1433045eea3371aa227becbe": [
+        1
+      ],
+      "992c00d459b72fe17385ebcda573f29e5acc402eb84c0568c81b675eeb5dd4bb": [
+        1
+      ],
+      "ace1df9ca8aa4b7cf6d23eefcc604d03a0bde4004e0c0da8e739a4ed0f36db0c": [
+        1
+      ],
+      "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d": [
+        0
+      ],
+      "d675fe5fb94855d748bba525502ec44effbfb0b1754b3bb0ba3ec6c3064118c2": [
+        1
+      ],
+      "dcdb1eb3c7b63146869db98a3a8e2d9ee3df9d4e033bdbc4d0af140cd183dc34": [
+        1
+      ],
+      "efad13ea43d7c7b75aaa13270f055fe432532881e92132edf0a7e24a553f3982": [
+        0
+      ],
+      "fac9346cb6f024d96c8fd7754a05f6ebd9d4bfc3d4fa4639195ebd887839edf5": [
+        0
+      ]
+    },
+    "pairwise": [
+      [
+        {
+          "both": 6,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        },
+        {
+          "both": 0,
+          "only_a": 6,
+          "only_b": 8,
+          "jaccard": 0
+        }
+      ],
+      [
+        {
+          "both": 0,
+          "only_a": 8,
+          "only_b": 6,
+          "jaccard": 0
+        },
+        {
+          "both": 8,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        }
+      ]
+    ],
+    "unique_per_model": {
+      "fake-model": [
+        "35376b17f2ae9932c231df1b340c875f8026175798f048e2d36a852d7d4bd8c8",
+        "519b08b0a9f130aea6adc5755077fa19b680fbd70a03726db6cbffb1b2d70c66",
+        "7c770924cf9accddc2780b2339eaac2eef33709e19a7dbbefeaf13da71afafa1",
+        "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d",
+        "efad13ea43d7c7b75aaa13270f055fe432532881e92132edf0a7e24a553f3982",
+        "fac9346cb6f024d96c8fd7754a05f6ebd9d4bfc3d4fa4639195ebd887839edf5"
+      ],
+      "qwen2.5-3b-instruct-q4_k_m": [
+        "10c342dcddab30aa9efc85bbc15d66cf26a431910fea574216dbfd1dcc535d44",
+        "6f0952b0c165764de007e8261d90c495db0a87ec7b06e591f9de5913da99e372",
+        "721096924adab789c4faf6b380179cf728eb5d7f13a8681baffcb370d7c479ad",
+        "90546cef3b61dd9179a6e80a1b6020d09f75256f1433045eea3371aa227becbe",
+        "992c00d459b72fe17385ebcda573f29e5acc402eb84c0568c81b675eeb5dd4bb",
+        "ace1df9ca8aa4b7cf6d23eefcc604d03a0bde4004e0c0da8e739a4ed0f36db0c",
+        "d675fe5fb94855d748bba525502ec44effbfb0b1754b3bb0ba3ec6c3064118c2",
+        "dcdb1eb3c7b63146869db98a3a8e2d9ee3df9d4e033bdbc4d0af140cd183dc34"
+      ]
+    },
+    "union": 14,
+    "intersection": 0,
+    "inputs": []
+  },
+  "precision": {
+    "fake-model@synthetic-ops": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 13,
+      "precision": 1,
+      "recall": 0.13333333333333333,
+      "f1": 0.23529411764705882
+    },
+    "qwen2.5-3b-instruct-q4_k_m@synthetic-ops": {
+      "tp": 0,
+      "fp": 8,
+      "fn": 15,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0
+    }
+  },
+  "chains": [
+    {
+      "id": "path-72ea77dca1c4",
+      "lab": "synthetic-ops",
+      "objective": "account-takeover",
+      "path": [
+        {
+          "type": "finding",
+          "id": "f-6f0952b0c165764d",
+          "note": "info-disclosure GET /contact"
+        },
+        {
+          "type": "fact",
+          "id": "config-read",
+          "note": "configuration disclosed"
+        },
+        {
+          "type": "fact",
+          "id": "credential-exposure",
+          "note": "configuration contains credentials"
+        },
+        {
+          "type": "objective",
+          "id": "account-takeover",
+          "note": "exposed credential takes over the account"
+        }
+      ],
+      "confidence": "theorized",
+      "source_refs": [
+        "audit:20261007-215749-7290ba88:42",
+        "finding:f-6f0952b0c165764d"
+      ]
+    }
+  ],
+  "reconcile_reason_counts": {
+    "duplicate-control-tool-call-id": 3,
+    "duplicate-transcript-tool-call-id": 3
+  },
+  "audit_head_hash": "bd289415f1c452fc7426346366d24008f71feaa1116cdc06954144950faa2f1a",
+  "audit_record_count": 160,
+  "budget_cap_usd": 15,
+  "spent_usd": 0.00252,
+  "truncated": false,
+  "verdict": "PASS",
+  "exit_code": 0
+}

@@ -1,0 +1,384 @@
+[
+  {
+    "id": "f-be983aea8cbfd46f",
+    "dedup_key": "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d",
+    "run_id": "20261007-215749-7290ba88",
+    "lab": "synthetic-ops",
+    "class": "security-headers",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "Response lacks Content-Security-Policy and X-Content-Type-Options headers.",
+    "model": {
+      "provider": "fake",
+      "model": "fake-model",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "fk-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261007-215749-7290ba88",
+        "seq": 52
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": false,
+      "reasons": [
+        "duplicate-control-tool-call-id",
+        "duplicate-transcript-tool-call-id"
+      ]
+    },
+    "validation": {
+      "state": "validated",
+      "checker": "security-headers",
+      "evidence": [
+        {
+          "kind": "header-missing",
+          "tool_call_id": "http-d6791f88624e2b07",
+          "audit_seq": 57,
+          "request_digest": "f9fe0f30df061ab9e0c070c7d789a350ce71cca0c18d750ed37b3293732523c8",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "Content-Security-Policy,X-Content-Type-Options,X-Frame-Options"
+        },
+        {
+          "kind": "header-missing",
+          "tool_call_id": "http-7bc5912a0cc51fa2",
+          "audit_seq": 59,
+          "request_digest": "f9fe0f30df061ab9e0c070c7d789a350ce71cca0c18d750ed37b3293732523c8",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "Content-Security-Policy,X-Content-Type-Options,X-Frame-Options"
+        }
+      ],
+      "note": "missing: Content-Security-Policy,X-Content-Type-Options,X-Frame-Options",
+      "checked_at": "2026-10-07T21:59:39.706544131Z"
+    },
+    "remediation": {
+      "code_diff": "--- a/handlers/router.go\n+++ b/handlers/router.go\n@@ -58,10 +58,13 @@\n \treturn s.middleware(mux)\n }\n \n-// middleware adds permissive CORS and recovers panics with a verbose page.\n-// VULN: security-headers no Content-Security-Policy, X-Content-Type-Options, X-Frame-Options or Referrer-Policy are ever set\n+// middleware sets baseline security headers, adds CORS and recovers panics.\n func (s *Server) middleware(next http.Handler) http.Handler {\n \treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n+\t\tw.Header().Set(\"Content-Security-Policy\", \"default-src 'self'; frame-ancestors 'none'\")\n+\t\tw.Header().Set(\"X-Content-Type-Options\", \"nosniff\")\n+\t\tw.Header().Set(\"X-Frame-Options\", \"DENY\")\n+\t\tw.Header().Set(\"Referrer-Policy\", \"no-referrer\")\n \t\tw.Header().Set(\"Access-Control-Allow-Origin\", \"*\") // VULN: cors-misconfig wildcard origin combined with credentials\n \t\tw.Header().Set(\"Access-Control-Allow-Credentials\", \"true\")\n \t\tw.Header().Set(\"Access-Control-Allow-Headers\", \"Authorization, Content-Type\")\n",
+      "config_change": "Set Content-Security-Policy, X-Content-Type-Options: nosniff, X-Frame-Options: DENY (or frame-ancestors), Referrer-Policy: no-referrer and, over TLS, Strict-Transport-Security on every response in shared middleware or at the reverse proxy.",
+      "virtual_patch": "SecRule \u0026RESPONSE_HEADERS:Content-Security-Policy \"@eq 0\" \"id:9100012,phase:3,pass,log,t:none,msg:'assay security-headers virtual patch f-be983aea8cbfd46f',tag:'assay/security-headers'\"\n{\"class\":\"security-headers\",\"engine\":\"modsecurity\",\"finding\":\"f-be983aea8cbfd46f\",\"id\":9100012,\"rule\":\"SecRule \\u0026RESPONSE_HEADERS:Content-Security-Policy \\\"@eq 0\\\" \\\"id:9100012,phase:3,pass,log,t:none,msg:'assay security-headers virtual patch f-be983aea8cbfd46f',tag:'assay/security-headers'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-07T21:59:39.70517339Z",
+    "last_seen": "2026-10-07T21:59:39.70517339Z"
+  },
+  {
+    "id": "f-efad13ea43d7c7b7",
+    "dedup_key": "efad13ea43d7c7b75aaa13270f055fe432532881e92132edf0a7e24a553f3982",
+    "run_id": "20261007-215749-7290ba88",
+    "lab": "synthetic-ops",
+    "class": "verbose-error",
+    "location": {
+      "method": "GET",
+      "path_template": "/api/boom"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "Error page returns an internal stack trace.",
+    "model": {
+      "provider": "fake",
+      "model": "fake-model",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "fk-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261007-215749-7290ba88",
+        "seq": 54
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": false,
+      "reasons": [
+        "duplicate-control-tool-call-id",
+        "duplicate-transcript-tool-call-id"
+      ]
+    },
+    "validation": {
+      "state": "validated",
+      "checker": "verbose-error",
+      "evidence": [
+        {
+          "kind": "http-exchange",
+          "tool_call_id": "http-c9546ab0c3c96a6e",
+          "audit_seq": 61,
+          "request_digest": "6d37a7deef2e4484b3c3ebd8eb8a06a08c66ae5ffba61d77be8012a5a5325619",
+          "response_digest": "a4388c59bb080a052ecdcb95cf9ecb6799cbc95ac2eb3a64ce1d7765840c8c6d",
+          "status_code": 500,
+          "marker": "goroutine"
+        },
+        {
+          "kind": "http-exchange",
+          "tool_call_id": "http-afb5d75433c18161",
+          "audit_seq": 63,
+          "request_digest": "6d37a7deef2e4484b3c3ebd8eb8a06a08c66ae5ffba61d77be8012a5a5325619",
+          "response_digest": "bee24ca24e92770b9d6586641e13d9d4b5aabe6bbec42d48f3b1c8eefef107e4",
+          "status_code": 500,
+          "marker": "goroutine"
+        }
+      ],
+      "note": "5xx with stack or engine details",
+      "checked_at": "2026-10-07T21:59:39.707355577Z"
+    },
+    "remediation": {
+      "code_diff": "--- a/handlers/router.go\n+++ b/handlers/router.go\n@@ -6,6 +6,7 @@\n \t\"encoding/hex\"\n \t\"encoding/json\"\n \t\"fmt\"\n+\t\"log\"\n \t\"net/http\"\n \t\"runtime/debug\"\n \t\"strings\"\n@@ -73,9 +74,8 @@\n \t\t}\n \t\tdefer func() {\n \t\t\tif rec := recover(); rec != nil {\n-\t\t\t\tw.Header().Set(\"Content-Type\", \"text/html; charset=utf-8\")\n-\t\t\t\tw.WriteHeader(http.StatusInternalServerError)\n-\t\t\t\tfmt.Fprintf(w, \"\u003ch1\u003eInternal Server Error\u003c/h1\u003e\u003cpre\u003epanic: %v\\n\\n%s\u003c/pre\u003e\", rec, debug.Stack()) // VULN: verbose-error stack trace returned to the client\n+\t\t\t\tlog.Printf(\"panic recovered: %v\\n%s\", rec, debug.Stack())\n+\t\t\t\thttp.Error(w, \"Internal Server Error\", http.StatusInternalServerError)\n \t\t\t}\n \t\t}()\n \t\tnext.ServeHTTP(w, r)\n",
+      "config_change": "Return a generic error page for GET /api/boom and log the stack trace server-side only; disable debug mode in production; recover panics in middleware without echoing the panic value or stack.",
+      "virtual_patch": "SecRule RESPONSE_BODY \"@rx (?:goroutine \\d+ \\[|Traceback \\(most recent|Exception in thread|Stack trace:)\" \"id:9100017,phase:4,deny,status:403,log,t:none,msg:'assay verbose-error virtual patch f-efad13ea43d7c7b7',tag:'assay/verbose-error'\"\n{\"class\":\"verbose-error\",\"engine\":\"modsecurity\",\"finding\":\"f-efad13ea43d7c7b7\",\"id\":9100017,\"rule\":\"SecRule RESPONSE_BODY \\\"@rx (?:goroutine \\\\d+ \\\\[|Traceback \\\\(most recent|Exception in thread|Stack trace:)\\\" \\\"id:9100017,phase:4,deny,status:403,log,t:none,msg:'assay verbose-error virtual patch f-efad13ea43d7c7b7',tag:'assay/verbose-error'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-07T21:59:39.705546149Z",
+    "last_seen": "2026-10-07T21:59:39.705546149Z"
+  },
+  {
+    "id": "f-fac9346cb6f024d9",
+    "dedup_key": "fac9346cb6f024d96c8fd7754a05f6ebd9d4bfc3d4fa4639195ebd887839edf5",
+    "run_id": "20261007-215749-7290ba88",
+    "lab": "juice-shop",
+    "class": "security-headers",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "Response lacks Content-Security-Policy and X-Content-Type-Options headers.",
+    "model": {
+      "provider": "fake",
+      "model": "fake-model",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "fk-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261007-215749-7290ba88",
+        "seq": 101
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": false,
+      "reasons": [
+        "duplicate-control-tool-call-id",
+        "duplicate-transcript-tool-call-id"
+      ]
+    },
+    "validation": {
+      "state": "validated",
+      "checker": "security-headers",
+      "evidence": [
+        {
+          "kind": "header-missing",
+          "tool_call_id": "http-316af1e6b3612fde",
+          "audit_seq": 106,
+          "request_digest": "409e73d07742104cbfc688be260c7529c8fb27a3684c1ec17bf38b4916a69e18",
+          "response_digest": "aa97229042ece5a31ad318e31c256a15ec51a5005a5295580af6bcf6bdf36783",
+          "status_code": 200,
+          "marker": "Content-Security-Policy"
+        },
+        {
+          "kind": "header-missing",
+          "tool_call_id": "http-4a33135b14a9cea2",
+          "audit_seq": 108,
+          "request_digest": "409e73d07742104cbfc688be260c7529c8fb27a3684c1ec17bf38b4916a69e18",
+          "response_digest": "aa97229042ece5a31ad318e31c256a15ec51a5005a5295580af6bcf6bdf36783",
+          "status_code": 200,
+          "marker": "Content-Security-Policy"
+        }
+      ],
+      "note": "missing: Content-Security-Policy",
+      "checked_at": "2026-10-07T21:59:48.026549596Z"
+    },
+    "remediation": {
+      "config_change": "Set Content-Security-Policy, X-Content-Type-Options: nosniff, X-Frame-Options: DENY (or frame-ancestors), Referrer-Policy: no-referrer and, over TLS, Strict-Transport-Security on every response in shared middleware or at the reverse proxy.",
+      "virtual_patch": "SecRule \u0026RESPONSE_HEADERS:Content-Security-Policy \"@eq 0\" \"id:9100012,phase:3,pass,log,t:none,msg:'assay security-headers virtual patch f-fac9346cb6f024d9',tag:'assay/security-headers'\"\n{\"class\":\"security-headers\",\"engine\":\"modsecurity\",\"finding\":\"f-fac9346cb6f024d9\",\"id\":9100012,\"rule\":\"SecRule \\u0026RESPONSE_HEADERS:Content-Security-Policy \\\"@eq 0\\\" \\\"id:9100012,phase:3,pass,log,t:none,msg:'assay security-headers virtual patch f-fac9346cb6f024d9',tag:'assay/security-headers'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-07T21:59:48.022919597Z",
+    "last_seen": "2026-10-07T21:59:48.022919597Z"
+  },
+  {
+    "id": "f-519b08b0a9f130ae",
+    "dedup_key": "519b08b0a9f130aea6adc5755077fa19b680fbd70a03726db6cbffb1b2d70c66",
+    "run_id": "20261007-215749-7290ba88",
+    "lab": "juice-shop",
+    "class": "verbose-error",
+    "location": {
+      "method": "GET",
+      "path_template": "/api/boom"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "Error page returns an internal stack trace.",
+    "model": {
+      "provider": "fake",
+      "model": "fake-model",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "fk-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261007-215749-7290ba88",
+        "seq": 103
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": false,
+      "reasons": [
+        "duplicate-control-tool-call-id",
+        "duplicate-transcript-tool-call-id"
+      ]
+    },
+    "validation": {
+      "state": "refuted",
+      "checker": "verbose-error",
+      "note": "no error details observed",
+      "checked_at": "2026-10-07T21:59:48.042754418Z"
+    },
+    "remediation": {
+      "config_change": "Return a generic error page for GET /api/boom and log the stack trace server-side only; disable debug mode in production; recover panics in middleware without echoing the panic value or stack.",
+      "virtual_patch": "SecRule RESPONSE_BODY \"@rx (?:goroutine \\d+ \\[|Traceback \\(most recent|Exception in thread|Stack trace:)\" \"id:9100017,phase:4,deny,status:403,log,t:none,msg:'assay verbose-error virtual patch f-519b08b0a9f130ae',tag:'assay/verbose-error'\"\n{\"class\":\"verbose-error\",\"engine\":\"modsecurity\",\"finding\":\"f-519b08b0a9f130ae\",\"id\":9100017,\"rule\":\"SecRule RESPONSE_BODY \\\"@rx (?:goroutine \\\\d+ \\\\[|Traceback \\\\(most recent|Exception in thread|Stack trace:)\\\" \\\"id:9100017,phase:4,deny,status:403,log,t:none,msg:'assay verbose-error virtual patch f-519b08b0a9f130ae',tag:'assay/verbose-error'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-07T21:59:48.02357987Z",
+    "last_seen": "2026-10-07T21:59:48.02357987Z"
+  },
+  {
+    "id": "f-35376b17f2ae9932",
+    "dedup_key": "35376b17f2ae9932c231df1b340c875f8026175798f048e2d36a852d7d4bd8c8",
+    "run_id": "20261007-215749-7290ba88",
+    "lab": "dvwa",
+    "class": "security-headers",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "Response lacks Content-Security-Policy and X-Content-Type-Options headers.",
+    "model": {
+      "provider": "fake",
+      "model": "fake-model",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "fk-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261007-215749-7290ba88",
+        "seq": 147
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": false,
+      "reasons": [
+        "duplicate-control-tool-call-id",
+        "duplicate-transcript-tool-call-id"
+      ]
+    },
+    "validation": {
+      "state": "validated",
+      "checker": "security-headers",
+      "evidence": [
+        {
+          "kind": "header-missing",
+          "tool_call_id": "http-89c26957475eeb3b",
+          "audit_seq": 153,
+          "request_digest": "cc517580d57c5e0eec2781d844d89587dfe80adf52dc9e747270e0f42eb5bc57",
+          "response_digest": "74be0210133f2735c1fd8f596841ffa92eb36115ffd0eafbbf81f25fa892eb36",
+          "status_code": 200,
+          "marker": "Content-Security-Policy,X-Content-Type-Options,X-Frame-Options"
+        },
+        {
+          "kind": "header-missing",
+          "tool_call_id": "http-6867a2b24e0c6a23",
+          "audit_seq": 156,
+          "request_digest": "cc517580d57c5e0eec2781d844d89587dfe80adf52dc9e747270e0f42eb5bc57",
+          "response_digest": "66c68fe68d2e534e334a940ca5986ea6189d11e2de22f9af0e3a216b150a0697",
+          "status_code": 200,
+          "marker": "Content-Security-Policy,X-Content-Type-Options,X-Frame-Options"
+        }
+      ],
+      "note": "missing: Content-Security-Policy,X-Content-Type-Options,X-Frame-Options",
+      "checked_at": "2026-10-07T22:01:09.620284218Z"
+    },
+    "remediation": {
+      "config_change": "Set Content-Security-Policy, X-Content-Type-Options: nosniff, X-Frame-Options: DENY (or frame-ancestors), Referrer-Policy: no-referrer and, over TLS, Strict-Transport-Security on every response in shared middleware or at the reverse proxy.",
+      "virtual_patch": "SecRule \u0026RESPONSE_HEADERS:Content-Security-Policy \"@eq 0\" \"id:9100012,phase:3,pass,log,t:none,msg:'assay security-headers virtual patch f-35376b17f2ae9932',tag:'assay/security-headers'\"\n{\"class\":\"security-headers\",\"engine\":\"modsecurity\",\"finding\":\"f-35376b17f2ae9932\",\"id\":9100012,\"rule\":\"SecRule \\u0026RESPONSE_HEADERS:Content-Security-Policy \\\"@eq 0\\\" \\\"id:9100012,phase:3,pass,log,t:none,msg:'assay security-headers virtual patch f-35376b17f2ae9932',tag:'assay/security-headers'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-07T22:01:09.615613662Z",
+    "last_seen": "2026-10-07T22:01:09.615613662Z"
+  },
+  {
+    "id": "f-7c770924cf9accdd",
+    "dedup_key": "7c770924cf9accddc2780b2339eaac2eef33709e19a7dbbefeaf13da71afafa1",
+    "run_id": "20261007-215749-7290ba88",
+    "lab": "dvwa",
+    "class": "verbose-error",
+    "location": {
+      "method": "GET",
+      "path_template": "/api/boom"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "Error page returns an internal stack trace.",
+    "model": {
+      "provider": "fake",
+      "model": "fake-model",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "fk-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261007-215749-7290ba88",
+        "seq": 149
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": false,
+      "reasons": [
+        "duplicate-control-tool-call-id",
+        "duplicate-transcript-tool-call-id"
+      ]
+    },
+    "validation": {
+      "state": "refuted",
+      "checker": "verbose-error",
+      "note": "no error details observed",
+      "checked_at": "2026-10-07T22:01:09.620998281Z"
+    },
+    "remediation": {
+      "config_change": "Return a generic error page for GET /api/boom and log the stack trace server-side only; disable debug mode in production; recover panics in middleware without echoing the panic value or stack.",
+      "virtual_patch": "SecRule RESPONSE_BODY \"@rx (?:goroutine \\d+ \\[|Traceback \\(most recent|Exception in thread|Stack trace:)\" \"id:9100017,phase:4,deny,status:403,log,t:none,msg:'assay verbose-error virtual patch f-7c770924cf9accdd',tag:'assay/verbose-error'\"\n{\"class\":\"verbose-error\",\"engine\":\"modsecurity\",\"finding\":\"f-7c770924cf9accdd\",\"id\":9100017,\"rule\":\"SecRule RESPONSE_BODY \\\"@rx (?:goroutine \\\\d+ \\\\[|Traceback \\\\(most recent|Exception in thread|Stack trace:)\\\" \\\"id:9100017,phase:4,deny,status:403,log,t:none,msg:'assay verbose-error virtual patch f-7c770924cf9accdd',tag:'assay/verbose-error'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-07T22:01:09.616040992Z",
+    "last_seen": "2026-10-07T22:01:09.616040992Z"
+  }
+]

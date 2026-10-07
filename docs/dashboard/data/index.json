@@ -1,1 +1,30 @@
-[]
+[
+  {
+    "run_id": "20261007-215749-7290ba88",
+    "date": "2026-10-07",
+    "ci_run_url": "https://github.com/joeyvictorino/assay/actions/runs/37692863751/attempts/1",
+    "models": [
+      {
+        "model": "fake-model",
+        "findings_validated": 0,
+        "findings_theorized": 6,
+        "refusals": 0,
+        "cost_usd": 0.00252,
+        "p50_ms": 4,
+        "p95_ms": 4
+      },
+      {
+        "model": "qwen2.5-3b-instruct-q4_k_m",
+        "findings_validated": 3,
+        "findings_theorized": 5,
+        "refusals": 0,
+        "cost_usd": 0,
+        "p50_ms": 81549,
+        "p95_ms": 81549
+      }
+    ],
+    "overlap_union": 14,
+    "overlap_intersection": 0,
+    "verdict": "PASS"
+  }
+]
