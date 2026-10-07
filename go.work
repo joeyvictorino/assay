@@ -1,0 +1,10 @@
+// Workspace so `go build ./...` from the repo root also compiles the
+// synthetic lab, whose SQLite dependency must never enter the root module.
+// Root-only runs (CI "harness" job) use GOWORK=off so the harness never
+// needs the lab's dependencies to compile or test.
+go 1.26
+
+use (
+	.
+	./labs/synthetic-ops
+)

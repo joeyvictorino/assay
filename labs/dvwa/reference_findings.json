@@ -1,0 +1,122 @@
+{
+  "lab": "dvwa",
+  "reference_not_exhaustive": true,
+  "note": "Hand-made PARTIAL list of the documented DVWA modules at security level low, in assay ground-truth format. Used for precision estimates only; a finding outside this list is not automatically a false positive. Source refs name the DVWA module directory.",
+  "entries": [
+    {
+      "id": "DVWA-001",
+      "lab": "dvwa",
+      "class": "sqli",
+      "method": "GET",
+      "path_template": "/vulnerabilities/sqli/",
+      "param": "id",
+      "severity": "critical",
+      "cwe": "CWE-89",
+      "source_ref": "vulnerabilities/sqli/source/low.php",
+      "auth_required": true,
+      "description": "User ID parameter is concatenated into a SELECT (error- and union-based)."
+    },
+    {
+      "id": "DVWA-002",
+      "lab": "dvwa",
+      "class": "sqli",
+      "method": "GET",
+      "path_template": "/vulnerabilities/sqli_blind/",
+      "param": "id",
+      "severity": "high",
+      "cwe": "CWE-89",
+      "source_ref": "vulnerabilities/sqli_blind/source/low.php",
+      "auth_required": true,
+      "description": "Blind boolean-based SQL injection in the id parameter."
+    },
+    {
+      "id": "DVWA-003",
+      "lab": "dvwa",
+      "class": "xss-reflected",
+      "method": "GET",
+      "path_template": "/vulnerabilities/xss_r/",
+      "param": "name",
+      "severity": "medium",
+      "cwe": "CWE-79",
+      "source_ref": "vulnerabilities/xss_r/source/low.php",
+      "auth_required": true,
+      "description": "name is echoed unescaped."
+    },
+    {
+      "id": "DVWA-004",
+      "lab": "dvwa",
+      "class": "xss-stored",
+      "method": "POST",
+      "path_template": "/vulnerabilities/xss_s/",
+      "param": "mtxMessage",
+      "severity": "high",
+      "cwe": "CWE-79",
+      "source_ref": "vulnerabilities/xss_s/source/low.php",
+      "auth_required": true,
+      "description": "Guestbook message is stored and rendered unescaped."
+    },
+    {
+      "id": "DVWA-005",
+      "lab": "dvwa",
+      "class": "path-traversal",
+      "method": "GET",
+      "path_template": "/vulnerabilities/fi/",
+      "param": "page",
+      "severity": "high",
+      "cwe": "CWE-22",
+      "source_ref": "vulnerabilities/fi/source/low.php",
+      "auth_required": true,
+      "description": "File inclusion: page parameter is passed to include() without restriction."
+    },
+    {
+      "id": "DVWA-006",
+      "lab": "dvwa",
+      "class": "csrf",
+      "method": "GET",
+      "path_template": "/vulnerabilities/csrf/",
+      "param": "password_new",
+      "severity": "medium",
+      "cwe": "CWE-352",
+      "source_ref": "vulnerabilities/csrf/source/low.php",
+      "auth_required": true,
+      "description": "Password change via GET without any anti-CSRF token."
+    },
+    {
+      "id": "DVWA-007",
+      "lab": "dvwa",
+      "class": "default-creds",
+      "method": "POST",
+      "path_template": "/login.php",
+      "param": "password",
+      "severity": "high",
+      "cwe": "CWE-1392",
+      "source_ref": "dvwa/includes/DBMS/MySQL.php",
+      "description": "Seeded administrator account admin/password."
+    },
+    {
+      "id": "DVWA-008",
+      "lab": "dvwa",
+      "class": "rate-limit-missing",
+      "method": "GET",
+      "path_template": "/vulnerabilities/brute/",
+      "param": "password",
+      "severity": "medium",
+      "cwe": "CWE-307",
+      "source_ref": "vulnerabilities/brute/source/low.php",
+      "auth_required": true,
+      "description": "Brute force module: unlimited login attempts with no lockout or delay."
+    },
+    {
+      "id": "DVWA-009",
+      "lab": "dvwa",
+      "class": "security-headers",
+      "method": "GET",
+      "path_template": "/login.php",
+      "param": "",
+      "severity": "low",
+      "cwe": "CWE-693",
+      "source_ref": "dvwa/includes/dvwaPage.inc.php",
+      "description": "Responses lack Content-Security-Policy and X-Content-Type-Options at security level low."
+    }
+  ]
+}
