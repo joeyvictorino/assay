@@ -1,0 +1,112 @@
+# assay default policy. Deny wins; default deny.
+#
+# Field names follow model.Policy. Unknown keys are rejected at load time.
+# Evaluation order (internal/policy): signature -> agent known -> tool allowed
+# for agent -> tool tier within agent boundary -> dangerous capability
+# combination -> delegation depth -> delegation cycle -> budget -> rules
+# (any deny wins, then any allow) -> default_effect.
+#
+# Tool names here must match the "name" field of the signed manifests in
+# internal/tools/manifests/. Budgets are per agent per run.
+version: "1"
+default_effect: deny
+
+dangerous_combinations:
+  - [http.write, delegate]
+  - [auth.login, report.external]
+  - [fs.read, http.write]
+
+agents:
+  orchestrator:
+    max_tier: medium
+    allowed_tools: [delegate, report.write]
+    max_delegation_depth: 0
+    budget:
+      max_usd: 5
+      max_latency_ms: 600000
+  recon:
+    max_tier: low
+    allowed_tools: [http.get, headers.inspect, report.write]
+    max_delegation_depth: 1
+    budget:
+      max_usd: 2
+      max_latency_ms: 300000
+  probe:
+    max_tier: high
+    allowed_tools: [http.get, http.request, headers.inspect, auth.probe, report.write]
+    max_delegation_depth: 2
+    budget:
+      max_usd: 4
+      max_latency_ms: 300000
+  validate:
+    max_tier: high
+    allowed_tools: [http.get, http.request, auth.probe, fs.read, report.write]
+    max_delegation_depth: 2
+    budget:
+      max_usd: 3
+      max_latency_ms: 300000
+  remediate:
+    max_tier: medium
+    allowed_tools: [fs.read, report.write]
+    max_delegation_depth: 3
+    budget:
+      max_usd: 3
+      max_latency_ms: 300000
+  score:
+    max_tier: low
+    allowed_tools: [report.write]
+    max_delegation_depth: 0
+    budget:
+      max_usd: 1
+      max_latency_ms: 120000
+
+rules:
+  - id: no-external-reporting
+    effect: deny
+    match:
+      capabilities: [report.external]
+    rationale: Findings leave the harness only through the committed results pipeline
+
+  - id: no-write-in-recon
+    effect: deny
+    match:
+      agents: [recon]
+      capabilities: [http.write, auth.login]
+    rationale: Reconnaissance observes; it never changes target state or authenticates
+
+  - id: no-delegation-from-leaf-agents
+    effect: deny
+    match:
+      agents: [score, remediate]
+      capabilities: [delegate]
+    rationale: Scoring and remediation are terminal steps of a task graph
+
+  - id: allow-read-only-tools
+    effect: allow
+    match:
+      capabilities: [http.read, report]
+      max_tier: medium
+    rationale: Read-only tools at or below medium tier are the baseline for every agent
+
+  - id: allow-probe-auth
+    effect: allow
+    match:
+      agents: [probe, validate]
+      tools: [http.request, auth.probe]
+      max_tier: high
+    rationale: Probing and validation may exercise authentication and write-shaped requests inside the lab
+
+  - id: allow-validate-fs
+    effect: allow
+    match:
+      agents: [validate, remediate]
+      tools: [fs.read]
+      max_tier: medium
+    rationale: Validation and remediation read lab source to confirm or fix a finding
+
+  - id: allow-orchestrator-delegate
+    effect: allow
+    match:
+      agents: [orchestrator]
+      tools: [delegate]
+    rationale: Only the orchestrator fans work out to worker agents
