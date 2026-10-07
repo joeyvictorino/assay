@@ -1,0 +1,7 @@
+/assay
+/dist/
+*.key
+*.sk
+/.audit/
+/out/
+.DS_Store
