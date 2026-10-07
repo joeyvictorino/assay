@@ -258,9 +258,10 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 		if m, ok := lab.(interface{ Marker() string }); ok {
 			venv.Marker = m.Marker()
 		}
-		if mode == "full" || len(o.labURLs) > 0 {
-			union = validate.Validate(ctx, union, venv)
-		}
+		// The lab answered its health check and is inside the signed scope,
+		// so deterministic validation always runs; "degraded" only describes
+		// which model providers were available.
+		union = validate.Validate(ctx, union, venv)
 		lookup := gtLookup(lab)
 		for i := range union {
 			r := remediate.Generate(union[i], lookup(union[i]))

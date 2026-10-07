@@ -134,16 +134,32 @@ jobs:
           GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
         run: |
           set -eu
-          git add results docs/dashboard/data
-          if git diff --cached --quiet; then
-            echo "no result changes to commit"
+          latest="$(cat results/LATEST)"
+          # Only runs with at least one real model provider are committed;
+          # fake-only runs stay in the workflow artifact.
+          if ! python3 - "results/$latest/run.json" <<'PY'
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          real = [m for m in d["models"] if m["ref"]["provider"] != "fake"]
+          sys.exit(0 if real else 1)
+          PY
+          then
+            echo "fake-only run $latest: not committed"
             exit 0
           fi
-          latest="$(cat results/LATEST)"
-          git commit -m "results: $latest [skip ci]" \
-            -m "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT"
+          stage="$RUNNER_TEMP/results-stage"
+          rm -rf "$stage" && mkdir -p "$stage"
+          cp -R "results/$latest" "$stage/"
           for attempt in 1 2 3; do
-            if git pull --rebase origin main && git push origin HEAD:main; then
+            git fetch origin main
+            git reset -q --hard origin/main
+            cp -R "$stage/$latest" results/
+            printf '%s\n' "$latest" > results/LATEST
+            ./assay report --run "results/$latest" --format dashboard --runs-root results
+            git add results docs/dashboard/data
+            git commit -q -m "results: $latest [skip ci]" \
+              -m "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT"
+            if git push origin HEAD:main; then
               echo "pushed on attempt $attempt"
               exit 0
             fi
