@@ -1,0 +1,23 @@
+--- a/handlers/admin.go
++++ b/handlers/admin.go
+@@ -2,9 +2,18 @@
+ 
+ import "net/http"
+ 
+-// adminStats reports table counts. It is meant for administrators.
++// adminStats reports table counts to authenticated administrators.
+ func (s *Server) adminStats(w http.ResponseWriter, r *http.Request) {
+-	// VULN: auth-missing no session or role check before returning admin data
++	uid := s.currentUser(r)
++	if uid == 0 {
++		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "login required"})
++		return
++	}
++	var role string
++	if err := s.db.QueryRow(`SELECT role FROM users WHERE id = ?`, uid).Scan(&role); err != nil || role != "admin" {
++		writeJSON(w, http.StatusForbidden, map[string]any{"error": "administrator role required"})
++		return
++	}
+ 	var users, sessions, products int
+ 	_ = s.db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&users)
+ 	_ = s.db.QueryRow(`SELECT COUNT(*) FROM sessions`).Scan(&sessions)

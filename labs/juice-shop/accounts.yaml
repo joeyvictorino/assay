@@ -1,0 +1,16 @@
+# Well-known OWASP Juice Shop demo accounts (public, documented in the
+# Juice Shop guide and seeded by its data/static/users.yml). Lab use only.
+# Role "admin" marks the documented default administrator credential.
+accounts:
+  - role: admin
+    username: admin@juice-sh.op
+    password: admin123
+  - role: user
+    username: jim@juice-sh.op
+    password: ncc-1701
+  - role: user
+    username: bender@juice-sh.op
+    password: OhG0dPlease1nsertLiquor!
+  - role: user
+    username: mc.safesearch@juice-sh.op
+    password: Mr. N00dles

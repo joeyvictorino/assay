@@ -1,0 +1,26 @@
+# Pinned local-model assets for the CI "local model" job (scripts/ci/start-llama.sh).
+#
+# Verified 2026-10-07 (S3):
+#   - `gh release list -R ggml-org/llama.cpp --limit 1` returned tag b11476
+#     (pre-release, published 2026-10-07T14:55:09Z); `gh release view b11476`
+#     lists the Linux x64 CPU asset below. Note: current llama.cpp Linux
+#     assets are .tar.gz, not .zip.
+#   - `curl -sI https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf`
+#     returned HTTP 302 to the CDN with X-Linked-Size 2104932768 and
+#     X-Repo-Commit 7dabda4d13d513e3e842b20f0d435c732f172cbe.
+#   - `curl -sI https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf`
+#     returned HTTP 302 with X-Linked-Size 1117320736 and
+#     X-Repo-Commit 91cad51170dc346986eccefdc2dd33a9da36ead9.
+#   The HEAD responses also carried X-Linked-ETag values (the LFS object ids,
+#   which Hugging Face documents as the file sha256). They are deliberately
+#   NOT copied into the sha256 fields: a hash recorded here must come from a
+#   file CI actually downloaded and hashed, so the first run fills them in.
+llama_cpp_release: b11476
+llama_cpp_asset: llama-b11476-bin-ubuntu-x64.tar.gz
+llama_cpp_sha256: ""   # fill from first CI download; CI fails if empty after first run
+model_repo: Qwen/Qwen2.5-3B-Instruct-GGUF
+model_file: qwen2.5-3b-instruct-q4_k_m.gguf
+model_sha256: ""       # fill from first CI download; CI fails if empty after first run
+fallback_model_repo: Qwen/Qwen2.5-1.5B-Instruct-GGUF
+fallback_model_file: qwen2.5-1.5b-instruct-q4_k_m.gguf
+fallback_model_sha256: ""  # fill from first CI download; CI fails if empty after first run

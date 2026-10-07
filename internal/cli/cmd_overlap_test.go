@@ -12,7 +12,7 @@ import (
 	"github.com/joeyvictorino/assay/internal/overlap"
 )
 
-func writeJSON(t *testing.T, dir, name string, v any) string {
+func writeJSONOverlap(t *testing.T, dir, name string, v any) string {
 	t.Helper()
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -35,9 +35,9 @@ func finding(modelName, class, path, param string) model.Finding {
 
 func TestOverlapCommand(t *testing.T) {
 	dir := t.TempDir()
-	a := writeJSON(t, dir, "a.json", []model.Finding{finding("alpha", "idor", "/users/{id}", "id"), finding("alpha", "sqli", "/search", "q")})
-	b := writeJSON(t, dir, "b.json", []model.Finding{finding("beta", "idor", "/users/{id}", "id"), finding("beta", "csrf", "/transfer", "")})
-	gt := writeJSON(t, dir, "gt.json", []overlap.GroundTruthEntry{
+	a := writeJSONOverlap(t, dir, "a.json", []model.Finding{finding("alpha", "idor", "/users/{id}", "id"), finding("alpha", "sqli", "/search", "q")})
+	b := writeJSONOverlap(t, dir, "b.json", []model.Finding{finding("beta", "idor", "/users/{id}", "id"), finding("beta", "csrf", "/transfer", "")})
+	gt := writeJSONOverlap(t, dir, "gt.json", []overlap.GroundTruthEntry{
 		{Lab: "lab-a", Class: "idor", Method: "GET", PathTemplate: "/users/{id}", Param: "id"},
 		{Lab: "lab-a", Class: "csrf", Method: "POST", PathTemplate: "/transfer", Param: ""},
 	})
@@ -107,7 +107,7 @@ func TestOverlapCommand(t *testing.T) {
 
 func TestOverlapCommandWithoutGroundTruthOmitsPrecision(t *testing.T) {
 	dir := t.TempDir()
-	a := writeJSON(t, dir, "a.json", []model.Finding{finding("alpha", "idor", "/users/{id}", "id")})
+	a := writeJSONOverlap(t, dir, "a.json", []model.Finding{finding("alpha", "idor", "/users/{id}", "id")})
 	out := filepath.Join(dir, "o.json")
 	var stdout, stderr bytes.Buffer
 	if code := Main([]string{"overlap", "--inputs", a, "--out", out}, &stdout, &stderr); code != ExitPass {
@@ -121,7 +121,7 @@ func TestOverlapCommandWithoutGroundTruthOmitsPrecision(t *testing.T) {
 
 func TestOverlapCommandModelNameFallsBackToFile(t *testing.T) {
 	dir := t.TempDir()
-	a := writeJSON(t, dir, "mystery.json", []model.Finding{{Lab: "l", Class: "idor", Location: model.Location{Method: "GET", PathTemplate: "/x"}}})
+	a := writeJSONOverlap(t, dir, "mystery.json", []model.Finding{{Lab: "l", Class: "idor", Location: model.Location{Method: "GET", PathTemplate: "/x"}}})
 	out := filepath.Join(dir, "o.json")
 	var stdout, stderr bytes.Buffer
 	if code := Main([]string{"overlap", "--inputs", a, "--out", out}, &stdout, &stderr); code != ExitPass {
@@ -139,7 +139,7 @@ func TestOverlapCommandErrors(t *testing.T) {
 	dir := t.TempDir()
 	bad := filepath.Join(dir, "bad.json")
 	_ = os.WriteFile(bad, []byte("{not json"), 0o644)
-	good := writeJSON(t, dir, "good.json", []model.Finding{})
+	good := writeJSONOverlap(t, dir, "good.json", []model.Finding{})
 	out := filepath.Join(dir, "o.json")
 	tests := []struct {
 		name string

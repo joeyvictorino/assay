@@ -1,0 +1,36 @@
+--- a/handlers/debug.go
++++ b/handlers/debug.go
+@@ -5,17 +5,22 @@
+ 	"net/http"
+ )
+ 
+-// debugConfig dumps the running configuration. Every value is fake; the
+-// marker strings exist so a checker can prove disclosure without any real
+-// secret being present.
+-func (s *Server) debugConfig(w http.ResponseWriter, _ *http.Request) {
+-	writeJSON(w, http.StatusOK, map[string]any{ // VULN: info-disclosure configuration and planted credential marker returned without authentication
+-		"service":       "synthetic-ops",
+-		"database_url":  "sqlite://synthetic-ops.db",
+-		"admin_api_key": SecretMarker,
+-		"smtp_password": SecretMarker + "-smtp",
+-		"debug":         true,
+-		"public_dir":    s.opts.PublicDir,
++// debugConfig reports non-sensitive build information to authenticated
++// administrators only. Credentials never appear in any response.
++func (s *Server) debugConfig(w http.ResponseWriter, r *http.Request) {
++	uid := s.currentUser(r)
++	if uid == 0 {
++		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "login required"})
++		return
++	}
++	var role string
++	if err := s.db.QueryRow(`SELECT role FROM users WHERE id = ?`, uid).Scan(&role); err != nil || role != "admin" {
++		writeJSON(w, http.StatusForbidden, map[string]any{"error": "administrator role required"})
++		return
++	}
++	writeJSON(w, http.StatusOK, map[string]any{
++		"service": "synthetic-ops",
++		"debug":   false,
+ 	})
+ }
+ 

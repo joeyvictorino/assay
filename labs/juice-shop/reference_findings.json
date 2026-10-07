@@ -1,0 +1,139 @@
+{
+  "lab": "juice-shop",
+  "reference_not_exhaustive": true,
+  "note": "Hand-made PARTIAL list of well-documented OWASP Juice Shop challenges in assay ground-truth format. Used for precision estimates only; a finding outside this list is not automatically a false positive. Source refs name the Juice Shop challenge key.",
+  "entries": [
+    {
+      "id": "JS-001",
+      "lab": "juice-shop",
+      "class": "sqli",
+      "method": "POST",
+      "path_template": "/rest/user/login",
+      "param": "email",
+      "severity": "critical",
+      "cwe": "CWE-89",
+      "source_ref": "challenge:loginAdminChallenge",
+      "description": "Login form email field is injectable (admin login via ' OR 1=1--)."
+    },
+    {
+      "id": "JS-002",
+      "lab": "juice-shop",
+      "class": "sqli",
+      "method": "GET",
+      "path_template": "/rest/products/search",
+      "param": "q",
+      "severity": "critical",
+      "cwe": "CWE-89",
+      "source_ref": "challenge:unionSqlInjectionChallenge",
+      "description": "Product search q parameter is injectable (UNION-based schema disclosure)."
+    },
+    {
+      "id": "JS-003",
+      "lab": "juice-shop",
+      "class": "xss-reflected",
+      "method": "GET",
+      "path_template": "/rest/track-order/{id}",
+      "param": "id",
+      "severity": "medium",
+      "cwe": "CWE-79",
+      "source_ref": "challenge:reflectedXssChallenge",
+      "description": "Order tracking id is reflected into the page unescaped."
+    },
+    {
+      "id": "JS-004",
+      "lab": "juice-shop",
+      "class": "xss-stored",
+      "method": "POST",
+      "path_template": "/api/Feedbacks",
+      "param": "comment",
+      "severity": "high",
+      "cwe": "CWE-79",
+      "source_ref": "challenge:persistedXssFeedbackChallenge",
+      "description": "Customer feedback comment is stored and rendered unescaped in the admin section."
+    },
+    {
+      "id": "JS-005",
+      "lab": "juice-shop",
+      "class": "idor",
+      "method": "GET",
+      "path_template": "/rest/basket/{id}",
+      "param": "id",
+      "severity": "high",
+      "cwe": "CWE-639",
+      "source_ref": "challenge:basketAccessChallenge",
+      "description": "Any authenticated user can view another user's basket by id."
+    },
+    {
+      "id": "JS-006",
+      "lab": "juice-shop",
+      "class": "auth-missing",
+      "method": "GET",
+      "path_template": "/#/administration",
+      "param": "",
+      "severity": "medium",
+      "cwe": "CWE-306",
+      "source_ref": "challenge:adminSectionChallenge",
+      "description": "Administration section is reachable by URL without a server-side authorization check on the route."
+    },
+    {
+      "id": "JS-007",
+      "lab": "juice-shop",
+      "class": "default-creds",
+      "method": "POST",
+      "path_template": "/rest/user/login",
+      "param": "password",
+      "severity": "high",
+      "cwe": "CWE-1392",
+      "source_ref": "challenge:weakPasswordChallenge",
+      "description": "Administrator account uses the weak, documented password admin123."
+    },
+    {
+      "id": "JS-008",
+      "lab": "juice-shop",
+      "class": "sensitive-file",
+      "method": "GET",
+      "path_template": "/ftp/{file}",
+      "param": "file",
+      "severity": "medium",
+      "cwe": "CWE-538",
+      "source_ref": "challenge:directoryListingChallenge",
+      "description": "The /ftp directory listing exposes acquisitions.md and other confidential files."
+    },
+    {
+      "id": "JS-009",
+      "lab": "juice-shop",
+      "class": "path-traversal",
+      "method": "GET",
+      "path_template": "/ftp/{file}",
+      "param": "file",
+      "severity": "medium",
+      "cwe": "CWE-22",
+      "source_ref": "challenge:forgottenDevBackupChallenge",
+      "description": "Null-byte / poison-null-byte bypass of the file-type filter under /ftp."
+    },
+    {
+      "id": "JS-010",
+      "lab": "juice-shop",
+      "class": "mass-assignment",
+      "method": "POST",
+      "path_template": "/api/Users",
+      "param": "role",
+      "severity": "high",
+      "cwe": "CWE-915",
+      "source_ref": "challenge:registerAdminChallenge",
+      "description": "Registration accepts a role attribute, allowing self-registration as admin."
+    },
+    {
+      "id": "JS-011",
+      "lab": "juice-shop",
+      "class": "info-disclosure",
+      "method": "GET",
+      "path_template": "/rest/admin/application-configuration",
+      "param": "",
+      "severity": "low",
+      "cwe": "CWE-200",
+      "source_ref": "challenge:exposedMetricsChallenge",
+      "description": "Application configuration and /metrics are readable without authentication."
+    }
+  ]
+}

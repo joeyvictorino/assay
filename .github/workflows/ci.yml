@@ -23,3 +23,5 @@ jobs:
       - run: go build ./cmd/assay
       - run: ./assay version
       - run: sh scripts/name-audit.sh
+      - name: lab module tests
+        run: cd labs/synthetic-ops && go test ./... -count=1 -race

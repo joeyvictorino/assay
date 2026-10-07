@@ -1,0 +1,35 @@
+--- a/handlers/redirect.go
++++ b/handlers/redirect.go
+@@ -1,12 +1,26 @@
+ package handlers
+ 
+-import "net/http"
++import (
++	"net/http"
++	"net/url"
++	"strings"
++)
+ 
+-// redirect sends the browser wherever ?to= says.
++// redirect sends the browser to a local path named by ?to=; anything that
++// is not a same-origin relative path falls back to the site root.
+ func (s *Server) redirect(w http.ResponseWriter, r *http.Request) {
+-	to := r.URL.Query().Get("to")
+-	if to == "" {
+-		to = "/"
++	http.Redirect(w, r, safeRedirectTarget(r.URL.Query().Get("to")), http.StatusFound)
++}
++
++// safeRedirectTarget accepts only absolute-path references ("/x"), never
++// scheme-relative ("//host") or absolute URLs.
++func safeRedirectTarget(to string) string {
++	if to == "" || !strings.HasPrefix(to, "/") || strings.HasPrefix(to, "//") || strings.HasPrefix(to, "/\\") {
++		return "/"
+ 	}
+-	http.Redirect(w, r, to, http.StatusFound) // VULN: open-redirect destination taken from the request without an allowlist
++	u, err := url.Parse(to)
++	if err != nil || u.Scheme != "" || u.Host != "" || u.User != nil {
++		return "/"
++	}
++	return u.String()
+ }

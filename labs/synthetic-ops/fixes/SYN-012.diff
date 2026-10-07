@@ -1,0 +1,22 @@
+--- a/handlers/router.go
++++ b/handlers/router.go
+@@ -6,6 +6,7 @@
+ 	"encoding/hex"
+ 	"encoding/json"
+ 	"fmt"
++	"log"
+ 	"net/http"
+ 	"runtime/debug"
+ 	"strings"
+@@ -73,9 +74,8 @@
+ 		}
+ 		defer func() {
+ 			if rec := recover(); rec != nil {
+-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+-				w.WriteHeader(http.StatusInternalServerError)
+-				fmt.Fprintf(w, "<h1>Internal Server Error</h1><pre>panic: %v\n\n%s</pre>", rec, debug.Stack()) // VULN: verbose-error stack trace returned to the client
++				log.Printf("panic recovered: %v\n%s", rec, debug.Stack())
++				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+ 			}
+ 		}()
+ 		next.ServeHTTP(w, r)
