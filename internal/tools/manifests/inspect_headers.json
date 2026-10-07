@@ -1,0 +1,21 @@
+{
+  "name": "inspect_headers",
+  "version": "1",
+  "description": "Fetch a URL inside the authorized lab scope and return only the status code and response headers (no body). Use it to check security headers, cookie flags and server disclosure.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "Absolute URL to inspect, including scheme and host."
+      }
+    },
+    "required": ["url"],
+    "additionalProperties": false
+  },
+  "risk_tier": "low",
+  "capabilities": ["http.read"],
+  "side_effects": false,
+  "timeout_ms": 15000,
+  "allowed_agents": ["recon", "probe", "validate"]
+}

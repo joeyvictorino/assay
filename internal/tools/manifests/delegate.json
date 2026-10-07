@@ -1,0 +1,25 @@
+{
+  "name": "delegate",
+  "version": "1",
+  "description": "Hand a bounded sub-objective to another agent role. The orchestrator decides whether the delegation runs; the result summarizes what the delegate found. Delegation depth is limited by policy.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "agent": {
+        "type": "string",
+        "description": "Target agent role, e.g. probe or validate."
+      },
+      "objective": {
+        "type": "string",
+        "description": "What the delegate should accomplish, in one or two sentences."
+      }
+    },
+    "required": ["agent", "objective"],
+    "additionalProperties": false
+  },
+  "risk_tier": "medium",
+  "capabilities": ["delegate"],
+  "side_effects": false,
+  "timeout_ms": 600000,
+  "allowed_agents": ["recon", "probe"]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "http_post",
+  "version": "1",
+  "description": "Perform an HTTP POST against a URL inside the authorized lab scope with the given content type and body. Returns status, response headers and up to 8 KiB of the body. Writes state on the target; use only when the task requires it.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "Absolute URL to post to, including scheme and host."
+      },
+      "content_type": {
+        "type": "string",
+        "description": "Value of the Content-Type header, e.g. application/json or application/x-www-form-urlencoded."
+      },
+      "body": {
+        "type": "string",
+        "description": "Request body as a string."
+      }
+    },
+    "required": ["url", "content_type", "body"],
+    "additionalProperties": false
+  },
+  "risk_tier": "high",
+  "capabilities": ["http.write"],
+  "side_effects": true,
+  "timeout_ms": 15000,
+  "allowed_agents": ["probe", "validate"]
+}
