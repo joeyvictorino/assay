@@ -121,7 +121,13 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 			fmt.Fprintf(stderr, "run: providers without credentials dropped: %s\n", strings.Join(dropped, ", "))
 		}
 	}
-	if len(cfg.ModelRefs()) == 0 {
+	// The assessed set is the config's models list (one independent agent
+	// per model per lab); routes only matter for failover inside a route.
+	refs := make([]model.ModelRef, 0, len(cfg.Models))
+	for _, m := range cfg.Models {
+		refs = append(refs, model.ModelRef{Provider: m.Provider, Model: m.Model})
+	}
+	if len(refs) == 0 {
 		return ExitError, errors.New("no models left to run")
 	}
 
@@ -181,7 +187,6 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 		}
 	}
 
-	refs := cfg.ModelRefs()
 	byModel := map[string]*perModel{}
 	for _, r := range refs {
 		byModel[r.Model] = &perModel{ref: r}
