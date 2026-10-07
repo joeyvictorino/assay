@@ -1,0 +1,10 @@
+{
+  "fake-model": {
+    "cache_read_tokens": 0,
+    "input_tokens": 1020,
+    "output_tokens": 300,
+    "p50_ms": 4,
+    "p95_ms": 4,
+    "usd": 0.00252
+  }
+}
