@@ -92,14 +92,14 @@ func TestLoadFailsClosed(t *testing.T) {
 
 func TestRuleMatchSemantics(t *testing.T) {
 	e := loadDefault(t)
-	base := model.PolicyRequest{Agent: "probe", Lab: "lab-a", Tool: model.ToolManifest{Name: "http.get", RiskTier: model.TierLow, Capabilities: []string{"http.read"}}}
+	base := model.PolicyRequest{Agent: "probe", Lab: "lab-a", Tool: model.ToolManifest{Name: "http_get", RiskTier: model.TierLow, Capabilities: []string{"http.read"}}}
 	cases := []struct {
 		name  string
 		match model.RuleMatch
 		want  bool
 	}{
 		{"empty matches all", model.RuleMatch{}, true},
-		{"tool listed", model.RuleMatch{Tools: []string{"x", "http.get"}}, true},
+		{"tool listed", model.RuleMatch{Tools: []string{"x", "http_get"}}, true},
 		{"tool not listed", model.RuleMatch{Tools: []string{"x"}}, false},
 		{"agent listed", model.RuleMatch{Agents: []string{"probe"}}, true},
 		{"agent not listed", model.RuleMatch{Agents: []string{"recon"}}, false},
@@ -109,7 +109,7 @@ func TestRuleMatchSemantics(t *testing.T) {
 		{"capability disjoint", model.RuleMatch{Capabilities: []string{"delegate"}}, false},
 		{"tier at ceiling", model.RuleMatch{MaxTier: model.TierLow}, true},
 		{"tier below ceiling", model.RuleMatch{MaxTier: model.TierHigh}, true},
-		{"all selectors must hold", model.RuleMatch{Tools: []string{"http.get"}, Agents: []string{"recon"}}, false},
+		{"all selectors must hold", model.RuleMatch{Tools: []string{"http_get"}, Agents: []string{"recon"}}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -129,7 +129,7 @@ func TestDecisionShape(t *testing.T) {
 	e := loadDefault(t)
 	d := e.Evaluate(context.Background(), model.PolicyRequest{
 		Agent: "recon", SignatureOK: true,
-		Tool: model.ToolManifest{Name: "http.get", RiskTier: model.TierLow, Capabilities: []string{"http.read"}},
+		Tool: model.ToolManifest{Name: "http_get", RiskTier: model.TierLow, Capabilities: []string{"http.read"}},
 	})
 	if d.Effect != model.EffectAllow || d.Reason != "ALLOW_RULE:allow-read-only-tools" {
 		t.Fatalf("%+v", d)

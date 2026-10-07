@@ -3,19 +3,30 @@
   "version": "1",
   "description": "Fetch a URL inside the authorized lab scope and return only the status code and response headers (no body). Use it to check security headers, cookie flags and server disclosure.",
   "input_schema": {
-    "type": "object",
+    "additionalProperties": false,
     "properties": {
       "url": {
-        "type": "string",
-        "description": "Absolute URL to inspect, including scheme and host."
+        "description": "Absolute URL to inspect, including scheme and host.",
+        "type": "string"
       }
     },
-    "required": ["url"],
-    "additionalProperties": false
+    "required": [
+      "url"
+    ],
+    "type": "object"
   },
   "risk_tier": "low",
-  "capabilities": ["http.read"],
+  "capabilities": [
+    "http.read"
+  ],
   "side_effects": false,
   "timeout_ms": 15000,
-  "allowed_agents": ["recon", "probe", "validate"]
+  "allowed_agents": [
+    "recon",
+    "probe",
+    "validate"
+  ],
+  "signer": "2b27f3ae1608dce4",
+  "signed_at": "2026-10-07T18:46:34Z",
+  "signature": "gfydGX6KUdNR9nK+MaU0pYTDMEawM4E2FovHwiaAUobJ0TSGsyFCyAtlhV0FP2qtUjK5JS2MXArpkdwhNbTgBA=="
 }

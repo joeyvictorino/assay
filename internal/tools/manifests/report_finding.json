@@ -3,54 +3,100 @@
   "version": "1",
   "description": "Report one candidate vulnerability. The class must come from the fixed taxonomy; the harness normalizes the path, derives the finding id, and records it as theorized until a deterministic check validates or refutes it. Cite the tool call ids whose responses are your evidence.",
   "input_schema": {
-    "type": "object",
+    "additionalProperties": false,
     "properties": {
       "class": {
-        "type": "string",
         "description": "Vulnerability class from the fixed taxonomy.",
         "enum": [
-          "sqli", "xss-reflected", "xss-stored", "idor", "auth-missing",
-          "auth-bypass", "default-creds", "open-redirect", "path-traversal",
-          "ssrf", "info-disclosure", "security-headers", "cors-misconfig",
-          "mass-assignment", "jwt-weak", "rate-limit-missing", "verbose-error",
-          "sensitive-file", "csrf", "other"
-        ]
-      },
-      "method": {
-        "type": "string",
-        "description": "HTTP method of the vulnerable request.",
-        "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
-      },
-      "path": {
-        "type": "string",
-        "description": "Request path or URL; numeric ids and UUIDs are templated automatically."
-      },
-      "param": {
-        "type": "string",
-        "description": "Name of the vulnerable parameter, header or cookie; empty string if none."
-      },
-      "severity": {
-        "type": "string",
-        "description": "Severity estimate.",
-        "enum": ["info", "low", "medium", "high", "critical"]
-      },
-      "summary": {
-        "type": "string",
-        "description": "One or two sentences describing the issue. No secrets, no response bodies.",
-        "maxLength": 280
+          "sqli",
+          "xss-reflected",
+          "xss-stored",
+          "idor",
+          "auth-missing",
+          "auth-bypass",
+          "default-creds",
+          "open-redirect",
+          "path-traversal",
+          "ssrf",
+          "info-disclosure",
+          "security-headers",
+          "cors-misconfig",
+          "mass-assignment",
+          "jwt-weak",
+          "rate-limit-missing",
+          "verbose-error",
+          "sensitive-file",
+          "csrf",
+          "other"
+        ],
+        "type": "string"
       },
       "evidence_tool_call_ids": {
-        "type": "array",
         "description": "Ids of the tool calls whose results support this finding.",
-        "items": { "type": "string" }
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "method": {
+        "description": "HTTP method of the vulnerable request.",
+        "enum": [
+          "GET",
+          "POST",
+          "PUT",
+          "DELETE",
+          "PATCH"
+        ],
+        "type": "string"
+      },
+      "param": {
+        "description": "Name of the vulnerable parameter, header or cookie; empty string if none.",
+        "type": "string"
+      },
+      "path": {
+        "description": "Request path or URL; numeric ids and UUIDs are templated automatically.",
+        "type": "string"
+      },
+      "severity": {
+        "description": "Severity estimate.",
+        "enum": [
+          "info",
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "type": "string"
+      },
+      "summary": {
+        "description": "One or two sentences describing the issue. No secrets, no response bodies.",
+        "maxLength": 280,
+        "type": "string"
       }
     },
-    "required": ["class", "method", "path", "param", "severity", "summary", "evidence_tool_call_ids"],
-    "additionalProperties": false
+    "required": [
+      "class",
+      "method",
+      "path",
+      "param",
+      "severity",
+      "summary",
+      "evidence_tool_call_ids"
+    ],
+    "type": "object"
   },
   "risk_tier": "low",
-  "capabilities": ["report"],
+  "capabilities": [
+    "report"
+  ],
   "side_effects": false,
   "timeout_ms": 2000,
-  "allowed_agents": ["recon", "probe", "validate"]
+  "allowed_agents": [
+    "recon",
+    "probe",
+    "validate"
+  ],
+  "signer": "2b27f3ae1608dce4",
+  "signed_at": "2026-10-07T18:46:34Z",
+  "signature": "9B54TW5cTelf8jDwxmXG5wYEHVOmYbb6VDAd1QxIIa3Ynjue6AT6qL3PVQBbZfzFqS4dJX2bICB11XQHkrreAA=="
 }

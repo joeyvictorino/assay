@@ -3,25 +3,35 @@
   "version": "1",
   "description": "Record a 0-10 quality score and a short critique for the task output under review. Used only by the scoring agent.",
   "input_schema": {
-    "type": "object",
+    "additionalProperties": false,
     "properties": {
-      "score": {
-        "type": "integer",
-        "description": "Quality score from 0 (unusable) to 10 (excellent).",
-        "minimum": 0,
-        "maximum": 10
-      },
       "critique": {
-        "type": "string",
-        "description": "Short justification for the score."
+        "description": "Short justification for the score.",
+        "type": "string"
+      },
+      "score": {
+        "description": "Quality score from 0 (unusable) to 10 (excellent).",
+        "maximum": 10,
+        "minimum": 0,
+        "type": "integer"
       }
     },
-    "required": ["score", "critique"],
-    "additionalProperties": false
+    "required": [
+      "score",
+      "critique"
+    ],
+    "type": "object"
   },
   "risk_tier": "low",
-  "capabilities": ["score"],
+  "capabilities": [
+    "score"
+  ],
   "side_effects": false,
   "timeout_ms": 2000,
-  "allowed_agents": ["score"]
+  "allowed_agents": [
+    "score"
+  ],
+  "signer": "2b27f3ae1608dce4",
+  "signed_at": "2026-10-07T18:46:34Z",
+  "signature": "dLsY7jP24q201aSw49bGSG5+khZZshz2oMfgF91YjmQ8dU/DTmhfzl4G1I6AACzZ0hOCwfFy+U8NqPoZoIvMCQ=="
 }

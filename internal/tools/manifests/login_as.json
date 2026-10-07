@@ -3,27 +3,40 @@
   "version": "1",
   "description": "Submit lab-provided credentials to a login endpoint inside the authorized lab scope. Returns the status code, whether a session cookie was set, and up to 8 KiB of the body. Credentials are never echoed back. Only lab-seeded test accounts may be used.",
   "input_schema": {
-    "type": "object",
+    "additionalProperties": false,
     "properties": {
+      "password": {
+        "description": "Lab test account password.",
+        "type": "string"
+      },
       "url": {
-        "type": "string",
-        "description": "Absolute login URL, including scheme and host."
+        "description": "Absolute login URL, including scheme and host.",
+        "type": "string"
       },
       "username": {
-        "type": "string",
-        "description": "Lab test account username."
-      },
-      "password": {
-        "type": "string",
-        "description": "Lab test account password."
+        "description": "Lab test account username.",
+        "type": "string"
       }
     },
-    "required": ["url", "username", "password"],
-    "additionalProperties": false
+    "required": [
+      "url",
+      "username",
+      "password"
+    ],
+    "type": "object"
   },
   "risk_tier": "high",
-  "capabilities": ["auth.login", "http.write"],
+  "capabilities": [
+    "auth.login",
+    "http.write"
+  ],
   "side_effects": true,
   "timeout_ms": 15000,
-  "allowed_agents": ["probe", "validate"]
+  "allowed_agents": [
+    "probe",
+    "validate"
+  ],
+  "signer": "2b27f3ae1608dce4",
+  "signed_at": "2026-10-07T18:46:34Z",
+  "signature": "vPNXvsOpg2AWAamuT2052uFjNlAOkIUnepdroURaaPX/pHkWt0EM5wqllS3S6PSA178omdFfQrdg/nGL5GLRBw=="
 }

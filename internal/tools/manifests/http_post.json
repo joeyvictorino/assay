@@ -3,27 +3,39 @@
   "version": "1",
   "description": "Perform an HTTP POST against a URL inside the authorized lab scope with the given content type and body. Returns status, response headers and up to 8 KiB of the body. Writes state on the target; use only when the task requires it.",
   "input_schema": {
-    "type": "object",
+    "additionalProperties": false,
     "properties": {
-      "url": {
-        "type": "string",
-        "description": "Absolute URL to post to, including scheme and host."
+      "body": {
+        "description": "Request body as a string.",
+        "type": "string"
       },
       "content_type": {
-        "type": "string",
-        "description": "Value of the Content-Type header, e.g. application/json or application/x-www-form-urlencoded."
+        "description": "Value of the Content-Type header, e.g. application/json or application/x-www-form-urlencoded.",
+        "type": "string"
       },
-      "body": {
-        "type": "string",
-        "description": "Request body as a string."
+      "url": {
+        "description": "Absolute URL to post to, including scheme and host.",
+        "type": "string"
       }
     },
-    "required": ["url", "content_type", "body"],
-    "additionalProperties": false
+    "required": [
+      "url",
+      "content_type",
+      "body"
+    ],
+    "type": "object"
   },
   "risk_tier": "high",
-  "capabilities": ["http.write"],
+  "capabilities": [
+    "http.write"
+  ],
   "side_effects": true,
   "timeout_ms": 15000,
-  "allowed_agents": ["probe", "validate"]
+  "allowed_agents": [
+    "probe",
+    "validate"
+  ],
+  "signer": "2b27f3ae1608dce4",
+  "signed_at": "2026-10-07T18:46:34Z",
+  "signature": "PEsLTFY/bTv+9QKscyR8fNEFjVkXa/vuhsaEmbG7b4MlhCSslUBWOxoaUzD/RY9EdQYMcnBvLPecxqNsYrOlAw=="
 }

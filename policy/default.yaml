@@ -19,42 +19,42 @@ dangerous_combinations:
 agents:
   orchestrator:
     max_tier: medium
-    allowed_tools: [delegate, report.write]
+    allowed_tools: [delegate, report_finding, score_task]
     max_delegation_depth: 0
     budget:
       max_usd: 5
       max_latency_ms: 600000
   recon:
-    max_tier: low
-    allowed_tools: [http.get, headers.inspect, report.write]
+    max_tier: medium
+    allowed_tools: [http_get, inspect_headers, report_finding]
     max_delegation_depth: 1
     budget:
       max_usd: 2
-      max_latency_ms: 300000
+      max_latency_ms: 600000
   probe:
     max_tier: high
-    allowed_tools: [http.get, http.request, headers.inspect, auth.probe, report.write]
+    allowed_tools: [http_get, http_post, inspect_headers, login_as, report_finding]
     max_delegation_depth: 2
     budget:
       max_usd: 4
-      max_latency_ms: 300000
+      max_latency_ms: 600000
   validate:
     max_tier: high
-    allowed_tools: [http.get, http.request, auth.probe, fs.read, report.write]
+    allowed_tools: [http_get, http_post, inspect_headers, login_as, report_finding]
     max_delegation_depth: 2
     budget:
       max_usd: 3
-      max_latency_ms: 300000
+      max_latency_ms: 600000
   remediate:
     max_tier: medium
-    allowed_tools: [fs.read, report.write]
+    allowed_tools: [http_get, report_finding]
     max_delegation_depth: 3
     budget:
       max_usd: 3
       max_latency_ms: 300000
   score:
     max_tier: low
-    allowed_tools: [report.write]
+    allowed_tools: [score_task]
     max_delegation_depth: 0
     budget:
       max_usd: 1
@@ -70,16 +70,16 @@ rules:
   - id: no-write-in-recon
     effect: deny
     match:
-      agents: [recon]
+      agents: [recon, remediate]
       capabilities: [http.write, auth.login]
-    rationale: Reconnaissance observes; it never changes target state or authenticates
+    rationale: Reconnaissance and remediation observe; they never change target state or authenticate
 
   - id: no-delegation-from-leaf-agents
     effect: deny
     match:
-      agents: [score, remediate]
+      agents: [score, remediate, recon, probe, validate]
       capabilities: [delegate]
-    rationale: Scoring and remediation are terminal steps of a task graph
+    rationale: Only the orchestrator fans work out; worker agents are terminal
 
   - id: allow-read-only-tools
     effect: allow
@@ -88,21 +88,21 @@ rules:
       max_tier: medium
     rationale: Read-only tools at or below medium tier are the baseline for every agent
 
+  - id: allow-scoring
+    effect: allow
+    match:
+      agents: [score, orchestrator]
+      tools: [score_task]
+      max_tier: low
+    rationale: Self-reflection scoring is a terminal, read-only step
+
   - id: allow-probe-auth
     effect: allow
     match:
       agents: [probe, validate]
-      tools: [http.request, auth.probe]
+      tools: [http_post, login_as]
       max_tier: high
-    rationale: Probing and validation may exercise authentication and write-shaped requests inside the lab
-
-  - id: allow-validate-fs
-    effect: allow
-    match:
-      agents: [validate, remediate]
-      tools: [fs.read]
-      max_tier: medium
-    rationale: Validation and remediation read lab source to confirm or fix a finding
+    rationale: Probing and validation may authenticate and send write-shaped requests inside the authorized lab scope
 
   - id: allow-orchestrator-delegate
     effect: allow

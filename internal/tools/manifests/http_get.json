@@ -3,19 +3,30 @@
   "version": "1",
   "description": "Perform an HTTP GET against a URL inside the authorized lab scope. Returns status, response headers and up to 8 KiB of the body. The URL must be within scope; out-of-scope requests are denied by the gate.",
   "input_schema": {
-    "type": "object",
+    "additionalProperties": false,
     "properties": {
       "url": {
-        "type": "string",
-        "description": "Absolute URL to fetch, including scheme and host."
+        "description": "Absolute URL to fetch, including scheme and host.",
+        "type": "string"
       }
     },
-    "required": ["url"],
-    "additionalProperties": false
+    "required": [
+      "url"
+    ],
+    "type": "object"
   },
   "risk_tier": "medium",
-  "capabilities": ["http.read"],
+  "capabilities": [
+    "http.read"
+  ],
   "side_effects": false,
   "timeout_ms": 15000,
-  "allowed_agents": ["recon", "probe", "validate"]
+  "allowed_agents": [
+    "recon",
+    "probe",
+    "validate"
+  ],
+  "signer": "2b27f3ae1608dce4",
+  "signed_at": "2026-10-07T18:46:34Z",
+  "signature": "Q/PsnlCTGTBY2VFflVlp2QY4nxIT886ubjNfMHq8cF8QeieYDdp0521VIEX+pmRSe7RIpnqxd0AHjH7bbNVsAw=="
 }

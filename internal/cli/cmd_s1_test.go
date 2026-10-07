@@ -58,8 +58,8 @@ func TestToolsKeygenSignVerifyList(t *testing.T) {
 	}
 
 	manifests := t.TempDir()
-	writeManifest(t, manifests, "http.get", manifest("http.get", model.TierLow, "http.read"))
-	writeManifest(t, manifests, "report.write", manifest("report.write", model.TierLow, "report"))
+	writeManifest(t, manifests, "http_get", manifest("http_get", model.TierLow, "http.read"))
+	writeManifest(t, manifests, "report_finding", manifest("report_finding", model.TierLow, "report"))
 	if err := os.WriteFile(filepath.Join(manifests, "notes.txt"), []byte("ignored"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -88,12 +88,12 @@ func TestToolsKeygenSignVerifyList(t *testing.T) {
 	}
 
 	code, out, _ = run(t, "tools", "list", "--manifests", manifests)
-	if code != ExitPass || !strings.Contains(out, "http.get") || strings.Contains(out, "unsigned") {
+	if code != ExitPass || !strings.Contains(out, "http_get") || strings.Contains(out, "unsigned") {
 		t.Fatalf("list: %d %q", code, out)
 	}
 
 	// Tamper one manifest: verify fails with exit 2 and names the reason.
-	p := filepath.Join(manifests, "http.get.json")
+	p := filepath.Join(manifests, "http_get.json")
 	raw, _ := os.ReadFile(p)
 	raw = bytes.Replace(raw, []byte(`"risk_tier": "low"`), []byte(`"risk_tier": "critical"`), 1)
 	if err := os.WriteFile(p, raw, 0o644); err != nil {
@@ -126,8 +126,8 @@ func TestToolsKeygenSignVerifyList(t *testing.T) {
 
 func TestPolicyEval(t *testing.T) {
 	manifests := t.TempDir()
-	writeManifest(t, manifests, "http.get", manifest("http.get", model.TierLow, "http.read"))
-	writeManifest(t, manifests, "http.request", manifest("http.request", model.TierHigh, "http.read", "http.write"))
+	writeManifest(t, manifests, "http_get", manifest("http_get", model.TierLow, "http.read"))
+	writeManifest(t, manifests, "http_post", manifest("http_post", model.TierHigh, "http.read", "http.write"))
 	pol := filepath.Join("..", "..", "policy", "default.yaml")
 
 	decide := func(args ...string) (int, model.Decision) {
@@ -143,23 +143,23 @@ func TestPolicyEval(t *testing.T) {
 	}
 
 	// Without a trust store or --assume-signed the manifest is unverified.
-	code, d := decide("--tool", "http.get", "--agent", "recon")
+	code, d := decide("--tool", "http_get", "--agent", "recon")
 	if code != ExitBlocked || d.Reason != "SIGNATURE_UNVERIFIED" {
 		t.Fatalf("%d %+v", code, d)
 	}
-	code, d = decide("--tool", "http.get", "--agent", "recon", "--assume-signed")
+	code, d = decide("--tool", "http_get", "--agent", "recon", "--assume-signed")
 	if code != ExitPass || d.Effect != model.EffectAllow || d.Reason != "ALLOW_RULE:allow-read-only-tools" || d.PolicyHash == "" {
 		t.Fatalf("%d %+v", code, d)
 	}
-	code, d = decide("--tool", "http.request", "--agent", "recon", "--assume-signed")
+	code, d = decide("--tool", "http_post", "--agent", "recon", "--assume-signed")
 	if code != ExitBlocked || d.Reason != "TOOL_NOT_ALLOWED_FOR_AGENT" {
 		t.Fatalf("%d %+v", code, d)
 	}
-	code, d = decide("--tool", "http.get", "--agent", "recon", "--assume-signed", "--depth", "2", "--ancestors", "orchestrator,probe")
+	code, d = decide("--tool", "http_get", "--agent", "recon", "--assume-signed", "--depth", "2", "--ancestors", "orchestrator,probe")
 	if code != ExitBlocked || d.Reason != "DEPTH_EXCEEDED" {
 		t.Fatalf("%d %+v", code, d)
 	}
-	code, d = decide("--tool", "http.get", "--agent", "recon", "--assume-signed", "--spent", "99")
+	code, d = decide("--tool", "http_get", "--agent", "recon", "--assume-signed", "--spent", "99")
 	if code != ExitBlocked || d.Reason != "BUDGET_EXCEEDED" {
 		t.Fatalf("%d %+v", code, d)
 	}
@@ -177,14 +177,14 @@ func TestPolicyEval(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(trust, "ci.pub"), pub, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	code, d = decide("--tool", "http.get", "--agent", "recon", "--trust", trust)
+	code, d = decide("--tool", "http_get", "--agent", "recon", "--trust", trust)
 	if code != ExitBlocked || d.Reason != "UNSIGNED" {
 		t.Fatalf("%d %+v", code, d)
 	}
 	if code, _, _ := run(t, "tools", "sign", "--manifests", manifests, "--key", filepath.Join(keys, PrivateKeyFile)); code != ExitPass {
 		t.Fatal("sign")
 	}
-	code, d = decide("--tool", "http.get", "--agent", "recon", "--trust", trust)
+	code, d = decide("--tool", "http_get", "--agent", "recon", "--trust", trust)
 	if code != ExitPass || d.Effect != model.EffectAllow {
 		t.Fatalf("%d %+v", code, d)
 	}
@@ -194,8 +194,8 @@ func TestPolicyEval(t *testing.T) {
 		{"policy"}, {"policy", "nope"},
 		{"policy", "eval", "--policy", pol, "--manifests", manifests, "--agent", "recon"},
 		{"policy", "eval", "--policy", pol, "--manifests", manifests, "--agent", "recon", "--tool", "missing.tool", "--assume-signed"},
-		{"policy", "eval", "--policy", filepath.Join(t.TempDir(), "no.yaml"), "--manifests", manifests, "--agent", "recon", "--tool", "http.get", "--assume-signed"},
-		{"policy", "eval", "--policy", pol, "--manifests", manifests, "--agent", "recon", "--tool", "http.get", "--trust", t.TempDir()},
+		{"policy", "eval", "--policy", filepath.Join(t.TempDir(), "no.yaml"), "--manifests", manifests, "--agent", "recon", "--tool", "http_get", "--assume-signed"},
+		{"policy", "eval", "--policy", pol, "--manifests", manifests, "--agent", "recon", "--tool", "http_get", "--trust", t.TempDir()},
 	} {
 		if code, _, _ := run(t, args...); code != ExitError {
 			t.Fatalf("%v should exit %d", args, ExitError)
@@ -220,7 +220,7 @@ func TestAuditCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 0; i < 3; i++ {
-		if _, err := w.Record(context.Background(), model.AuditRecord{Kind: "tool_call", Tool: "http.get", Meta: map[string]any{"i": i}}); err != nil {
+		if _, err := w.Record(context.Background(), model.AuditRecord{Kind: "tool_call", Tool: "http_get", Meta: map[string]any{"i": i}}); err != nil {
 			t.Fatal(err)
 		}
 	}

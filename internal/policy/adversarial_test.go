@@ -28,17 +28,17 @@ agents:
     budget: {max_usd: 10, max_latency_ms: 1000}
   recon:
     max_tier: low
-    allowed_tools: [http.get, headers.inspect, report.write]
+    allowed_tools: [http_get, inspect_headers, report_finding]
     max_delegation_depth: 1
     budget: {max_usd: 2, max_latency_ms: 1000}
   probe:
     max_tier: high
-    allowed_tools: [http.get, http.request, auth.probe, report.write, delegate]
+    allowed_tools: [http_get, http_post, login_as, report_finding, delegate]
     max_delegation_depth: 3
     budget: {max_usd: 4, max_latency_ms: 1000}
   broke:
     max_tier: low
-    allowed_tools: [http.get]
+    allowed_tools: [http_get]
     max_delegation_depth: 1
     budget: {max_usd: 0, max_latency_ms: 1000}
 rules:
@@ -60,7 +60,7 @@ rules:
     rationale: Read-only tools are the baseline
   - id: allow-probe-high
     effect: allow
-    match: {agents: [probe], tools: [http.request, auth.probe], max_tier: high}
+    match: {agents: [probe], tools: [http_post, login_as], max_tier: high}
     rationale: Probe may exercise auth in the lab
   - id: allow-all-recon-tools
     effect: allow
@@ -84,7 +84,7 @@ func TestAdversarialCases(t *testing.T) {
 	okReq := func() model.PolicyRequest {
 		return model.PolicyRequest{
 			Agent:       "recon",
-			Tool:        tool("http.get", model.TierLow, "http.read"),
+			Tool:        tool("http_get", model.TierLow, "http.read"),
 			Lab:         "lab-01",
 			Depth:       0,
 			SpentUSD:    0.5,
@@ -178,10 +178,10 @@ func TestAdversarialCases(t *testing.T) {
 			name: "09 tool not in agent allow list",
 			req: func() model.PolicyRequest {
 				r := okReq()
-				r.Tool = tool("auth.probe", model.TierLow, "http.read")
+				r.Tool = tool("login_as", model.TierLow, "http.read")
 				return r
 			},
-			effect: model.EffectDeny, reason: ReasonToolNotAllowed, rationale: `"auth.probe"`,
+			effect: model.EffectDeny, reason: ReasonToolNotAllowed, rationale: `"login_as"`,
 		},
 		{
 			name: "10 dynamic tool discovery: unknown tool name",
@@ -215,7 +215,7 @@ func TestAdversarialCases(t *testing.T) {
 			name: "13 tier escalation above agent boundary",
 			req: func() model.PolicyRequest {
 				r := okReq()
-				r.Tool = tool("http.get", model.TierHigh, "http.read")
+				r.Tool = tool("http_get", model.TierHigh, "http.read")
 				return r
 			},
 			effect: model.EffectDeny, reason: ReasonTierExceeds, rationale: `at most tier "low"`,
@@ -224,7 +224,7 @@ func TestAdversarialCases(t *testing.T) {
 			name: "14 missing or bogus tier fails closed",
 			req: func() model.PolicyRequest {
 				r := okReq()
-				r.Tool = tool("http.get", "", "http.read")
+				r.Tool = tool("http_get", "", "http.read")
 				return r
 			},
 			effect: model.EffectDeny, reason: ReasonTierExceeds,
@@ -244,7 +244,7 @@ func TestAdversarialCases(t *testing.T) {
 			req: func() model.PolicyRequest {
 				r := okReq()
 				r.Agent = "probe"
-				r.Tool = tool("auth.probe", model.TierHigh, "auth.login", "report.external")
+				r.Tool = tool("login_as", model.TierHigh, "auth.login", "report.external")
 				return r
 			},
 			effect: model.EffectDeny, reason: "DANGEROUS_COMBINATION:auth.login+report.external",
@@ -254,7 +254,7 @@ func TestAdversarialCases(t *testing.T) {
 			req: func() model.PolicyRequest {
 				r := okReq()
 				r.Agent = "probe"
-				r.Tool = tool("http.request", model.TierHigh, "http.read", "fs.read", "report", "http.write")
+				r.Tool = tool("http_post", model.TierHigh, "http.read", "fs.read", "report", "http.write")
 				return r
 			},
 			effect: model.EffectDeny, reason: "DANGEROUS_COMBINATION:fs.read+http.write",
@@ -334,7 +334,7 @@ func TestAdversarialCases(t *testing.T) {
 			name: "25 deny rule wins over matching allow rules",
 			req: func() model.PolicyRequest {
 				r := okReq()
-				r.Tool = tool("http.get", model.TierLow, "http.read", "http.write")
+				r.Tool = tool("http_get", model.TierLow, "http.read", "http.write")
 				return r
 			},
 			effect: model.EffectDeny, reason: "DENY_RULE:deny-recon-writes",
@@ -355,7 +355,7 @@ func TestAdversarialCases(t *testing.T) {
 			req: func() model.PolicyRequest {
 				r := okReq()
 				r.Agent = "probe"
-				r.Tool = tool("report.write", model.TierHigh, "report.local")
+				r.Tool = tool("report_finding", model.TierHigh, "report.local")
 				return r
 			},
 			effect: model.EffectDeny, reason: ReasonDefaultDeny, rationale: "default is deny",
@@ -365,7 +365,7 @@ func TestAdversarialCases(t *testing.T) {
 			req: func() model.PolicyRequest {
 				r := okReq()
 				r.Agent = "probe"
-				r.Tool = tool("http.get", model.TierHigh, "http.read")
+				r.Tool = tool("http_get", model.TierHigh, "http.read")
 				return r
 			},
 			effect: model.EffectDeny, reason: ReasonDefaultDeny,
@@ -375,7 +375,7 @@ func TestAdversarialCases(t *testing.T) {
 			req: func() model.PolicyRequest {
 				r := okReq()
 				r.Agent = "probe"
-				r.Tool = tool("auth.probe", model.TierHigh, "auth.login")
+				r.Tool = tool("login_as", model.TierHigh, "auth.login")
 				return r
 			},
 			effect: model.EffectAllow, reason: "ALLOW_RULE:allow-probe-high", matched: []string{"allow-probe-high"},
@@ -385,7 +385,7 @@ func TestAdversarialCases(t *testing.T) {
 			req: func() model.PolicyRequest {
 				r := okReq()
 				r.Agent = "orchestrator"
-				r.Tool = tool("report.write", model.TierLow, "report", "report.external")
+				r.Tool = tool("report_finding", model.TierLow, "report", "report.external")
 				return r
 			},
 			effect: model.EffectDeny, reason: "DENY_RULE:deny-external-report",
@@ -491,7 +491,7 @@ func TestDefaultAllowPolicyStillDeniesBoundaries(t *testing.T) {
 	// No rule matches: default allow applies.
 	d := e.Evaluate(context.Background(), model.PolicyRequest{
 		Agent: "probe", SignatureOK: true, SpentUSD: 0,
-		Tool: tool("report.write", model.TierHigh, "report.local"),
+		Tool: tool("report_finding", model.TierHigh, "report.local"),
 	})
 	if d.Effect != model.EffectAllow || d.Reason != ReasonDefaultAllow {
 		t.Fatalf("%+v", d)
@@ -499,7 +499,7 @@ func TestDefaultAllowPolicyStillDeniesBoundaries(t *testing.T) {
 	// Boundaries are still enforced before the default applies.
 	d = e.Evaluate(context.Background(), model.PolicyRequest{
 		Agent: "recon", SignatureOK: true,
-		Tool: tool("http.get", model.TierCritical, "http.read"),
+		Tool: tool("http_get", model.TierCritical, "http.read"),
 	})
 	if d.Effect != model.EffectDeny || d.Reason != ReasonTierExceeds {
 		t.Fatalf("%+v", d)
