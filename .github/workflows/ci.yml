@@ -25,3 +25,37 @@ jobs:
       - run: sh scripts/name-audit.sh
       - name: lab module tests
         run: cd labs/synthetic-ops && go test ./... -count=1 -race
+
+  pipeline:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+      - run: go build -o assay ./cmd/assay
+      - run: cd labs/synthetic-ops && go build -o ../../synthetic-ops ./cmd/synthetic-ops
+      - name: start synthetic lab
+        run: |
+          ./synthetic-ops -addr 127.0.0.1:9000 > synthetic-ops.log 2>&1 &
+          sh scripts/ci/wait-for.sh http://127.0.0.1:9000/ 30
+      - name: pipeline with the scripted fake provider
+        run: |
+          ./assay run --config runs/pr.yaml --mode full --out out --lab synthetic-ops \
+            --ephemeral-audit-key --run-id ci-pr
+          test -s out/ci-pr/overlap.json
+          ./assay overlap --inputs out/ci-pr/findings.fake-model.json --out /tmp/regen.json
+          python3 - <<'PY'
+          import json
+          a=json.load(open('out/ci-pr/overlap.json'))['overlap']; b=json.load(open('/tmp/regen.json'))['overlap']
+          assert a['keys']==b['keys'] and a['union']==b['union'], (a['keys'], b['keys'])
+          fs=json.load(open('out/ci-pr/findings.redacted.json'))
+          assert all(f['state']=='validated' for f in fs), [f['state'] for f in fs]
+          print('overlap regenerates; findings validated:', len(fs))
+          PY
+      - name: audit log verifies (keyless chain check)
+        run: ./assay audit verify --log .audit/ci-pr.log
+      - name: no transcript text on disk
+        run: |
+          ! grep -rl "You are assessing" out .audit
