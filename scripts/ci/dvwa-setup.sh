@@ -24,7 +24,9 @@ curl -s -o /dev/null -c "$JAR" -b "$JAR" --max-time 60 \
 echo "dvwa-setup: logging in as admin"
 T=$(curl -s -c "$JAR" -b "$JAR" --max-time 20 "$BASE/login.php" | token)
 [ -n "$T" ] || { echo "dvwa-setup: no user_token on login.php" >&2; exit 1; }
-LOC=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$JAR" -b "$JAR; security=low" --max-time 20 \
+# -b must name the jar file alone; appending a literal cookie turns the
+# argument into a cookie string and drops the PHPSESSID the token is bound to.
+LOC=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$JAR" -b "$JAR" --max-time 20 \
   --data-urlencode "username=admin" --data-urlencode "password=password" \
   --data-urlencode "Login=Login" --data-urlencode "user_token=$T" "$BASE/login.php")
 case "$LOC" in
