@@ -88,7 +88,8 @@ func TestManifestsLoadAndValidate(t *testing.T) {
 		if m.RiskTier != w.tier || m.SideEffects != w.side || strings.Join(m.Capabilities, ",") != strings.Join(w.caps, ",") {
 			t.Fatalf("%s: tier=%s caps=%v side=%v", m.Name, m.RiskTier, m.Capabilities, m.SideEffects)
 		}
-		if m.Version != "1" || m.Signature != "" || m.Signer != "" {
+		// Committed manifests are signed with the owner key in trust/keys.
+		if m.Version != "1" || m.Signature == "" || m.Signer == "" {
 			t.Fatalf("%s: version=%q signed=%v", m.Name, m.Version, m.Signature != "")
 		}
 		if len(m.AllowedAgents) == 0 {
