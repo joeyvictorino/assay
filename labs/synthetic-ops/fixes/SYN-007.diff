@@ -1,0 +1,33 @@
+--- a/handlers/files.go
++++ b/handlers/files.go
+@@ -4,6 +4,7 @@
+ 	"net/http"
+ 	"os"
+ 	"path/filepath"
++	"strings"
+ )
+ 
+ // files serves a file from the public directory by name.
+@@ -13,10 +14,20 @@
+ 		http.Error(w, "name required", http.StatusBadRequest)
+ 		return
+ 	}
+-	p := filepath.Join(s.opts.PublicDir, name) // VULN: path-traversal joined path is never checked to stay inside PublicDir
++	base, err := filepath.Abs(s.opts.PublicDir)
++	if err != nil {
++		http.Error(w, "unavailable", http.StatusInternalServerError)
++		return
++	}
++	p := filepath.Join(base, filepath.Clean("/"+name))
++	rel, err := filepath.Rel(base, p)
++	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
++		http.Error(w, "not found", http.StatusNotFound)
++		return
++	}
+ 	data, err := os.ReadFile(p)
+ 	if err != nil {
+-		http.Error(w, "not found: "+p, http.StatusNotFound)
++		http.Error(w, "not found", http.StatusNotFound)
+ 		return
+ 	}
+ 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")

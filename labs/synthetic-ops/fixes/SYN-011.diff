@@ -1,0 +1,18 @@
+--- a/handlers/router.go
++++ b/handlers/router.go
+@@ -58,10 +58,13 @@
+ 	return s.middleware(mux)
+ }
+ 
+-// middleware adds permissive CORS and recovers panics with a verbose page.
+-// VULN: security-headers no Content-Security-Policy, X-Content-Type-Options, X-Frame-Options or Referrer-Policy are ever set
++// middleware sets baseline security headers, adds CORS and recovers panics.
+ func (s *Server) middleware(next http.Handler) http.Handler {
+ 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		w.Header().Set("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'")
++		w.Header().Set("X-Content-Type-Options", "nosniff")
++		w.Header().Set("X-Frame-Options", "DENY")
++		w.Header().Set("Referrer-Policy", "no-referrer")
+ 		w.Header().Set("Access-Control-Allow-Origin", "*") // VULN: cors-misconfig wildcard origin combined with credentials
+ 		w.Header().Set("Access-Control-Allow-Credentials", "true")
+ 		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")

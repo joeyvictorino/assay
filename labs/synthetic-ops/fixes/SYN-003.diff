@@ -1,0 +1,16 @@
+--- a/handlers/search.go
++++ b/handlers/search.go
+@@ -14,10 +14,10 @@
+ // apiSearch filters products by name.
+ func (s *Server) apiSearch(w http.ResponseWriter, r *http.Request) {
+ 	q := r.URL.Query().Get("q")
+-	query := "SELECT id, name, description, price_cents FROM products WHERE name LIKE '%" + q + "%'" // VULN: sqli user input concatenated into SQL
+-	rows, err := s.db.Query(query)
++	const query = "SELECT id, name, description, price_cents FROM products WHERE name LIKE ?"
++	rows, err := s.db.Query(query, "%"+q+"%")
+ 	if err != nil {
+-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error(), "query": query})
++		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "search failed"})
+ 		return
+ 	}
+ 	defer rows.Close()

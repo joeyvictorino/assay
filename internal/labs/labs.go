@@ -6,6 +6,7 @@ package labs
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -53,6 +54,11 @@ type Lab interface {
 	// for hand-made partial reference lists or when nothing is known).
 	GroundTruth() ([]GroundTruthEntry, bool)
 }
+
+// ErrLoginRejected is wrapped by Authenticator.Login when the lab rejected
+// the credential itself (as opposed to a gate denial or transport error).
+// Checkers refute only on this error; anything else is inconclusive.
+var ErrLoginRejected = errors.New("login rejected by lab")
 
 // Authenticator is implemented by labs that can hand out a session for an
 // Account. The returned headers are attached to subsequent requests; userID

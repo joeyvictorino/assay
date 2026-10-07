@@ -1,0 +1,20 @@
+# assay scope document: local development against the synthetic lab only.
+#
+# UNSIGNED EXAMPLE. The gate refuses unsigned documents. Sign a copy with
+#   assay tools sign-doc --key <scope-signing-key> --in scope/local.example.yaml --out scope/local.yaml
+# (S1). For a quick local run without a key, `assay gate check` and
+# `assay validate` accept --unsafe-skip-signature only when ASSAY_DEV=1 and
+# print a warning; never use that in CI.
+version: "1"
+authorized_by: "developer workstation (self-authorized loopback lab)"
+issued_at: "2026-10-07T00:00:00Z"
+expires_at: "2026-11-07T00:00:00Z"
+rules_of_engagement_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+targets:
+  - host: 127.0.0.1
+    ports: [9000]
+    schemes: [http]
+methods: [GET, POST, HEAD]
+rate_limit_per_minute: 300
+max_body_bytes: 1048576
+# signature: added by `assay tools sign-doc`; never written by hand.

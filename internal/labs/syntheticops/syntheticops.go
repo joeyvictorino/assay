@@ -101,6 +101,9 @@ func (l *Lab) Login(ctx context.Context, acct labs.Account) (map[string]string, 
 	if err != nil {
 		return nil, "", err
 	}
+	if status == 401 || status == 403 {
+		return nil, "", fmt.Errorf("synthetic-ops: login %s: status %d: %w", acct.Username, status, labs.ErrLoginRejected)
+	}
 	if status != 200 {
 		return nil, "", fmt.Errorf("synthetic-ops: login %s: status %d", acct.Username, status)
 	}

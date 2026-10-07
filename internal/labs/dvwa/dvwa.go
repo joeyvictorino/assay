@@ -124,7 +124,7 @@ func (l *Lab) Login(ctx context.Context, acct labs.Account) (map[string]string, 
 	}
 	loc := hdrs["Location"]
 	if status != 302 || strings.Contains(loc, "login.php") {
-		return nil, "", fmt.Errorf("dvwa: login %s failed (status %d, location %q)", acct.Username, status, loc)
+		return nil, "", fmt.Errorf("dvwa: login %s failed (status %d, location %q): %w", acct.Username, status, loc, labs.ErrLoginRejected)
 	}
 	if s := sessionFrom(hdrs); s != "" {
 		sess = s
