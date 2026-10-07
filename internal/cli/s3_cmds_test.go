@@ -50,7 +50,10 @@ func TestGateRefusesWithoutVerifierOrDevFlag(t *testing.T) {
 	scopePath := writeTemp(t, "scope.yaml", strings.Replace(testScope, "%s", "9000", 1))
 	t.Setenv("ASSAY_DEV", "")
 	code, _, errs := runS3(t, "gate", "check", "--scope", scopePath, "--target", "http://127.0.0.1:9000/")
-	if code != ExitError || !strings.Contains(errs, "SCOPE_UNSIGNED_VERIFIER_MISSING") {
+	// With the trust store wired in (cmd_scope.go), an unsigned run without
+	// --trust is refused for a missing trust dir; without the wiring it is
+	// refused for a missing verifier. Both fail closed with exit 2.
+	if code != ExitError || !(strings.Contains(errs, "SCOPE_UNSIGNED_VERIFIER_MISSING") || strings.Contains(errs, "--trust is required")) {
 		t.Fatalf("code=%d err=%q", code, errs)
 	}
 	// --unsafe-skip-signature without ASSAY_DEV=1 is refused too.
