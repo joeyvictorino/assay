@@ -1,0 +1,31 @@
+# Signed scope document. Do not edit by hand; re-run `assay scope sign`.
+authorized_by: assay CI (loopback lab containers only)
+expires_at: "2027-10-07T00:00:00Z"
+issued_at: "2026-10-07T00:00:00Z"
+max_body_bytes: 1048576
+methods:
+    - GET
+    - POST
+    - HEAD
+    - OPTIONS
+rate_limit_per_minute: 600
+rules_of_engagement_sha256: 5857fdb033d4f37316bfff0838b2b6de7f855724cebfeb447e0c21727dc5b411
+signature: IR61Iai2QzQNlz1N9bhAdLO/gYMH2H896m8ZutHaCNAUgBUPAtnDqDMR2Tm0b7TnC83Y5UUEoSv/PP1hgZTwDg==
+signed_at: "2026-10-07T20:10:34Z"
+signer: 2b27f3ae1608dce4
+targets:
+    - host: 127.0.0.1
+      ports:
+        - 3000
+        - 8080
+        - 9000
+      schemes:
+        - http
+    - host: localhost
+      ports:
+        - 3000
+        - 8080
+        - 9000
+      schemes:
+        - http
+version: "1"
