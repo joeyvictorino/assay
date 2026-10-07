@@ -11,16 +11,18 @@
 #   - `curl -sI https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf`
 #     returned HTTP 302 with X-Linked-Size 1117320736 and
 #     X-Repo-Commit 91cad51170dc346986eccefdc2dd33a9da36ead9.
-#   The HEAD responses also carried X-Linked-ETag values (the LFS object ids,
-#   which Hugging Face documents as the file sha256). They are deliberately
-#   NOT copied into the sha256 fields: a hash recorded here must come from a
-#   file CI actually downloaded and hashed, so the first run fills them in.
+#   Digests: llama_cpp_sha256 is the digest CI computed on its first
+#   download (run 37689144540). The model digests are the LFS object ids from
+#   the Hugging Face pointer files (raw/main/<file>, "oid sha256:..."), which
+#   are the content sha256; the 1.5B digest was also computed locally from a
+#   full download on 2026-10-07 and matched. start-llama.sh re-verifies every
+#   asset against these values on each run.
 llama_cpp_release: b11476
 llama_cpp_asset: llama-b11476-bin-ubuntu-x64.tar.gz
-llama_cpp_sha256: "2cda5ff9363967f1aba5b5b096032e1b7d9eb568b011769282bf34e4f1cf4b5e"   # fill from first CI download; CI fails if empty after first run
+llama_cpp_sha256: "2cda5ff9363967f1aba5b5b096032e1b7d9eb568b011769282bf34e4f1cf4b5e"
 model_repo: Qwen/Qwen2.5-3B-Instruct-GGUF
 model_file: qwen2.5-3b-instruct-q4_k_m.gguf
-model_sha256: "626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d"       # fill from first CI download; CI fails if empty after first run
+model_sha256: "626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d"    
 fallback_model_repo: Qwen/Qwen2.5-1.5B-Instruct-GGUF
 fallback_model_file: qwen2.5-1.5b-instruct-q4_k_m.gguf
-fallback_model_sha256: "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e"  # fill from first CI download; CI fails if empty after first run
+fallback_model_sha256: "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e"

@@ -72,7 +72,8 @@ export LD_LIBRARY_PATH="$(dirname "$SERVER"):$(dirname "$SERVER")/../lib:${LD_LI
 
 # 2. Model, with fallback to the smaller pinned model.
 download_model() {
-  local repo="$1" file="$2" sha="$3" key="$4" path="$WORK/models/$file"
+  local repo="$1" file="$2" sha="$3" key="$4"
+  local path="$WORK/models/$file"
   if [ ! -s "$path" ]; then
     echo "start-llama: downloading $repo/$file"
     fetch "https://huggingface.co/$repo/resolve/main/$file" "$path" || return 1
