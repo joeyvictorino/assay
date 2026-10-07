@@ -1,0 +1,64 @@
+# Local run configuration: Anthropic models plus a llama-server on
+# 127.0.0.1:8081 as the slow, free local candidate. OPENAI_API_KEY enables the
+# openai provider; leave it unset and remove the openai routes to run without
+# it.
+name: local
+default_model: claude-sonnet-5-5
+
+providers:
+  anthropic:
+    type: anthropic
+    api_key_env: ANTHROPIC_API_KEY
+  openai:
+    type: openaicompat
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+  llama:
+    type: openaicompat
+    base_url: http://127.0.0.1:8081/v1
+
+models:
+  - { provider: anthropic, model: claude-sonnet-5-5 }
+  - { provider: anthropic, model: claude-opus-5-5 }
+  - { provider: anthropic, model: claude-haiku-4-5 }
+  - { provider: openai, model: gpt-5-mini }
+  - { provider: llama, model: local-llama, max_latency_ms: 600000 }
+
+routes:
+  recon:
+    - { provider: anthropic, model: claude-haiku-4-5 }
+    - { provider: llama, model: local-llama }
+  probe:
+    - { provider: anthropic, model: claude-sonnet-5-5 }
+    - { provider: openai, model: gpt-5-mini }
+    - { provider: llama, model: local-llama }
+  validate:
+    - { provider: anthropic, model: claude-sonnet-5-5 }
+    - { provider: anthropic, model: claude-haiku-4-5 }
+  remediate:
+    - { provider: anthropic, model: claude-opus-5-5 }
+    - { provider: anthropic, model: claude-sonnet-5-5 }
+  score:
+    - { provider: anthropic, model: claude-haiku-4-5 }
+    - { provider: llama, model: local-llama }
+
+budgets:
+  per_run:   { max_usd: 15 }
+  per_model: { max_usd: 6 }
+  per_task:  { max_usd: 1.5, max_latency_ms: 120000 }
+
+# USD per million tokens. Anthropic prices: owner-published skill table,
+# 2026-09-25. The openai entry is a placeholder to be set from the vendor
+# price list before a paid run; the local model is free.
+cost_per_mtok:
+  claude-sonnet-5-5: { input_usd: 2, output_usd: 10, cache_read_usd: 0.20 }
+  claude-opus-5-5:   { input_usd: 4, output_usd: 20, cache_read_usd: 0.20 }
+  claude-haiku-4-5:  { input_usd: 1, output_usd: 5,  cache_read_usd: 0.10 }
+  gpt-5-mini:        { input_usd: 0.25, output_usd: 2, cache_read_usd: 0.025 }
+  local-llama:       { input_usd: 0, output_usd: 0, cache_read_usd: 0 }
+
+max_failovers: 1
+
+agent:
+  max_turns: 12
+  max_tokens: 4096
