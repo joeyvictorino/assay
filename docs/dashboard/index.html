@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>assay results</title>
+<meta name="description" content="Cost, latency and cross-model overlap for every committed assay run. Static page; reads data/index.json written by `assay report --format dashboard`.">
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --fg: #1d1c1a;
+    --muted: #6b6760;
+    --line: #e2ded6;
+    --panel: #ffffff;
+    --accent: #1f5f8b;
+    --accent-2: #b5651d;
+    --accent-3: #4b7f52;
+    --accent-4: #7a4b8f;
+    --accent-5: #9b2c2c;
+    --accent-6: #8a7a1f;
+    --pass: #2e7d4f;
+    --blocked: #b23a3a;
+    --error: #8a6d1f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15161a; --fg: #ebe8e1; --muted: #a39d93; --line: #2d2f36; --panel: #1d1f25;
+      --accent: #6fb3e3; --accent-2: #e5a06a; --accent-3: #89c58f; --accent-4: #c39ad6; --accent-5: #e07a7a; --accent-6: #d6c66a;
+      --pass: #6fd39b; --blocked: #ef8a8a; --error: #e3c56a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15161a; --fg: #ebe8e1; --muted: #a39d93; --line: #2d2f36; --panel: #1d1f25;
+    --accent: #6fb3e3; --accent-2: #e5a06a; --accent-3: #89c58f; --accent-4: #c39ad6; --accent-5: #e07a7a; --accent-6: #d6c66a;
+    --pass: #6fd39b; --blocked: #ef8a8a; --error: #e3c56a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 32px 0 8px; }
+  p.lede { margin: 0 0 24px; color: var(--muted); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; overflow-x: auto; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px 18px; margin: 0 0 12px; font-size: 0.9rem; color: var(--muted); }
+  .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -2px; background: var(--c); }
+  svg { display: block; width: 100%; height: auto; }
+  svg text { font: 11px ui-sans-serif, system-ui, sans-serif; fill: var(--muted); }
+  svg .axis { stroke: var(--line); stroke-width: 1; }
+  svg .label { fill: var(--fg); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .verdict { font-weight: 600; }
+  .verdict.PASS { color: var(--pass); }
+  .verdict.BLOCKED { color: var(--blocked); }
+  .verdict.ERROR, .verdict.DEGRADED { color: var(--error); }
+  .empty { color: var(--muted); padding: 24px; text-align: center; }
+  a { color: var(--accent); }
+  footer { margin-top: 40px; color: var(--muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>assay results</h1>
+  <p class="lede">Cost and latency per model per run, and how much the models' findings overlap. Every row is a committed <code>results/&lt;run&gt;/run.json</code> with the CI run that produced it.</p>
+
+  <h2>Cost per model per run (USD)</h2>
+  <div class="panel"><div id="legend-cost" class="legend"></div><div id="chart-cost"></div></div>
+
+  <h2>p95 latency per model per run (ms)</h2>
+  <div class="panel"><div id="legend-latency" class="legend"></div><div id="chart-latency"></div></div>
+
+  <h2>Overlap: union and intersection of dedup keys</h2>
+  <div class="panel"><div class="legend"><span style="--c: var(--accent)">union</span><span style="--c: var(--accent-2)">intersection</span></div><div id="chart-overlap"></div></div>
+
+  <h2>Runs</h2>
+  <div class="panel"><div id="table"></div></div>
+
+  <footer>Static page, no external scripts. Data: <code>data/index.json</code>, written by <code>assay report --format dashboard</code>. Dedup keys and overlap are defined in ADR 0007.</footer>
+</main>
+<script>
+(function () {
+  "use strict";
+  var PALETTE = ["var(--accent)", "var(--accent-2)", "var(--accent-3)", "var(--accent-4)", "var(--accent-5)", "var(--accent-6)"];
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function el(name, attrs, text) {
+    var n = document.createElementNS(SVG, name);
+    Object.keys(attrs || {}).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function html(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function fmt(n, digits) {
+    if (n === null || n === undefined || isNaN(n)) return "-";
+    return Number(n).toFixed(digits === undefined ? 0 : digits);
+  }
+  function modelsOf(rows) {
+    var seen = {}, out = [];
+    rows.forEach(function (r) { (r.models || []).forEach(function (m) { if (!seen[m.model]) { seen[m.model] = true; out.push(m.model); } }); });
+    out.sort();
+    return out;
+  }
+  function colorFor(models) {
+    var map = {};
+    models.forEach(function (m, i) { map[m] = PALETTE[i % PALETTE.length]; });
+    return map;
+  }
+
+  // Grouped bar chart: one group per run, one bar per series.
+  function groupedBars(container, rows, series, valueOf, digits) {
+    container.textContent = "";
+    if (!rows.length) { container.appendChild(html("div", "empty", "No runs yet.")); return; }
+    var W = 1000, left = 56, right = 12, top = 12, bottom = 48;
+    var groupW = Math.max(60, Math.min(160, (W - left - right) / rows.length));
+    var width = left + right + groupW * rows.length;
+    var H = 260, plotH = H - top - bottom;
+    var max = 0;
+    rows.forEach(function (r) { series.forEach(function (s) { var v = valueOf(r, s); if (v > max) max = v; }); });
+    if (max === 0) max = 1;
+    var svg = el("svg", { viewBox: "0 0 " + width + " " + H, role: "img", "aria-label": "grouped bar chart" });
+    // gridlines
+    for (var i = 0; i <= 4; i++) {
+      var y = top + plotH - (plotH * i / 4);
+      svg.appendChild(el("line", { x1: left, x2: width - right, y1: y, y2: y, "class": "axis" }));
+      svg.appendChild(el("text", { x: left - 6, y: y + 4, "text-anchor": "end" }, fmt(max * i / 4, digits)));
+    }
+    var barW = Math.max(3, (groupW - 16) / Math.max(1, series.length));
+    rows.forEach(function (r, gi) {
+      var gx = left + gi * groupW + 8;
+      series.forEach(function (s, si) {
+        var v = valueOf(r, s);
+        var h = v / max * plotH;
+        var rect = el("rect", { x: gx + si * barW, y: top + plotH - h, width: Math.max(1, barW - 2), height: h, fill: colorForSeries(s, si), rx: 1 });
+        rect.appendChild(el("title", {}, r.run_id + " / " + s + ": " + fmt(v, digits)));
+        svg.appendChild(rect);
+      });
+      svg.appendChild(el("text", { x: gx + (groupW - 16) / 2, y: H - bottom + 16, "text-anchor": "middle", "class": "label" }, r.date || ""));
+      svg.appendChild(el("text", { x: gx + (groupW - 16) / 2, y: H - bottom + 30, "text-anchor": "middle" }, shorten(r.run_id)));
+    });
+    container.appendChild(svg);
+  }
+  var seriesColors = {};
+  function colorForSeries(s, i) { return seriesColors[s] || PALETTE[i % PALETTE.length]; }
+  function shorten(s) { s = String(s || ""); return s.length > 14 ? s.slice(0, 13) + "…" : s; }
+
+  function legend(container, series) {
+    container.textContent = "";
+    series.forEach(function (s) {
+      var span = html("span", "", s);
+      span.style.setProperty("--c", seriesColors[s]);
+      container.appendChild(span);
+    });
+  }
+
+  function modelValue(field) {
+    return function (row, model) {
+      var m = (row.models || []).filter(function (x) { return x.model === model; })[0];
+      return m ? Number(m[field]) || 0 : 0;
+    };
+  }
+
+  function table(container, rows) {
+    container.textContent = "";
+    if (!rows.length) { container.appendChild(html("div", "empty", "No runs committed yet. The first full-run writes data/index.json.")); return; }
+    var t = html("table");
+    var thead = html("thead"), tr = html("tr");
+    ["run", "date", "model", "validated", "theorized", "refusals", "cost USD", "p50 ms", "p95 ms", "union", "intersection", "verdict", "CI"].forEach(function (h, i) {
+      tr.appendChild(html("th", i >= 3 && i <= 10 ? "num" : "", h));
+    });
+    thead.appendChild(tr); t.appendChild(thead);
+    var tbody = html("tbody");
+    rows.slice().reverse().forEach(function (r) {
+      var models = r.models && r.models.length ? r.models : [{ model: "-" }];
+      models.forEach(function (m, i) {
+        var row = html("tr");
+        row.appendChild(html("td", "", i === 0 ? r.run_id : ""));
+        row.appendChild(html("td", "", i === 0 ? r.date : ""));
+        row.appendChild(html("td", "", m.model));
+        row.appendChild(html("td", "num", fmt(m.findings_validated)));
+        row.appendChild(html("td", "num", fmt(m.findings_theorized)));
+        row.appendChild(html("td", "num", fmt(m.refusals)));
+        row.appendChild(html("td", "num", fmt(m.cost_usd, 4)));
+        row.appendChild(html("td", "num", fmt(m.p50_ms)));
+        row.appendChild(html("td", "num", fmt(m.p95_ms)));
+        row.appendChild(html("td", "num", i === 0 ? fmt(r.overlap_union) : ""));
+        row.appendChild(html("td", "num", i === 0 ? fmt(r.overlap_intersection) : ""));
+        var v = html("td", "verdict " + (r.verdict || ""), i === 0 ? (r.verdict || "-") : "");
+        row.appendChild(v);
+        var ci = html("td");
+        if (i === 0 && r.ci_run_url) { var a = html("a", "", "run"); a.href = r.ci_run_url; a.rel = "noopener"; ci.appendChild(a); }
+        row.appendChild(ci);
+        tbody.appendChild(row);
+      });
+    });
+    t.appendChild(tbody);
+    container.appendChild(t);
+  }
+
+  function render(rows) {
+    rows = Array.isArray(rows) ? rows : [];
+    rows.sort(function (a, b) { return (a.date || "").localeCompare(b.date || "") || String(a.run_id).localeCompare(String(b.run_id)); });
+    var models = modelsOf(rows);
+    seriesColors = colorFor(models);
+    legend(document.getElementById("legend-cost"), models);
+    legend(document.getElementById("legend-latency"), models);
+    groupedBars(document.getElementById("chart-cost"), rows, models, modelValue("cost_usd"), 2);
+    groupedBars(document.getElementById("chart-latency"), rows, models, modelValue("p95_ms"), 0);
+    seriesColors = { union: "var(--accent)", intersection: "var(--accent-2)" };
+    groupedBars(document.getElementById("chart-overlap"), rows, ["union", "intersection"], function (r, s) {
+      return Number(s === "union" ? r.overlap_union : r.overlap_intersection) || 0;
+    }, 0);
+    table(document.getElementById("table"), rows);
+  }
+
+  function fail(msg) {
+    ["chart-cost", "chart-latency", "chart-overlap", "table"].forEach(function (id) {
+      var c = document.getElementById(id); c.textContent = ""; c.appendChild(html("div", "empty", msg));
+    });
+  }
+
+  fetch("data/index.json", { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(render)
+    .catch(function (e) { fail("Could not load data/index.json (" + e.message + ")."); });
+})();
+</script>
+</body>
+</html>

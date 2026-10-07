@@ -1,0 +1,167 @@
+name: continuous
+
+# Twice a week: run the full harness, then diff the newest run against the
+# promoted baseline and keep one open issue describing any drift. A manual
+# dispatch with promote_baseline=true copies the latest run.json to
+# results/baseline.json instead.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1,4"
+  workflow_dispatch:
+    inputs:
+      promote_baseline:
+        description: "Copy the latest run.json to results/baseline.json"
+        type: boolean
+        default: false
+      fail_on:
+        description: "Minimum severity of a new or regressed finding that counts as drift"
+        type: choice
+        options: [info, low, medium, high, critical]
+        default: high
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: results-commit
+  cancel-in-progress: false
+
+jobs:
+  full-run:
+    if: ${{ github.event_name == 'schedule' || inputs.promote_baseline != true }}
+    uses: ./.github/workflows/full-run.yml
+    secrets: inherit
+    permissions:
+      contents: write
+
+  diff:
+    needs: full-run
+    if: ${{ github.event_name == 'schedule' || inputs.promote_baseline != true }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Build assay
+        run: go build -o assay ./cmd/assay
+
+      - name: Diff against baseline
+        id: diff
+        env:
+          FAIL_ON: ${{ inputs.fail_on || 'high' }}
+        run: |
+          set -u
+          if [ ! -f results/baseline.json ]; then
+            echo "no results/baseline.json; promote one with workflow_dispatch promote_baseline=true"
+            echo "status=no-baseline" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          latest="$(cat results/LATEST)"
+          args="--baseline results/baseline.json --current results/$latest/run.json --fail-on $FAIL_ON --out drift.json"
+          if [ -f "results/$latest/findings.redacted.json" ]; then
+            args="$args --current-findings results/$latest/findings.redacted.json"
+          fi
+          if [ -f results/baseline.findings.json ]; then
+            args="$args --baseline-findings results/baseline.findings.json"
+          fi
+          code=0
+          # shellcheck disable=SC2086
+          ./assay continuous diff $args > drift.md || code=$?
+          cat drift.md
+          if [ "$code" -gt 1 ]; then
+            echo "assay continuous diff failed with exit $code" >&2
+            exit "$code"
+          fi
+          echo "status=$code" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Open or update the drift issue
+        if: steps.diff.outputs.status == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          LATEST: ${{ steps.diff.outputs.latest }}
+        run: |
+          set -eu
+          title="Continuous validation drift"
+          {
+            cat drift.md
+            echo
+            echo "Run: $RUN_URL"
+            echo "Results: results/$LATEST"
+          } > body.md
+          number="$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq ".[] | select(.title == \"$title\") | .number" | head -n1)"
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file body.md
+            gh issue comment "$number" --body "Updated from $RUN_URL (results/$LATEST)."
+          else
+            gh issue create --title "$title" --body-file body.md --label continuous
+          fi
+
+      - name: Close the drift issue when clean
+        if: steps.diff.outputs.status == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -eu
+          title="Continuous validation drift"
+          number="$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq ".[] | select(.title == \"$title\") | .number" | head -n1)"
+          if [ -n "$number" ]; then
+            gh issue close "$number" --comment "No drift at or above the threshold in $RUN_URL."
+          fi
+
+      - name: Fail the job on drift
+        if: steps.diff.outputs.status == '1'
+        run: |
+          echo "drift detected; see the issue" >&2
+          exit 1
+
+  promote:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.promote_baseline == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Promote latest run to baseline
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          set -eu
+          latest="$(cat results/LATEST)"
+          cp "results/$latest/run.json" results/baseline.json
+          if [ -f "results/$latest/findings.redacted.json" ]; then
+            cp "results/$latest/findings.redacted.json" results/baseline.findings.json
+          fi
+          git add results/baseline.json results/baseline.findings.json 2>/dev/null || git add results/baseline.json
+          if git diff --cached --quiet; then
+            echo "baseline already matches $latest"
+            exit 0
+          fi
+          git commit -m "results: promote $latest to baseline [skip ci]"
+          for attempt in 1 2 3; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          exit 1
