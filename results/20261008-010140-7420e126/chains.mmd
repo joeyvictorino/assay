@@ -1,0 +1,8 @@
+flowchart LR
+    F_f_076b9300eabb75ed["f-076b9300eabb75ed: info-disclosure GET /api/products"]
+    O_account_takeover(((account-takeover)))
+    X_config_read([config-read])
+    X_credential_exposure([credential-exposure])
+    F_f_076b9300eabb75ed --> X_config_read
+    X_config_read --> X_credential_exposure
+    X_credential_exposure --> O_account_takeover

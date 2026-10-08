@@ -1,0 +1,200 @@
+[
+  {
+    "id": "f-f591c11ec33c9ae4",
+    "dedup_key": "f591c11ec33c9ae4699732b53be1412f66f1b8a14bff0ffd1f68488c3ecc682a",
+    "run_id": "20261008-010140-7420e126",
+    "lab": "juice-shop",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Security headers may reveal sensitive information.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "http_get-2",
+      "inspect_headers-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-010140-7420e126",
+        "seq": 65
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-08T01:12:58.217911021Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET / from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-f591c11ec33c9ae4',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-f591c11ec33c9ae4\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-f591c11ec33c9ae4',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T01:04:31.414851239Z",
+    "last_seen": "2026-10-08T01:04:31.414851239Z"
+  },
+  {
+    "id": "f-076b9300eabb75ed",
+    "dedup_key": "076b9300eabb75ed24a9ec8c70cff7a35a6f942bfd44f35042b7b823719d03a0",
+    "run_id": "20261008-010140-7420e126",
+    "lab": "juice-shop",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/api/products"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Security headers may reveal sensitive information.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "http_get-2",
+      "inspect_headers-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-010140-7420e126",
+        "seq": 69
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-08T01:12:58.217916499Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /api/products from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/api/products\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-076b9300eabb75ed',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-076b9300eabb75ed\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/api/products\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-076b9300eabb75ed',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T01:11:22.716027417Z",
+    "last_seen": "2026-10-08T01:11:22.716027417Z"
+  },
+  {
+    "id": "f-c7302df607b10ebf",
+    "dedup_key": "c7302df607b10ebf507d6919fa61d4b99cc66136642e087adb74f741c50e29e3",
+    "run_id": "20261008-010140-7420e126",
+    "lab": "juice-shop",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/healthz"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Security headers may reveal sensitive information.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "http_get-2",
+      "inspect_headers-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-010140-7420e126",
+        "seq": 73
+      },
+      {
+        "run_id": "20261008-010140-7420e126",
+        "seq": 77
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-08T01:12:58.217921676Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /healthz from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/healthz\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-c7302df607b10ebf',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-c7302df607b10ebf\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/healthz\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-c7302df607b10ebf',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T01:11:43.413264432Z",
+    "last_seen": "2026-10-08T01:12:03.760776705Z"
+  },
+  {
+    "id": "f-ca9f2b2faefaac4c",
+    "dedup_key": "ca9f2b2faefaac4ca0f11b64c8dbcb7f82048fa2142ae36be16cca5c814421b4",
+    "run_id": "20261008-010140-7420e126",
+    "lab": "dvwa",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/login.php"
+    },
+    "severity": "medium",
+    "state": "theorized",
+    "summary": "User input in the login form is not properly sanitized, potentially exposing to XSS attacks.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-010140-7420e126",
+        "seq": 119
+      },
+      {
+        "run_id": "20261008-010140-7420e126",
+        "seq": 123
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-08T01:14:30.040642076Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET /login.php (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-ca9f2b2faefaac4c',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-ca9f2b2faefaac4c\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-ca9f2b2faefaac4c',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T01:14:00.548667798Z",
+    "last_seen": "2026-10-08T01:14:15.299878592Z"
+  }
+]
