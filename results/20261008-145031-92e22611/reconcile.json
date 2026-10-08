@@ -1,0 +1,22 @@
+{
+  "checked": 65,
+  "mismatches": [
+    {
+      "task_id": "synthetic-ops:qwen2.5-3b-instruct-q4_k_m#2",
+      "tool_call_id": "5IyKYrtBkjJfpSnGAoNdPkTbrIqYyNqY",
+      "reasons": [
+        "missing-control-plane-event"
+      ],
+      "transcript_seqs": [
+        46
+      ],
+      "control_seqs": [],
+      "claimed": "delegate",
+      "actual": "",
+      "confidence": "high"
+    }
+  ],
+  "reason_counts": {
+    "missing-control-plane-event": 1
+  }
+}

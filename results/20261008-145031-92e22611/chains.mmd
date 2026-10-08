@@ -1,0 +1,8 @@
+flowchart LR
+    F_f_c28c61a096e8bb99["f-c28c61a096e8bb99: sqli GET /profile/(id)"]
+    O_account_takeover(((account-takeover)))
+    O_data_access(((data-access)))
+    X_credential_exposure([credential-exposure])
+    F_f_c28c61a096e8bb99 --> O_data_access
+    F_f_c28c61a096e8bb99 --> X_credential_exposure
+    X_credential_exposure --> O_account_takeover

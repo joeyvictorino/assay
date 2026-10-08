@@ -1,0 +1,455 @@
+[
+  {
+    "id": "f-809aed6c0d4b2473",
+    "dedup_key": "809aed6c0d4b2473d0d3db0501461496844c11561df9d69b8281a8c2fd67dc64",
+    "run_id": "20261008-145031-92e22611",
+    "lab": "synthetic-ops",
+    "class": "csrf",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "The application does not validate the origin of cross-site request forgery (CSRF) attacks.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-0",
+      "http_get-1",
+      "http_get-2",
+      "inspect_headers-0",
+      "login_as-0"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 26
+      },
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 30
+      },
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 64
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "csrf",
+      "note": "no state-changing form observed at the path",
+      "checked_at": "2026-10-08T15:00:40.95777781Z"
+    },
+    "remediation": {
+      "config_change": "Require a per-session anti-CSRF token on state-changing requests to /; reject GET for state changes; set SameSite=Lax or Strict on the session cookie and verify Origin/Referer.",
+      "virtual_patch": "SecRule REQUEST_METHOD \"@rx ^(?:POST|PUT|PATCH|DELETE)$\" \"id:9100019,phase:2,pass,log,t:none,msg:'assay csrf virtual patch f-809aed6c0d4b2473',tag:'assay/csrf'\"\n{\"class\":\"csrf\",\"engine\":\"modsecurity\",\"finding\":\"f-809aed6c0d4b2473\",\"id\":9100019,\"rule\":\"SecRule REQUEST_METHOD \\\"@rx ^(?:POST|PUT|PATCH|DELETE)$\\\" \\\"id:9100019,phase:2,pass,log,t:none,msg:'assay csrf virtual patch f-809aed6c0d4b2473',tag:'assay/csrf'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T14:51:33.306100118Z",
+    "last_seen": "2026-10-08T14:54:23.870581327Z"
+  },
+  {
+    "id": "f-c7179b862f2e61db",
+    "dedup_key": "c7179b862f2e61db9eadf115c13306ff7a1dd87733c6e054eb446e921ad92826",
+    "run_id": "20261008-145031-92e22611",
+    "lab": "synthetic-ops",
+    "class": "sqli",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "GET request to '/' shows potential SQL injection vulnerabilities through dynamic content rendering.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 66
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "sqli",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-08T15:00:40.957781858Z"
+    },
+    "remediation": {
+      "config_change": "Replace string concatenation with a parameterized query (placeholders and bound arguments) for GET / parameter \u003cparameter\u003e; reject input that fails a strict allowlist before it reaches the database; run the application's database role with SELECT-only grants where the endpoint only reads.",
+      "virtual_patch": "SecRule ARGS:* \"@detectSQLi\" \"id:9100001,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sqli virtual patch f-c7179b862f2e61db',tag:'assay/sqli'\"\n{\"class\":\"sqli\",\"engine\":\"modsecurity\",\"finding\":\"f-c7179b862f2e61db\",\"id\":9100001,\"rule\":\"SecRule ARGS:* \\\"@detectSQLi\\\" \\\"id:9100001,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sqli virtual patch f-c7179b862f2e61db',tag:'assay/sqli'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T14:54:23.871122345Z",
+    "last_seen": "2026-10-08T14:54:23.871122345Z"
+  },
+  {
+    "id": "f-f5045f495a7121a2",
+    "dedup_key": "f5045f495a7121a25e0e9fe7b7468f724731c1f6b77eb0791da701b4836f59a0",
+    "run_id": "20261008-145031-92e22611",
+    "lab": "synthetic-ops",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "GET request to '/' indicates a potential reflected XSS vulnerability by displaying user-submitted data without validation.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 68
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-08T15:00:40.957784452Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET / (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-f5045f495a7121a2',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-f5045f495a7121a2\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-f5045f495a7121a2',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T14:54:23.871741699Z",
+    "last_seen": "2026-10-08T14:54:23.871741699Z"
+  },
+  {
+    "id": "f-d936646844dd9149",
+    "dedup_key": "d936646844dd9149a3348c9e8e08875ca6c52898a18560f887c140d25a9d5cd2",
+    "run_id": "20261008-145031-92e22611",
+    "lab": "synthetic-ops",
+    "class": "csrf",
+    "location": {
+      "method": "GET",
+      "path_template": "/search"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "GET request to '/search?term=widget' demonstrates a potential CSRF vulnerability by providing a search functionality that can be exploited to perform actions on behalf of a user.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "http_get-3"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 86
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "csrf",
+      "note": "no state-changing form observed at the path",
+      "checked_at": "2026-10-08T15:00:40.958471282Z"
+    },
+    "remediation": {
+      "config_change": "Require a per-session anti-CSRF token on state-changing requests to /search; reject GET for state changes; set SameSite=Lax or Strict on the session cookie and verify Origin/Referer.",
+      "virtual_patch": "SecRule REQUEST_METHOD \"@rx ^(?:POST|PUT|PATCH|DELETE)$\" \"id:9100019,phase:2,pass,log,t:none,msg:'assay csrf virtual patch f-d936646844dd9149',tag:'assay/csrf'\"\n{\"class\":\"csrf\",\"engine\":\"modsecurity\",\"finding\":\"f-d936646844dd9149\",\"id\":9100019,\"rule\":\"SecRule REQUEST_METHOD \\\"@rx ^(?:POST|PUT|PATCH|DELETE)$\\\" \\\"id:9100019,phase:2,pass,log,t:none,msg:'assay csrf virtual patch f-d936646844dd9149',tag:'assay/csrf'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T14:55:51.159339683Z",
+    "last_seen": "2026-10-08T14:55:51.159339683Z"
+  },
+  {
+    "id": "f-c28c61a096e8bb99",
+    "dedup_key": "c28c61a096e8bb999df30cac862e84f89cf76ac3af88b3f162b588c1c00228ad",
+    "run_id": "20261008-145031-92e22611",
+    "lab": "synthetic-ops",
+    "class": "sqli",
+    "location": {
+      "method": "GET",
+      "path_template": "/profile/{id}"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "GET request to '/profile/1' may indicate SQL injection vulnerabilities by dynamically rendering user profile information which could be influenced by malicious input.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-2",
+      "http_get-4"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 88
+      },
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 94
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "sqli",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-08T15:00:40.958479738Z"
+    },
+    "remediation": {
+      "config_change": "Replace string concatenation with a parameterized query (placeholders and bound arguments) for GET /profile/{id} parameter \u003cparameter\u003e; reject input that fails a strict allowlist before it reaches the database; run the application's database role with SELECT-only grants where the endpoint only reads.",
+      "virtual_patch": "SecRule ARGS:* \"@detectSQLi\" \"id:9100001,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sqli virtual patch f-c28c61a096e8bb99',tag:'assay/sqli'\"\n{\"class\":\"sqli\",\"engine\":\"modsecurity\",\"finding\":\"f-c28c61a096e8bb99\",\"id\":9100001,\"rule\":\"SecRule ARGS:* \\\"@detectSQLi\\\" \\\"id:9100001,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sqli virtual patch f-c28c61a096e8bb99',tag:'assay/sqli'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T14:55:51.159962684Z",
+    "last_seen": "2026-10-08T14:56:41.143774452Z"
+  },
+  {
+    "id": "f-f4866f189c7ab128",
+    "dedup_key": "f4866f189c7ab12876c2f21be7bee4a4d38dd84a4e065a3cf78156230108d88f",
+    "run_id": "20261008-145031-92e22611",
+    "lab": "synthetic-ops",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/files"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "GET request to '/files?name=hello.txt' suggests a potential reflected XSS vulnerability by displaying user-submitted files without proper sanitization.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-3",
+      "http_get-5"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 90
+      },
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 96
+      },
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 100
+      },
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 104
+      },
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 108
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-08T15:00:40.958482353Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET /files (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-f4866f189c7ab128',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-f4866f189c7ab128\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-f4866f189c7ab128',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T14:55:51.160523128Z",
+    "last_seen": "2026-10-08T14:58:04.435484028Z"
+  },
+  {
+    "id": "f-a8df8c7e579dd7e8",
+    "dedup_key": "a8df8c7e579dd7e888b83a88207040e5b59997a06462cd1e8eace036ab859083",
+    "run_id": "20261008-145031-92e22611",
+    "lab": "synthetic-ops",
+    "class": "csrf",
+    "location": {
+      "method": "POST",
+      "path_template": "/post-endpoint",
+      "param": "some parameter"
+    },
+    "severity": "medium",
+    "state": "theorized",
+    "summary": "CSRF attack possible on POST /post-endpoint due to missing SameSite attribute in cookie",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "http_post-2",
+      "inspect_headers-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 135
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "csrf",
+      "note": "no state-changing form observed at the path",
+      "checked_at": "2026-10-08T15:00:40.95928007Z"
+    },
+    "remediation": {
+      "config_change": "Require a per-session anti-CSRF token on state-changing requests to /post-endpoint; reject GET for state changes; set SameSite=Lax or Strict on the session cookie and verify Origin/Referer.",
+      "virtual_patch": "SecRule REQUEST_METHOD \"@rx ^(?:POST|PUT|PATCH|DELETE)$\" \"id:9100019,phase:2,pass,log,t:none,msg:'assay csrf virtual patch f-a8df8c7e579dd7e8',tag:'assay/csrf'\"\n{\"class\":\"csrf\",\"engine\":\"modsecurity\",\"finding\":\"f-a8df8c7e579dd7e8\",\"id\":9100019,\"rule\":\"SecRule REQUEST_METHOD \\\"@rx ^(?:POST|PUT|PATCH|DELETE)$\\\" \\\"id:9100019,phase:2,pass,log,t:none,msg:'assay csrf virtual patch f-a8df8c7e579dd7e8',tag:'assay/csrf'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T14:59:17.2584821Z",
+    "last_seen": "2026-10-08T14:59:17.2584821Z"
+  },
+  {
+    "id": "f-84ce48b8422f06b3",
+    "dedup_key": "84ce48b8422f06b30228a77de33912ce7ea65c7f5ccff507bd6ee90daaf0d474",
+    "run_id": "20261008-145031-92e22611",
+    "lab": "dvwa",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/login.php",
+      "param": "username"
+    },
+    "severity": "high",
+    "state": "refuted",
+    "summary": "XSS reflection vulnerability in the login page due to unfiltered user input.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 284
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "refuted",
+      "checker": "xss-reflected",
+      "note": "marker absent, encoded, or not in an HTML response",
+      "checked_at": "2026-10-08T15:29:18.957201105Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape username before writing it into the page for GET /login.php (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:username \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-84ce48b8422f06b3',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-84ce48b8422f06b3\",\"id\":9100002,\"rule\":\"SecRule ARGS:username \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-84ce48b8422f06b3',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T15:28:18.482742811Z",
+    "last_seen": "2026-10-08T15:28:18.482742811Z"
+  },
+  {
+    "id": "f-9a9275de2ddeff3f",
+    "dedup_key": "9a9275de2ddeff3f048d379cab4407f1ee8a8a45ede43eafa3896b403abf3ea4",
+    "run_id": "20261008-145031-92e22611",
+    "lab": "dvwa",
+    "class": "csrf",
+    "location": {
+      "method": "GET",
+      "path_template": "/login.php"
+    },
+    "severity": "high",
+    "state": "refuted",
+    "summary": "CSRF vulnerability in the login page due to the absence of CSRF token.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-145031-92e22611",
+        "seq": 286
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "refuted",
+      "checker": "csrf",
+      "note": "post forms carry a token or the session cookie is SameSite",
+      "checked_at": "2026-10-08T15:29:18.960420868Z"
+    },
+    "remediation": {
+      "config_change": "Require a per-session anti-CSRF token on state-changing requests to /login.php; reject GET for state changes; set SameSite=Lax or Strict on the session cookie and verify Origin/Referer.",
+      "virtual_patch": "SecRule REQUEST_METHOD \"@rx ^(?:POST|PUT|PATCH|DELETE)$\" \"id:9100019,phase:2,pass,log,t:none,msg:'assay csrf virtual patch f-9a9275de2ddeff3f',tag:'assay/csrf'\"\n{\"class\":\"csrf\",\"engine\":\"modsecurity\",\"finding\":\"f-9a9275de2ddeff3f\",\"id\":9100019,\"rule\":\"SecRule REQUEST_METHOD \\\"@rx ^(?:POST|PUT|PATCH|DELETE)$\\\" \\\"id:9100019,phase:2,pass,log,t:none,msg:'assay csrf virtual patch f-9a9275de2ddeff3f',tag:'assay/csrf'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T15:28:18.483376623Z",
+    "last_seen": "2026-10-08T15:28:18.483376623Z"
+  }
+]

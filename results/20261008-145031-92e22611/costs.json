@@ -1,0 +1,18 @@
+{
+  "fake-model": {
+    "cache_read_tokens": 0,
+    "input_tokens": 1680,
+    "output_tokens": 480,
+    "p50_ms": 7,
+    "p95_ms": 7,
+    "usd": 0.00408
+  },
+  "qwen2.5-3b-instruct-q4_k_m": {
+    "cache_read_tokens": 46029,
+    "input_tokens": 12840,
+    "output_tokens": 5110,
+    "p50_ms": 609480,
+    "p95_ms": 609480,
+    "usd": 0
+  }
+}
