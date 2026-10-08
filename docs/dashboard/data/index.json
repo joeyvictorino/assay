@@ -166,5 +166,33 @@
     "overlap_union": 15,
     "overlap_intersection": 1,
     "verdict": "PASS"
+  },
+  {
+    "run_id": "20261008-134835-97b5fbe2",
+    "date": "2026-10-08",
+    "ci_run_url": "https://github.com/joeyvictorino/assay/actions/runs/37787125085/attempts/1",
+    "models": [
+      {
+        "model": "fake-model",
+        "findings_validated": 4,
+        "findings_theorized": 0,
+        "refusals": 0,
+        "cost_usd": 0.00408,
+        "p50_ms": 6,
+        "p95_ms": 6
+      },
+      {
+        "model": "qwen2.5-3b-instruct-q4_k_m",
+        "findings_validated": 6,
+        "findings_theorized": 15,
+        "refusals": 0,
+        "cost_usd": 0,
+        "p50_ms": 1319157,
+        "p95_ms": 1319157
+      }
+    ],
+    "overlap_union": 26,
+    "overlap_intersection": 2,
+    "verdict": "PASS"
   }
 ]

@@ -1,0 +1,531 @@
+{
+  "run_id": "20261008-134835-97b5fbe2",
+  "git_sha": "824a2281f5f0204fc6076b37ea9cce4224a137e3",
+  "ci_run_url": "https://github.com/joeyvictorino/assay/actions/runs/37787125085/attempts/1",
+  "mode": "degraded",
+  "started": "2026-10-08T13:48:35.261577404Z",
+  "finished": "2026-10-08T14:45:39.17009084Z",
+  "scope": {
+    "effect": "allow",
+    "reason": "SCOPE_VERIFIED",
+    "rationale": "scope bb2bf862d81eb4915644f89b515c060eb177ee434ad8afb4579a42ad5c7a26e2",
+    "policy_hash": "bb2bf862d81eb4915644f89b515c060eb177ee434ad8afb4579a42ad5c7a26e2"
+  },
+  "models": [
+    {
+      "ref": {
+        "provider": "local",
+        "model": "qwen2.5-3b-instruct-q4_k_m",
+        "agent": ""
+      },
+      "findings_by_state": {
+        "refuted": 1,
+        "theorized": 15,
+        "validated": 6
+      },
+      "usage": {
+        "input_tokens": 63006,
+        "output_tokens": 9474,
+        "cache_read_tokens": 226185,
+        "cache_write_tokens": 0,
+        "cost_usd": 0,
+        "latency_ms": 3423157
+      },
+      "p50_ms": 1319157,
+      "p95_ms": 1319157,
+      "refusals": 0,
+      "failovers": 0
+    },
+    {
+      "ref": {
+        "provider": "fake",
+        "model": "fake-model",
+        "agent": ""
+      },
+      "findings_by_state": {
+        "refuted": 2,
+        "validated": 4
+      },
+      "usage": {
+        "input_tokens": 1680,
+        "output_tokens": 480,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "cost_usd": 0.00408,
+        "latency_ms": 0
+      },
+      "p50_ms": 6,
+      "p95_ms": 6,
+      "refusals": 0,
+      "failovers": 0
+    }
+  ],
+  "labs": [
+    "synthetic-ops",
+    "juice-shop",
+    "dvwa"
+  ],
+  "overlap": {
+    "models": [
+      "fake-model",
+      "qwen2.5-3b-instruct-q4_k_m"
+    ],
+    "keys": [
+      "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad",
+      "2306158cfc281ac8b98ae1f632270f969f604a6dc985f3dab7773177098b9c50",
+      "236b3281b7d9b4b706a117081823e177a4eac312961e201b850ca933151b48d3",
+      "260eb62a1f4561601fde8db5aee6d7778ab21f02029650fb9c4a4dfff93735e0",
+      "27ddfe7ba5218bad4128c70b8f743a544e38a2fcc53e314f98c9517834b95bdf",
+      "35376b17f2ae9932c231df1b340c875f8026175798f048e2d36a852d7d4bd8c8",
+      "38d6e94bc653550d085525dba49e47f37e08a8af46ee93c23c6fad0896f6bb6e",
+      "4c5019179ac5b06ac02ff12bf7fadb98a4dcb6e3a804c3e4ccdb08486fea7c9b",
+      "4c958096b29a689809173bda0f352781e399bc7d4d17f391572387cfee4a282e",
+      "512503701d8785cf6ac2371d5297245471ca4f73efb8dfaa365fabea64a28ba7",
+      "519b08b0a9f130aea6adc5755077fa19b680fbd70a03726db6cbffb1b2d70c66",
+      "57c3dad2effa8fa24312e5030264d76d96ca49ffbe4b94c07f3e5b48442a961b",
+      "63305ccfac8389e95f6a170b2cc518bb623a7b2190c67fe2a792192e40566b89",
+      "7c770924cf9accddc2780b2339eaac2eef33709e19a7dbbefeaf13da71afafa1",
+      "8cf487b6135a90812c7cd34291360d12394380d21e6bea8b4291fc8abb3abd2c",
+      "a851e98e80694730052fcd3d49a053417ab1317f9cf381e64767c05e4b4fb594",
+      "ace1df9ca8aa4b7cf6d23eefcc604d03a0bde4004e0c0da8e739a4ed0f36db0c",
+      "b2372faceb720001e201b644f8feace8e88dadf67fd5580234c45a675a85560e",
+      "bd81b83240ca74ec1f7fed508e763fabf66db604ac0fc6b8e9a807e0ea49d985",
+      "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d",
+      "d25d8b3c686f19bc166e5bfa8d9bd758b4d5c7bf5e0a0c715cc271738202a3a4",
+      "efad13ea43d7c7b75aaa13270f055fe432532881e92132edf0a7e24a553f3982",
+      "f591c11ec33c9ae4699732b53be1412f66f1b8a14bff0ffd1f68488c3ecc682a",
+      "f6f63ae2d615ff61a0aeaa95d7638e7fd37270bebd1ed9bfe787f50f582d2708",
+      "fac9346cb6f024d96c8fd7754a05f6ebd9d4bfc3d4fa4639195ebd887839edf5",
+      "fc99c77046f8e4550d0d4a20de7098f46adf8434b64a4f4870b6e1db168acc86"
+    ],
+    "membership": {
+      "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad": [
+        1
+      ],
+      "2306158cfc281ac8b98ae1f632270f969f604a6dc985f3dab7773177098b9c50": [
+        1
+      ],
+      "236b3281b7d9b4b706a117081823e177a4eac312961e201b850ca933151b48d3": [
+        1
+      ],
+      "260eb62a1f4561601fde8db5aee6d7778ab21f02029650fb9c4a4dfff93735e0": [
+        1
+      ],
+      "27ddfe7ba5218bad4128c70b8f743a544e38a2fcc53e314f98c9517834b95bdf": [
+        1
+      ],
+      "35376b17f2ae9932c231df1b340c875f8026175798f048e2d36a852d7d4bd8c8": [
+        0,
+        1
+      ],
+      "38d6e94bc653550d085525dba49e47f37e08a8af46ee93c23c6fad0896f6bb6e": [
+        1
+      ],
+      "4c5019179ac5b06ac02ff12bf7fadb98a4dcb6e3a804c3e4ccdb08486fea7c9b": [
+        1
+      ],
+      "4c958096b29a689809173bda0f352781e399bc7d4d17f391572387cfee4a282e": [
+        1
+      ],
+      "512503701d8785cf6ac2371d5297245471ca4f73efb8dfaa365fabea64a28ba7": [
+        1
+      ],
+      "519b08b0a9f130aea6adc5755077fa19b680fbd70a03726db6cbffb1b2d70c66": [
+        0
+      ],
+      "57c3dad2effa8fa24312e5030264d76d96ca49ffbe4b94c07f3e5b48442a961b": [
+        1
+      ],
+      "63305ccfac8389e95f6a170b2cc518bb623a7b2190c67fe2a792192e40566b89": [
+        1
+      ],
+      "7c770924cf9accddc2780b2339eaac2eef33709e19a7dbbefeaf13da71afafa1": [
+        0
+      ],
+      "8cf487b6135a90812c7cd34291360d12394380d21e6bea8b4291fc8abb3abd2c": [
+        1
+      ],
+      "a851e98e80694730052fcd3d49a053417ab1317f9cf381e64767c05e4b4fb594": [
+        1
+      ],
+      "ace1df9ca8aa4b7cf6d23eefcc604d03a0bde4004e0c0da8e739a4ed0f36db0c": [
+        1
+      ],
+      "b2372faceb720001e201b644f8feace8e88dadf67fd5580234c45a675a85560e": [
+        1
+      ],
+      "bd81b83240ca74ec1f7fed508e763fabf66db604ac0fc6b8e9a807e0ea49d985": [
+        1
+      ],
+      "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d": [
+        0,
+        1
+      ],
+      "d25d8b3c686f19bc166e5bfa8d9bd758b4d5c7bf5e0a0c715cc271738202a3a4": [
+        1
+      ],
+      "efad13ea43d7c7b75aaa13270f055fe432532881e92132edf0a7e24a553f3982": [
+        0
+      ],
+      "f591c11ec33c9ae4699732b53be1412f66f1b8a14bff0ffd1f68488c3ecc682a": [
+        1
+      ],
+      "f6f63ae2d615ff61a0aeaa95d7638e7fd37270bebd1ed9bfe787f50f582d2708": [
+        1
+      ],
+      "fac9346cb6f024d96c8fd7754a05f6ebd9d4bfc3d4fa4639195ebd887839edf5": [
+        0
+      ],
+      "fc99c77046f8e4550d0d4a20de7098f46adf8434b64a4f4870b6e1db168acc86": [
+        1
+      ]
+    },
+    "pairwise": [
+      [
+        {
+          "both": 6,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        },
+        {
+          "both": 2,
+          "only_a": 4,
+          "only_b": 20,
+          "jaccard": 0.07692307692307693
+        }
+      ],
+      [
+        {
+          "both": 2,
+          "only_a": 20,
+          "only_b": 4,
+          "jaccard": 0.07692307692307693
+        },
+        {
+          "both": 22,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        }
+      ]
+    ],
+    "unique_per_model": {
+      "fake-model": [
+        "519b08b0a9f130aea6adc5755077fa19b680fbd70a03726db6cbffb1b2d70c66",
+        "7c770924cf9accddc2780b2339eaac2eef33709e19a7dbbefeaf13da71afafa1",
+        "efad13ea43d7c7b75aaa13270f055fe432532881e92132edf0a7e24a553f3982",
+        "fac9346cb6f024d96c8fd7754a05f6ebd9d4bfc3d4fa4639195ebd887839edf5"
+      ],
+      "qwen2.5-3b-instruct-q4_k_m": [
+        "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad",
+        "2306158cfc281ac8b98ae1f632270f969f604a6dc985f3dab7773177098b9c50",
+        "236b3281b7d9b4b706a117081823e177a4eac312961e201b850ca933151b48d3",
+        "260eb62a1f4561601fde8db5aee6d7778ab21f02029650fb9c4a4dfff93735e0",
+        "27ddfe7ba5218bad4128c70b8f743a544e38a2fcc53e314f98c9517834b95bdf",
+        "38d6e94bc653550d085525dba49e47f37e08a8af46ee93c23c6fad0896f6bb6e",
+        "4c5019179ac5b06ac02ff12bf7fadb98a4dcb6e3a804c3e4ccdb08486fea7c9b",
+        "4c958096b29a689809173bda0f352781e399bc7d4d17f391572387cfee4a282e",
+        "512503701d8785cf6ac2371d5297245471ca4f73efb8dfaa365fabea64a28ba7",
+        "57c3dad2effa8fa24312e5030264d76d96ca49ffbe4b94c07f3e5b48442a961b",
+        "63305ccfac8389e95f6a170b2cc518bb623a7b2190c67fe2a792192e40566b89",
+        "8cf487b6135a90812c7cd34291360d12394380d21e6bea8b4291fc8abb3abd2c",
+        "a851e98e80694730052fcd3d49a053417ab1317f9cf381e64767c05e4b4fb594",
+        "ace1df9ca8aa4b7cf6d23eefcc604d03a0bde4004e0c0da8e739a4ed0f36db0c",
+        "b2372faceb720001e201b644f8feace8e88dadf67fd5580234c45a675a85560e",
+        "bd81b83240ca74ec1f7fed508e763fabf66db604ac0fc6b8e9a807e0ea49d985",
+        "d25d8b3c686f19bc166e5bfa8d9bd758b4d5c7bf5e0a0c715cc271738202a3a4",
+        "f591c11ec33c9ae4699732b53be1412f66f1b8a14bff0ffd1f68488c3ecc682a",
+        "f6f63ae2d615ff61a0aeaa95d7638e7fd37270bebd1ed9bfe787f50f582d2708",
+        "fc99c77046f8e4550d0d4a20de7098f46adf8434b64a4f4870b6e1db168acc86"
+      ]
+    },
+    "union": 26,
+    "intersection": 2,
+    "inputs": []
+  },
+  "precision": {
+    "fake-model@synthetic-ops": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 13,
+      "precision": 1,
+      "recall": 0.13333333333333333,
+      "f1": 0.23529411764705882
+    },
+    "qwen2.5-3b-instruct-q4_k_m@synthetic-ops": {
+      "tp": 1,
+      "fp": 5,
+      "fn": 14,
+      "precision": 0.16666666666666666,
+      "recall": 0.06666666666666667,
+      "f1": 0.09523809523809522
+    }
+  },
+  "chains": [
+    {
+      "id": "path-660e6918d572",
+      "lab": "synthetic-ops",
+      "objective": "account-takeover",
+      "path": [
+        {
+          "type": "finding",
+          "id": "f-236b3281b7d9b4b7",
+          "note": "default-creds POST /login"
+        },
+        {
+          "type": "fact",
+          "id": "admin-session",
+          "note": "default credential is an administrator"
+        },
+        {
+          "type": "objective",
+          "id": "account-takeover",
+          "note": "administrator session controls every account"
+        }
+      ],
+      "confidence": "validated",
+      "source_refs": [
+        "audit:20261008-134835-97b5fbe2:95",
+        "finding:f-236b3281b7d9b4b7"
+      ]
+    },
+    {
+      "id": "path-e75094c704e3",
+      "lab": "synthetic-ops",
+      "objective": "privilege-escalation",
+      "path": [
+        {
+          "type": "finding",
+          "id": "f-236b3281b7d9b4b7",
+          "note": "default-creds POST /login"
+        },
+        {
+          "type": "fact",
+          "id": "admin-session",
+          "note": "default credential is an administrator"
+        },
+        {
+          "type": "objective",
+          "id": "privilege-escalation",
+          "note": "administrator session obtained"
+        }
+      ],
+      "confidence": "validated",
+      "source_refs": [
+        "audit:20261008-134835-97b5fbe2:95",
+        "finding:f-236b3281b7d9b4b7"
+      ]
+    },
+    {
+      "id": "path-9fd34a96cbd7",
+      "lab": "juice-shop",
+      "objective": "account-takeover",
+      "path": [
+        {
+          "type": "finding",
+          "id": "f-38d6e94bc653550d",
+          "note": "default-creds GET /api/users"
+        },
+        {
+          "type": "fact",
+          "id": "admin-session",
+          "note": "default credential is an administrator"
+        },
+        {
+          "type": "objective",
+          "id": "account-takeover",
+          "note": "administrator session controls every account"
+        }
+      ],
+      "confidence": "validated",
+      "source_refs": [
+        "audit:20261008-134835-97b5fbe2:272",
+        "finding:f-38d6e94bc653550d"
+      ]
+    },
+    {
+      "id": "path-735c5e9ce0cc",
+      "lab": "juice-shop",
+      "objective": "data-access",
+      "path": [
+        {
+          "type": "finding",
+          "id": "f-63305ccfac8389e9",
+          "note": "auth-missing GET /"
+        },
+        {
+          "type": "objective",
+          "id": "data-access",
+          "note": "unauthenticated endpoint returns protected data"
+        }
+      ],
+      "confidence": "theorized",
+      "source_refs": [
+        "audit:20261008-134835-97b5fbe2:264",
+        "finding:f-63305ccfac8389e9"
+      ]
+    },
+    {
+      "id": "path-66ff24cce0f2",
+      "lab": "juice-shop",
+      "objective": "privilege-escalation",
+      "path": [
+        {
+          "type": "finding",
+          "id": "f-38d6e94bc653550d",
+          "note": "default-creds GET /api/users"
+        },
+        {
+          "type": "fact",
+          "id": "admin-session",
+          "note": "default credential is an administrator"
+        },
+        {
+          "type": "objective",
+          "id": "privilege-escalation",
+          "note": "administrator session obtained"
+        }
+      ],
+      "confidence": "validated",
+      "source_refs": [
+        "audit:20261008-134835-97b5fbe2:272",
+        "finding:f-38d6e94bc653550d"
+      ]
+    },
+    {
+      "id": "path-f67e4463e822",
+      "lab": "dvwa",
+      "objective": "account-takeover",
+      "path": [
+        {
+          "type": "finding",
+          "id": "f-f6f63ae2d615ff61",
+          "note": "default-creds GET /"
+        },
+        {
+          "type": "fact",
+          "id": "admin-session",
+          "note": "default credential is an administrator"
+        },
+        {
+          "type": "objective",
+          "id": "account-takeover",
+          "note": "administrator session controls every account"
+        }
+      ],
+      "confidence": "validated",
+      "source_refs": [
+        "audit:20261008-134835-97b5fbe2:481",
+        "finding:f-f6f63ae2d615ff61"
+      ]
+    },
+    {
+      "id": "path-0fc1a8fa6326",
+      "lab": "dvwa",
+      "objective": "privilege-escalation",
+      "path": [
+        {
+          "type": "finding",
+          "id": "f-f6f63ae2d615ff61",
+          "note": "default-creds GET /"
+        },
+        {
+          "type": "fact",
+          "id": "admin-session",
+          "note": "default credential is an administrator"
+        },
+        {
+          "type": "objective",
+          "id": "privilege-escalation",
+          "note": "administrator session obtained"
+        }
+      ],
+      "confidence": "validated",
+      "source_refs": [
+        "audit:20261008-134835-97b5fbe2:481",
+        "finding:f-f6f63ae2d615ff61"
+      ]
+    }
+  ],
+  "reflection": [
+    {
+      "lab": "synthetic-ops",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "scored": true,
+      "scores": [
+        2,
+        3,
+        5
+      ],
+      "revisions": 2,
+      "final_score": 5,
+      "passed": false
+    },
+    {
+      "lab": "synthetic-ops",
+      "model": "fake-model",
+      "scored": true,
+      "scores": [
+        8
+      ],
+      "revisions": 0,
+      "final_score": 8,
+      "passed": true
+    },
+    {
+      "lab": "juice-shop",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "scored": true,
+      "scores": [
+        0,
+        3
+      ],
+      "revisions": 2,
+      "final_score": 3,
+      "passed": false
+    },
+    {
+      "lab": "juice-shop",
+      "model": "fake-model",
+      "scored": true,
+      "scores": [
+        8
+      ],
+      "revisions": 0,
+      "final_score": 8,
+      "passed": true
+    },
+    {
+      "lab": "dvwa",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "scored": true,
+      "scores": [
+        4,
+        2,
+        7
+      ],
+      "revisions": 2,
+      "final_score": 7,
+      "passed": true
+    },
+    {
+      "lab": "dvwa",
+      "model": "fake-model",
+      "scored": true,
+      "scores": [
+        8
+      ],
+      "revisions": 0,
+      "final_score": 8,
+      "passed": true
+    }
+  ],
+  "audit_head_hash": "ecce2d51daf99bfe27ca431e969e7a006b5751e1963f064cfd1cbf24b11b6324",
+  "audit_record_count": 615,
+  "budget_cap_usd": 15,
+  "spent_usd": 0.00408,
+  "truncated": false,
+  "verdict": "PASS",
+  "exit_code": 0
+}

@@ -1,0 +1,15 @@
+flowchart LR
+    F_f_236b3281b7d9b4b7["f-236b3281b7d9b4b7: default-creds POST /login"]
+    F_f_38d6e94bc653550d["f-38d6e94bc653550d: default-creds GET /api/users"]
+    F_f_63305ccfac8389e9["f-63305ccfac8389e9: auth-missing GET /"]
+    F_f_f6f63ae2d615ff61["f-f6f63ae2d615ff61: default-creds GET /"]
+    O_account_takeover(((account-takeover)))
+    O_data_access(((data-access)))
+    O_privilege_escalation(((privilege-escalation)))
+    X_admin_session([admin-session])
+    F_f_236b3281b7d9b4b7 --> X_admin_session
+    F_f_38d6e94bc653550d --> X_admin_session
+    F_f_63305ccfac8389e9 --> O_data_access
+    F_f_f6f63ae2d615ff61 --> X_admin_session
+    X_admin_session --> O_account_takeover
+    X_admin_session --> O_privilege_escalation
