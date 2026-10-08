@@ -1,0 +1,99 @@
+name: evals
+
+# When a results commit lands on main, check the newest run against the
+# eval cases' regression bands (ADR 0016). A regression opens or updates
+# one issue titled "Eval regression"; a clean run closes it. Advisory cases
+# are reported in the body but never fail the verdict.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "results/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Build assay
+        run: go build -o assay ./cmd/assay
+
+      - name: Evaluate the latest run
+        id: eval
+        run: |
+          set -u
+          if [ ! -f results/LATEST ]; then
+            echo "no results/LATEST; nothing to evaluate"
+            echo "status=no-run" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          latest="$(cat results/LATEST)"
+          code=0
+          ./assay eval --run "results/$latest" --cases evals/cases --thresholds evals/thresholds.yaml \
+            --out verdict.json > verdict.md || code=$?
+          cat verdict.md
+          if [ "$code" -gt 1 ]; then
+            echo "assay eval failed with exit $code" >&2
+            exit "$code"
+          fi
+          echo "status=$code" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the regression issue
+        if: steps.eval.outputs.status == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          LATEST: ${{ steps.eval.outputs.latest }}
+        run: |
+          set -eu
+          title="Eval regression"
+          {
+            cat verdict.md
+            echo
+            echo "Run: $RUN_URL"
+            echo "Results: results/$LATEST"
+            echo "Bands: evals/cases, evals/thresholds.yaml"
+          } > body.md
+          number="$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq ".[] | select(.title == \"$title\") | .number" | head -n1)"
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file body.md
+            gh issue comment "$number" --body "Updated from $RUN_URL (results/$LATEST)."
+          else
+            gh issue create --title "$title" --body-file body.md --label evals || \
+              gh issue create --title "$title" --body-file body.md
+          fi
+
+      - name: Close the regression issue when clean
+        if: steps.eval.outputs.status == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -eu
+          title="Eval regression"
+          number="$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq ".[] | select(.title == \"$title\") | .number" | head -n1)"
+          if [ -n "$number" ]; then
+            gh issue close "$number" --comment "Every case is back inside its band in $RUN_URL."
+          fi
+
+      - name: Fail the job on regression
+        if: steps.eval.outputs.status == '1'
+        run: |
+          echo "eval regression; see the issue" >&2
+          exit 1

@@ -1,0 +1,10 @@
+name: control-plane-reconciles
+model_glob: "*"
+# Band from results/LATEST: 6 mismatches, all from the fake provider's
+# injected duplicate tool-call ids (a scripted fault, not a model defect).
+max_reconcile_mismatches: 6
+require_zero_refusals: true
+note: >
+  Every finding's claimed tool calls are joined against the control plane.
+  The only mismatches allowed are the ones the fake provider injects on
+  purpose; a real model producing one is a regression.

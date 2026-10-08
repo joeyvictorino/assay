@@ -1,0 +1,11 @@
+name: local-model-precision-target
+lab: synthetic-ops
+model_glob: "qwen*"
+advisory: true
+# Target, not yet met: results/LATEST has 3 validated of 8 (ratio 0.625).
+min_validated: 5
+max_theorized_ratio: 0.5
+note: >
+  Where the harness is heading: at least five confirmed findings on the
+  synthetic lab with half or fewer left theorized. Advisory until a run
+  meets it, at which point it becomes a band and this flag is dropped.
