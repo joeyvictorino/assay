@@ -1,0 +1,99 @@
+[
+  {
+    "id": "f-edf5f326ea0f5b36",
+    "dedup_key": "edf5f326ea0f5b362e5612a1a025bac16baa03db482e171288291f48cbaaa14d",
+    "run_id": "20261008-012601-0fadf29f",
+    "lab": "synthetic-ops",
+    "class": "auth-missing",
+    "location": {
+      "method": "GET",
+      "path_template": "/auth/login"
+    },
+    "severity": "medium",
+    "state": "theorized",
+    "summary": "Missing authentication mechanism on login endpoint",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "5",
+      "6"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-012601-0fadf29f",
+        "seq": 28
+      },
+      {
+        "run_id": "20261008-012601-0fadf29f",
+        "seq": 32
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "auth-missing",
+      "note": "ground truth does not mark this path as requiring authentication",
+      "checked_at": "2026-10-08T01:27:58.585302279Z"
+    },
+    "remediation": {
+      "config_change": "Require an authenticated session (and the appropriate role) on GET /auth/login; register the check in shared middleware so new routes inherit it; return 401 without credentials and 403 for the wrong role.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/auth/login\" \"id:9100005,phase:2,deny,status:403,log,t:none,msg:'assay auth-missing virtual patch f-edf5f326ea0f5b36',tag:'assay/auth-missing'\"\n{\"class\":\"auth-missing\",\"engine\":\"modsecurity\",\"finding\":\"f-edf5f326ea0f5b36\",\"id\":9100005,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/auth/login\\\" \\\"id:9100005,phase:2,deny,status:403,log,t:none,msg:'assay auth-missing virtual patch f-edf5f326ea0f5b36',tag:'assay/auth-missing'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T01:27:26.269939686Z",
+    "last_seen": "2026-10-08T01:27:43.622197292Z"
+  },
+  {
+    "id": "f-ca9f2b2faefaac4c",
+    "dedup_key": "ca9f2b2faefaac4ca0f11b64c8dbcb7f82048fa2142ae36be16cca5c814421b4",
+    "run_id": "20261008-012601-0fadf29f",
+    "lab": "dvwa",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/login.php"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "Login form contains a reflected XSS vulnerability via the username field",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-012601-0fadf29f",
+        "seq": 123
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-08T01:41:43.561122476Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET /login.php (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-ca9f2b2faefaac4c',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-ca9f2b2faefaac4c\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-ca9f2b2faefaac4c',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T01:41:31.740312441Z",
+    "last_seen": "2026-10-08T01:41:31.740312441Z"
+  }
+]
