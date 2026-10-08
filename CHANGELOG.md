@@ -19,6 +19,22 @@ Fixed
   run report's reflection note instead of being silent.
 - The latency band now describes a lab assessment including reflection.
 
+- Reconciliation reported a claimed call that policy had denied as a missing
+  control-plane event. Denied calls are now listed under `denied` and not
+  counted as mismatches; a claim with no record, or an allow with no execution,
+  is still a mismatch (ADR 0014).
+- A lab assessment that fails entirely is now recorded in the run report's
+  reflection note instead of showing blanks.
+
+Known limitations
+- The local 3B model cannot finish Juice Shop on the CI runner: with a 32k
+  context its calls exceed the 10-minute per-call timeout, so that lab has no
+  local-model findings or reflection record. This is a measured limit of the
+  model and runner, not something the harness hides.
+- The local model's results vary a lot between runs (validated findings on the
+  committed runs: 2, then 6, then 0), so no per-model quality claim is made
+  from them.
+
 Changed
 - Known limitation from 0.2.0 closed: the orchestrator is now called by
   `assay run`. No published run includes reflection data yet.

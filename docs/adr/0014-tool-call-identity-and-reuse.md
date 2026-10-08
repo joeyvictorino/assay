@@ -38,3 +38,14 @@ model that reuses ids inside a task is still visible and its findings are
 held at theorized, which is the conservative reading. The task id format
 (`<lab>:<model>`) is now part of the contract between the pipeline and the
 reconciler.
+
+Amendment (2026-10-08): denied calls. When policy refuses a call, the agent
+records a `policy_decision` with effect deny under the claimed id but no
+`tool_call`, because nothing ran. The reconciler first reported that as
+`missing-control-plane-event`, which blamed the model for a call the control
+plane had in fact handled. A claim is now accounted for, and listed under
+`denied` in the report, only when there is exactly one claim, no executed
+call, and a deny decision in the same task for the same tool and agent. A claim
+with no record at all, an allow decision with no execution, or a denial for a
+different tool or in another task is still a mismatch.
+

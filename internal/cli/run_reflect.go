@@ -208,6 +208,9 @@ func runProbeTask(ctx context.Context, in probeInputs) probeOutcome {
 			out.Reflection.Passed = tr.Score >= orchestrate.PassScore
 		}
 	}
+	if out.Err != nil && !out.Reflection.Scored && out.Reflection.Note == "" {
+		out.Reflection.Note = noteFor("assessment failed", out.Err.Error())
+	}
 	for _, k := range order {
 		out.Findings = append(out.Findings, acc[k])
 	}

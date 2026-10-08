@@ -173,3 +173,18 @@ func TestScoreErrorAfterARevisionIsNotCalledARevisionFailure(t *testing.T) {
 		t.Errorf("note: %q", r.Note)
 	}
 }
+
+func TestFailedAssessmentIsRecordedInTheReflectionNote(t *testing.T) {
+	f := newPipelineFixture(t, "NOT-A-SECRET-LAB-MARKER")
+	rr := f.runWithScript(t, func(string) []fake.Step {
+		// the orchestrator retries a failed assessment once, so two failures
+		return []fake.Step{fake.Fail(errors.New("context deadline exceeded")), fake.Fail(errors.New("context deadline exceeded"))}
+	})
+	r := reflectionFor(t, rr, "synthetic-ops")
+	if r.Scored || len(r.Scores) != 0 {
+		t.Fatalf("%+v", r)
+	}
+	if !strings.Contains(r.Note, "assessment failed") || !strings.Contains(r.Note, "context deadline exceeded") {
+		t.Errorf("note: %q", r.Note)
+	}
+}

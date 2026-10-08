@@ -54,6 +54,9 @@ const (
 	kindToolCall  = "tool_call"
 	metaClaimed   = "claimed_tool_calls"
 	metaSubkind   = "subkind"
+	kindPolicy    = "policy_decision"
+	metaEffect    = "effect"
+	effectDeny    = "deny"
 	// metaClaimedID is set by the agent loop on a tool_call record whose
 	// ToolCallID is a derived control id; it holds the id the model claimed.
 	metaClaimedID = "claimed_tool_call_id"
@@ -88,6 +91,17 @@ type Report struct {
 	Checked      int            `json:"checked"`
 	Mismatches   []Mismatch     `json:"mismatches"`
 	ReasonCounts map[string]int `json:"reason_counts"`
+	// Denied lists claimed calls that policy denied. They were never
+	// executed, and the control plane recorded the denial, so they are
+	// accounted for rather than mismatched.
+	Denied []Denied `json:"denied,omitempty"`
+}
+
+// Denied is a claimed tool call that the policy engine refused.
+type Denied struct {
+	TaskID     string `json:"task_id,omitempty"`
+	ToolCallID string `json:"tool_call_id"`
+	Tool       string `json:"tool"`
 }
 
 // side is one observation of a tool call on either side of the join.
@@ -148,8 +162,18 @@ func isControlRecord(rec model.AuditRecord) bool {
 func Reconcile(records []model.AuditRecord) Report {
 	transcripts := map[joinKey][]side{}
 	controls := map[joinKey][]side{}
+	denials := map[joinKey]side{}
 	for _, rec := range records {
 		switch {
+		case rec.Kind == kindPolicy:
+			// A denial is the control plane handling the call, not the
+			// model inventing one: the call never ran, and the denial is
+			// recorded under the same id.
+			if eff, _ := rec.Meta[metaEffect].(string); eff == effectDeny {
+				denials[joinKey{task: rec.TaskID, id: claimedID(rec)}] = side{
+					seq: rec.Seq, tool: rec.Tool, agent: rec.Agent, traceID: rec.TraceID,
+				}
+			}
 		case rec.Kind == kindModelCall:
 			if rec.Meta == nil {
 				continue
@@ -193,6 +217,12 @@ func Reconcile(records []model.AuditRecord) Report {
 	for _, k := range sorted {
 		ts := sortSides(transcripts[k])
 		cs := sortSides(controls[k])
+		// One claim, never executed, refused by policy under the same
+		// tool: accounted for. Anything else about it is still a mismatch.
+		if d, ok := denials[k]; ok && len(ts) == 1 && len(cs) == 0 && ts[0].tool == d.tool && ts[0].agent == d.agent {
+			r.Denied = append(r.Denied, Denied{TaskID: k.task, ToolCallID: k.id, Tool: d.tool})
+			continue
+		}
 		var reasons []string
 		if len(ts) == 0 {
 			reasons = append(reasons, ReasonMissingTranscript)

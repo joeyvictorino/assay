@@ -146,6 +146,9 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 	switch {
 	case rec != nil:
 		w("Checked %d tool call id(s); %d mismatch(es).\n\n", rec.Checked, len(rec.Mismatches))
+		if len(rec.Denied) > 0 {
+			w("%d claimed call(s) were refused by policy and never executed; the denial is recorded in the audit log, so they are accounted for and not counted as mismatches.\n\n", len(rec.Denied))
+		}
 		if len(rec.ReasonCounts) > 0 {
 			w("| Reason | Count |\n| --- | ---: |\n")
 			for _, r := range sortedKeys(rec.ReasonCounts) {

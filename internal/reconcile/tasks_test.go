@@ -103,3 +103,64 @@ func TestRecordsWithoutTaskIDsStillJoin(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 }
+
+func policyRecord(seq uint64, agent, id, tool, effect string) model.AuditRecord {
+	return model.AuditRecord{Seq: seq, Kind: "policy_decision", Agent: agent, ToolCallID: id, Tool: tool,
+		Meta: map[string]any{"effect": effect}}
+}
+
+func TestDeniedClaimIsAccountedForNotMismatched(t *testing.T) {
+	task := "lab-a:m1"
+	recs := []model.AuditRecord{
+		inTask(modelCall(1, "probe", "", claim("call_9", "delegate", "d")), task),
+		inTask(policyRecord(2, "probe", "call_9", "delegate", "deny"), task),
+	}
+	r := Reconcile(recs)
+	if len(r.Mismatches) != 0 {
+		t.Fatalf("a denied call is not a mismatch: %+v", r.Mismatches)
+	}
+	if len(r.Denied) != 1 || r.Denied[0].Tool != "delegate" || r.Denied[0].ToolCallID != "call_9" || r.Denied[0].TaskID != task {
+		t.Fatalf("denied: %+v", r.Denied)
+	}
+}
+
+func TestClaimWithNoRecordAtAllIsStillAMismatch(t *testing.T) {
+	r := Reconcile([]model.AuditRecord{
+		inTask(modelCall(1, "probe", "", claim("call_9", "delegate", "d")), "lab-a:m1"),
+	})
+	if len(r.Mismatches) != 1 || r.Mismatches[0].Reasons[0] != ReasonMissingControl || len(r.Denied) != 0 {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestAllowedButNeverExecutedIsStillAMismatch(t *testing.T) {
+	task := "lab-a:m1"
+	r := Reconcile([]model.AuditRecord{
+		inTask(modelCall(1, "probe", "", claim("call_9", "http_get", "d")), task),
+		inTask(policyRecord(2, "probe", "call_9", "http_get", "allow"), task),
+	})
+	if len(r.Mismatches) != 1 || len(r.Denied) != 0 {
+		t.Fatalf("an allow with no execution is suspicious: %+v", r)
+	}
+}
+
+func TestDenialForADifferentToolDoesNotCoverTheClaim(t *testing.T) {
+	task := "lab-a:m1"
+	r := Reconcile([]model.AuditRecord{
+		inTask(modelCall(1, "probe", "", claim("call_9", "http_get", "d")), task),
+		inTask(policyRecord(2, "probe", "call_9", "delegate", "deny"), task),
+	})
+	if len(r.Mismatches) != 1 || len(r.Denied) != 0 {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestDenialInAnotherTaskDoesNotCoverTheClaim(t *testing.T) {
+	r := Reconcile([]model.AuditRecord{
+		inTask(modelCall(1, "probe", "", claim("call_9", "delegate", "d")), "lab-a:m1"),
+		inTask(policyRecord(2, "probe", "call_9", "delegate", "deny"), "lab-b:m1"),
+	})
+	if len(r.Mismatches) != 1 || len(r.Denied) != 0 {
+		t.Fatalf("%+v", r)
+	}
+}
