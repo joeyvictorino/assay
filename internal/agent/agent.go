@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/joeyvictorino/assay/internal/finding"
@@ -22,6 +23,10 @@ import (
 
 // DefaultMaxTurns bounds the loop when Params.MaxTurns is zero.
 const DefaultMaxTurns = 12
+
+// MetaClaimedToolCallID is the audit Meta key that carries the model's
+// claimed id when the record's ToolCallID is a derived control id.
+const MetaClaimedToolCallID = "claimed_tool_call_id"
 
 // Completer is the routing plane the agent talks to. *router.Router
 // satisfies it.
@@ -53,6 +58,11 @@ type Params struct {
 	Ancestors []string
 	// Now supplies timestamps; nil means time.Now.
 	Now func() time.Time
+	// IDs is the space in which executed tool calls get unique control
+	// ids. nil means a fresh space per task. Sharing one IDSpace across
+	// every agent of a run makes control ids unique per run, which is the
+	// scope the reconciler joins over (ADR 0014).
+	IDs *IDSpace
 }
 
 // Result summarizes one agent run.
@@ -65,6 +75,10 @@ type Result struct {
 	StopReason string          `json:"stop_reason"` // end_turn | refusal | max_turns | max_tokens | error
 	ToolCalls  int             `json:"tool_calls"`
 	Denied     int             `json:"denied"`
+	// IDCollisions counts tool calls whose model-claimed id had already
+	// been used in the IDSpace and that were therefore recorded under a
+	// derived control id.
+	IDCollisions int `json:"id_collisions"`
 }
 
 var (
@@ -74,9 +88,61 @@ var (
 	ErrNoObjective = errors.New("agent: objective is required")
 )
 
+// IDSpace tracks tool call ids already used as control ids. A model may
+// reuse an id across turns (or across tasks when one space is shared); the
+// control plane never does. Safe for concurrent use.
+type IDSpace struct {
+	mu   sync.Mutex
+	seen map[string]bool
+}
+
+// NewIDSpace returns an empty space.
+func NewIDSpace() *IDSpace { return &IDSpace{seen: map[string]bool{}} }
+
+// control returns the control id for a claimed id. The first use of a
+// claimed id keeps it; any later use gets "<claimed>#<turn>", with a
+// ".<n>" suffix when that is taken too (several reuses in one turn). The
+// result is unique within the space. collided reports whether the claimed
+// id had been used before.
+func (s *IDSpace) control(claimed string, turn int) (id string, collided bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.seen == nil {
+		s.seen = map[string]bool{}
+	}
+	if !s.seen[claimed] {
+		s.seen[claimed] = true
+		return claimed, false
+	}
+	base := fmt.Sprintf("%s#%d", claimed, turn)
+	id = base
+	for n := 2; s.seen[id]; n++ {
+		id = fmt.Sprintf("%s.%d", base, n)
+	}
+	s.seen[id] = true
+	return id, true
+}
+
+// callID pairs what the model claimed with what the control plane recorded.
+// Claimed goes back to the model in the ToolResult; Control is what the
+// audit record carries. They differ only after a collision.
+type callID struct {
+	Claimed string
+	Control string
+}
+
+// stamp adds the claimed id to meta when it differs from the control id.
+// Records for calls whose id was not reused are unchanged.
+func (id callID) stamp(meta map[string]any) {
+	if id.Control != id.Claimed {
+		meta[MetaClaimedToolCallID] = id.Claimed
+	}
+}
+
 type run struct {
 	p        Params
 	now      func() time.Time
+	ids      *IDSpace
 	findings map[string]model.Finding
 	order    []string
 	pending  []string // dedup keys reported during the current tool call
@@ -97,9 +163,12 @@ func Run(ctx context.Context, p Params) (Result, error) {
 	if p.Executor == nil {
 		p.Executor = tools.NewExecutor()
 	}
-	r := &run{p: p, now: p.Now, findings: map[string]model.Finding{}}
+	r := &run{p: p, now: p.Now, ids: p.IDs, findings: map[string]model.Finding{}}
 	if r.now == nil {
 		r.now = time.Now
+	}
+	if r.ids == nil {
+		r.ids = NewIDSpace()
 	}
 	r.p.Env.Lab = p.Lab
 	r.p.Env.RunID = p.RunID
@@ -171,27 +240,38 @@ func splitChosen(chosen string) (provider, modelID string) {
 
 func (r *run) handleToolCalls(ctx context.Context, calls []model.ToolCall) []model.ToolResult {
 	results := make([]model.ToolResult, 0, len(calls))
-	seen := map[string]bool{}
+	seenThisTurn := map[string]bool{}
 	for _, call := range calls {
 		r.result.ToolCalls++
 		digest := argsDigest(call.Args)
-		switch {
-		case call.ID == "":
-			results = append(results, r.reject(ctx, call, digest, "invalid tool_call: missing id"))
-			continue
-		case seen[call.ID]:
-			results = append(results, r.reject(ctx, call, digest, "invalid tool_call: duplicate id"))
+		if call.ID == "" {
+			results = append(results, r.reject(ctx, call, callID{}, digest, "invalid tool_call: missing id"))
 			continue
 		}
-		seen[call.ID] = true
+		// A reused id is the model's to explain, not ours to guess at: the
+		// control plane records every call under a unique id and keeps the
+		// claimed one beside it (ADR 0014).
+		control, collided := r.ids.control(call.ID, r.result.Turns)
+		if collided {
+			r.result.IDCollisions++
+		}
+		id := callID{Claimed: call.ID, Control: control}
+		// Two calls with one id in the same response cannot be told apart
+		// by the model when the results come back, so the second is
+		// rejected. The rejection is still recorded, under its own id.
+		if seenThisTurn[call.ID] {
+			results = append(results, r.reject(ctx, call, id, digest, "invalid tool_call: duplicate id"))
+			continue
+		}
+		seenThisTurn[call.ID] = true
 
 		manifest, ok := r.manifest(call.Name)
 		if !ok {
-			results = append(results, r.reject(ctx, call, digest, "unknown tool: "+call.Name))
+			results = append(results, r.reject(ctx, call, id, digest, "unknown tool: "+call.Name))
 			continue
 		}
 		dec, sigOK, signer := r.evaluate(ctx, manifest)
-		r.auditPolicy(ctx, call, digest, dec, sigOK, signer)
+		r.auditPolicy(ctx, call, id, digest, dec, sigOK, signer)
 		if dec.Effect != model.EffectAllow {
 			r.result.Denied++
 			reason := dec.Reason
@@ -209,16 +289,16 @@ func (r *run) handleToolCalls(ctx context.Context, calls []model.ToolCall) []mod
 			res = model.ToolResult{ToolCallID: call.ID, Content: "tool failed: " + err.Error(), IsError: true}
 		}
 		res.ToolCallID = call.ID
-		seq := r.auditTool(ctx, call, digest, res, r.now().Sub(start).Milliseconds())
+		seq := r.auditTool(ctx, call, id, digest, res, r.now().Sub(start).Milliseconds())
 		r.attachControlPlane(seq)
 		results = append(results, res)
 	}
 	return results
 }
 
-func (r *run) reject(ctx context.Context, call model.ToolCall, digest, msg string) model.ToolResult {
+func (r *run) reject(ctx context.Context, call model.ToolCall, id callID, digest, msg string) model.ToolResult {
 	res := model.ToolResult{ToolCallID: call.ID, Content: msg, IsError: true}
-	r.auditTool(ctx, call, digest, res, 0)
+	r.auditTool(ctx, call, id, digest, res, 0)
 	return res
 }
 
@@ -315,7 +395,7 @@ func (r *run) sink(ctx context.Context, role string, body any) {
 	_ = r.p.Sink.Write(ctx, r.p.RunID, r.p.Agent, b)
 }
 
-func (r *run) auditPolicy(ctx context.Context, call model.ToolCall, digest string, dec model.Decision, sigOK bool, signer string) {
+func (r *run) auditPolicy(ctx context.Context, call model.ToolCall, id callID, digest string, dec model.Decision, sigOK bool, signer string) {
 	if r.p.Auditor == nil {
 		return
 	}
@@ -333,26 +413,29 @@ func (r *run) auditPolicy(ctx context.Context, call model.ToolCall, digest strin
 		"signer":        signer,
 		"task_kind":     r.p.TaskKind,
 	}
+	id.stamp(meta)
 	_, _ = r.p.Auditor.Record(ctx, model.AuditRecord{
 		Time: r.now().UTC(), RunID: r.p.RunID, TaskID: r.p.TaskID, Agent: r.p.Agent,
-		Kind: "policy_decision", ToolCallID: call.ID, Tool: call.Name, ArgsDigest: digest, Meta: meta,
+		Kind: "policy_decision", ToolCallID: id.Control, Tool: call.Name, ArgsDigest: digest, Meta: meta,
 	})
 }
 
-func (r *run) auditTool(ctx context.Context, call model.ToolCall, digest string, res model.ToolResult, latencyMS int64) uint64 {
+func (r *run) auditTool(ctx context.Context, call model.ToolCall, id callID, digest string, res model.ToolResult, latencyMS int64) uint64 {
 	if r.p.Auditor == nil {
 		return 0
 	}
+	meta := map[string]any{
+		"is_error":     res.IsError,
+		"result_bytes": len(res.Content),
+		"latency_ms":   latencyMS,
+		"task_kind":    r.p.TaskKind,
+	}
+	id.stamp(meta)
 	seq, _ := r.p.Auditor.Record(ctx, model.AuditRecord{
 		Time: r.now().UTC(), RunID: r.p.RunID, TaskID: r.p.TaskID, Agent: r.p.Agent,
-		Kind: "tool_call", ToolCallID: call.ID, Tool: call.Name, ArgsDigest: digest,
+		Kind: "tool_call", ToolCallID: id.Control, Tool: call.Name, ArgsDigest: digest,
 		Hashes: map[string]string{"result": sha256Hex([]byte(res.Content))},
-		Meta: map[string]any{
-			"is_error":     res.IsError,
-			"result_bytes": len(res.Content),
-			"latency_ms":   latencyMS,
-			"task_kind":    r.p.TaskKind,
-		},
+		Meta:   meta,
 	})
 	return seq
 }
@@ -373,6 +456,6 @@ func sha256Hex(b []byte) string {
 // String renders a compact result summary for logs. It never includes
 // finding summaries or transcript text.
 func (r Result) String() string {
-	return fmt.Sprintf("turns=%d tool_calls=%d denied=%d findings=%d declined=%v stop=%s cost_usd=%.6f",
-		r.Turns, r.ToolCalls, r.Denied, len(r.Findings), r.Declined, r.StopReason, r.Usage.CostUSD)
+	return fmt.Sprintf("turns=%d tool_calls=%d denied=%d id_collisions=%d findings=%d declined=%v stop=%s cost_usd=%.6f",
+		r.Turns, r.ToolCalls, r.Denied, r.IDCollisions, len(r.Findings), r.Declined, r.StopReason, r.Usage.CostUSD)
 }

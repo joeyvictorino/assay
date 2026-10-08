@@ -45,6 +45,13 @@ import (
 // results/<run-id>/ with no transcript on disk.
 func init() { Register("run", "run the validation pipeline and write results/", runRun) }
 
+// Test seams: the manifests to verify and run with, and the scripted
+// provider a "fake" model uses. Production uses the defaults.
+var (
+	manifestsFn    = tools.Manifests
+	fakeProviderFn = fakeScript
+)
+
 type runOpts struct {
 	config, mode, out, scopePath, trust, policyPath, auditKeyEnv string
 	ephemeralKey, allowMissing                                   bool
@@ -136,7 +143,7 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 	if err != nil {
 		return ExitError, err
 	}
-	manifests, err := tools.Manifests()
+	manifests, err := manifestsFn()
 	if err != nil {
 		return ExitError, err
 	}
@@ -213,7 +220,7 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 			ref.Agent = "probe"
 			overrides := map[string]model.Provider{}
 			if cfg.Providers[ref.Provider].Type == "fake" {
-				overrides[ref.Provider] = fakeScript(ref.Provider, lab.BaseURL())
+				overrides[ref.Provider] = fakeProviderFn(ref.Provider, lab.BaseURL())
 			}
 			reg, err := cfg.BuildRegistry(overrides, os.Getenv)
 			if err != nil {

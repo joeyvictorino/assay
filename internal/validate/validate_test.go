@@ -342,7 +342,7 @@ func TestAllCheckersRefuteHardenedMimic(t *testing.T) {
 
 func TestNoCheckerStaysTheorized(t *testing.T) {
 	m := newMimic(t, false)
-	out := Validate(context.Background(), []model.Finding{finding("F-CSRF", model.ClassCSRF, "POST", "/x", "")}, m.env())
+	out := Validate(context.Background(), []model.Finding{finding("F-OTHER", model.ClassOther, "POST", "/x", "")}, m.env())
 	if out[0].State != model.StateTheorized || out[0].Validation.Checker != "none" {
 		t.Fatalf("%+v", out[0].Validation)
 	}
@@ -428,8 +428,8 @@ func TestCheckersCoverListedClasses(t *testing.T) {
 			t.Errorf("no checker for %s", c)
 		}
 	}
-	if Lookup(model.ClassCSRF) != nil {
-		t.Error("unexpected csrf checker")
+	if Lookup(model.ClassOther) != nil {
+		t.Error("unexpected checker for class other")
 	}
 	cs := Checkers()
 	for i := 1; i < len(cs); i++ {

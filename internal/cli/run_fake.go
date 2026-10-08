@@ -12,7 +12,13 @@ import (
 // spending money or touching a model API. Findings it reports are
 // theorized until a checker confirms them like any other.
 func fakeScript(name, baseURL string) *fake.Provider {
-	return fake.New([]fake.Step{
+	return fake.New(fakeSteps(baseURL), fake.Options{Name: name})
+}
+
+// fakeSteps is the script itself, exported to tests so they can wrap it
+// with provider options such as a canary.
+func fakeSteps(baseURL string) []fake.Step {
+	return []fake.Step{
 		fake.ToolCalls(model.ToolCall{ID: "fk-1", Name: "inspect_headers", Args: map[string]any{"url": baseURL + "/"}}),
 		fake.ToolCalls(
 			model.ToolCall{ID: "fk-2", Name: "report_finding", Args: map[string]any{
@@ -27,5 +33,5 @@ func fakeScript(name, baseURL string) *fake.Provider {
 			}},
 		),
 		fake.Text("Assessment complete."),
-	}, fake.Options{Name: name})
+	}
 }

@@ -8,8 +8,17 @@
 // codes and the confidence rule are ported from orbit-ir's analyzer so the
 // two projects' findings read the same.
 //
+// Tool call ids are unique within one task (one model conversation), not
+// across a run: two models, or the same scripted provider in two labs, may
+// issue the same id. The join key is therefore the task id plus the tool
+// call id. An id reused inside one task is a real ambiguity and is reported
+// as a duplicate. When the agent loop derives a distinct control id for a
+// reused claim, the claimed id is carried in Meta["claimed_tool_call_id"]
+// and used here, so the control side joins on what the model said.
+//
 // Everything here is deterministic: mismatches are sorted by tool call id,
-// sequence numbers ascending, and Encode produces byte-stable JSON.
+// then task id, sequence numbers ascending, and Encode produces byte-stable
+// JSON.
 package reconcile
 
 import (
@@ -45,6 +54,9 @@ const (
 	kindToolCall  = "tool_call"
 	metaClaimed   = "claimed_tool_calls"
 	metaSubkind   = "subkind"
+	// metaClaimedID is set by the agent loop on a tool_call record whose
+	// ToolCallID is a derived control id; it holds the id the model claimed.
+	metaClaimedID = "claimed_tool_call_id"
 )
 
 // AllReasons lists every reason code in report order.
@@ -61,6 +73,7 @@ var AllReasons = []string{
 
 // Mismatch is one tool call id whose two sides disagree.
 type Mismatch struct {
+	TaskID         string   `json:"task_id,omitempty"`
 	ToolCallID     string   `json:"tool_call_id"`
 	Reasons        []string `json:"reasons"`
 	TranscriptSeqs []uint64 `json:"transcript_seqs"`
@@ -133,8 +146,8 @@ func isControlRecord(rec model.AuditRecord) bool {
 // input order does not affect the result. Claimed calls with an empty id
 // cannot be joined and are ignored.
 func Reconcile(records []model.AuditRecord) Report {
-	transcripts := map[string][]side{}
-	controls := map[string][]side{}
+	transcripts := map[joinKey][]side{}
+	controls := map[joinKey][]side{}
 	for _, rec := range records {
 		switch {
 		case rec.Kind == kindModelCall:
@@ -145,34 +158,41 @@ func Reconcile(records []model.AuditRecord) Report {
 				if c.ID == "" {
 					continue
 				}
-				transcripts[c.ID] = append(transcripts[c.ID], side{
+				k := joinKey{task: rec.TaskID, id: c.ID}
+				transcripts[k] = append(transcripts[k], side{
 					seq: rec.Seq, tool: c.Name, digest: c.ArgsDigest, agent: rec.Agent, traceID: rec.TraceID,
 				})
 			}
 		case isControlRecord(rec):
-			controls[rec.ToolCallID] = append(controls[rec.ToolCallID], side{
+			k := joinKey{task: rec.TaskID, id: claimedID(rec)}
+			controls[k] = append(controls[k], side{
 				seq: rec.Seq, tool: rec.Tool, digest: rec.ArgsDigest, agent: rec.Agent, traceID: rec.TraceID,
 			})
 		}
 	}
 
-	ids := make(map[string]bool, len(transcripts)+len(controls))
-	for id := range transcripts {
-		ids[id] = true
+	keys := make(map[joinKey]bool, len(transcripts)+len(controls))
+	for k := range transcripts {
+		keys[k] = true
 	}
-	for id := range controls {
-		ids[id] = true
+	for k := range controls {
+		keys[k] = true
 	}
-	sorted := make([]string, 0, len(ids))
-	for id := range ids {
-		sorted = append(sorted, id)
+	sorted := make([]joinKey, 0, len(keys))
+	for k := range keys {
+		sorted = append(sorted, k)
 	}
-	sort.Strings(sorted)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].id != sorted[j].id {
+			return sorted[i].id < sorted[j].id
+		}
+		return sorted[i].task < sorted[j].task
+	})
 
 	r := Report{Checked: len(sorted), Mismatches: []Mismatch{}, ReasonCounts: map[string]int{}}
-	for _, id := range sorted {
-		ts := sortSides(transcripts[id])
-		cs := sortSides(controls[id])
+	for _, k := range sorted {
+		ts := sortSides(transcripts[k])
+		cs := sortSides(controls[k])
 		var reasons []string
 		if len(ts) == 0 {
 			reasons = append(reasons, ReasonMissingTranscript)
@@ -205,7 +225,8 @@ func Reconcile(records []model.AuditRecord) Report {
 			continue
 		}
 		m := Mismatch{
-			ToolCallID:     id,
+			TaskID:         k.task,
+			ToolCallID:     k.id,
 			Reasons:        reasons,
 			TranscriptSeqs: seqs(ts),
 			ControlSeqs:    seqs(cs),
@@ -223,6 +244,20 @@ func Reconcile(records []model.AuditRecord) Report {
 		r.Mismatches = append(r.Mismatches, m)
 	}
 	return r
+}
+
+// joinKey identifies one tool call within a run: ids repeat across tasks.
+type joinKey struct{ task, id string }
+
+// claimedID is the id the model claimed for a control-plane record: the
+// derived-id marker when the agent loop set one, else the record's id.
+func claimedID(rec model.AuditRecord) string {
+	if rec.Meta != nil {
+		if v, ok := rec.Meta[metaClaimedID].(string); ok && v != "" {
+			return v
+		}
+	}
+	return rec.ToolCallID
 }
 
 func sortSides(s []side) []side {
@@ -254,9 +289,9 @@ func confidence(reasons []string) string {
 // other finding gets Checked=true, Match=true. Input order is preserved and
 // the input slice is not modified.
 func Downgrade(findings []model.Finding, r Report) []model.Finding {
-	byID := make(map[string]Mismatch, len(r.Mismatches))
+	byID := make(map[string][]Mismatch, len(r.Mismatches))
 	for _, m := range r.Mismatches {
-		byID[m.ToolCallID] = m
+		byID[m.ToolCallID] = append(byID[m.ToolCallID], m)
 	}
 	out := make([]model.Finding, len(findings))
 	for i, f := range findings {
@@ -264,14 +299,18 @@ func Downgrade(findings []model.Finding, r Report) []model.Finding {
 		seen := map[string]bool{}
 		var reasons []string
 		for _, id := range f.ToolCallIDs {
-			m, hit := byID[id]
-			if !hit {
-				continue
-			}
-			for _, reason := range m.Reasons {
-				if !seen[reason] {
-					seen[reason] = true
-					reasons = append(reasons, reason)
+			for _, m := range byID[id] {
+				// Task ids are "<lab>:<model>"; a finding is only affected
+				// by mismatches in its own lab. Records without a task id
+				// (older logs) apply everywhere.
+				if m.TaskID != "" && !strings.HasPrefix(m.TaskID, f.Lab+":") {
+					continue
+				}
+				for _, reason := range m.Reasons {
+					if !seen[reason] {
+						seen[reason] = true
+						reasons = append(reasons, reason)
+					}
 				}
 			}
 		}

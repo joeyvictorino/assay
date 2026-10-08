@@ -493,3 +493,186 @@ func TestParamValidation(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// --- tool call id reuse (ADR 0014) ---
+
+// controlIDs returns the ToolCallID of every control-plane tool_call record
+// plus the claimed id each carries (absent when the record's id is the
+// claimed id).
+func controlIDs(aud *memAuditor) (ids []string, claimed map[string]string) {
+	claimed = map[string]string{}
+	for _, rec := range aud.kinds("tool_call") {
+		ids = append(ids, rec.ToolCallID)
+		if c, ok := rec.Meta[MetaClaimedToolCallID].(string); ok {
+			claimed[rec.ToolCallID] = c
+		}
+	}
+	return ids, claimed
+}
+
+func TestReusedIDAcrossTurnsExecutesUnderControlID(t *testing.T) {
+	aud := &memAuditor{}
+	prov := fake.New([]fake.Step{
+		fake.ToolCalls(getCall("c1", "http://lab/api/users/42")),
+		fake.ToolCalls(getCall("c1", "http://lab/api/users/43")), // same id, new turn
+		fake.ToolCalls(reportCall("c3")),                         // cites c1
+		fake.Text("done"),
+	}, fake.Options{})
+	res, err := Run(context.Background(), params(t, aud, nil, prov, &denyPolicy{}, okVerifier{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ToolCalls != 3 || res.IDCollisions != 1 || res.Denied != 0 {
+		t.Fatalf("result = %s", res)
+	}
+	// Both calls executed and the model saw its own id on both results.
+	for turn := 1; turn <= 2; turn++ {
+		results := prov.Calls()[turn].Messages[2*turn].ToolResults
+		if len(results) != 1 || results[0].IsError || results[0].ToolCallID != "c1" {
+			t.Fatalf("turn %d results = %+v", turn, results)
+		}
+	}
+	ids, claimed := controlIDs(aud)
+	if len(ids) != 3 || ids[0] != "c1" || ids[1] != "c1#2" || ids[2] != "c3" {
+		t.Fatalf("control ids = %v", ids)
+	}
+	if claimed["c1#2"] != "c1" || len(claimed) != 1 {
+		t.Fatalf("claimed meta = %v", claimed)
+	}
+	// Policy records follow the same control id.
+	var policyIDs []string
+	for _, rec := range aud.kinds("policy_decision") {
+		policyIDs = append(policyIDs, rec.ToolCallID)
+	}
+	if len(policyIDs) != 3 || policyIDs[1] != "c1#2" {
+		t.Fatalf("policy ids = %v", policyIDs)
+	}
+	// The finding keeps the model's claimed evidence id; the control-plane
+	// reference points at the report_finding record.
+	if len(res.Findings) != 1 || len(res.Findings[0].ToolCallIDs) != 1 || res.Findings[0].ToolCallIDs[0] != "c1" {
+		t.Fatalf("findings = %+v", res.Findings)
+	}
+	if !strings.Contains(res.String(), "id_collisions=1") {
+		t.Fatalf("String() = %s", res)
+	}
+}
+
+func TestDuplicateToolCallIDsOptionRecordsEveryCallUniquely(t *testing.T) {
+	aud := &memAuditor{}
+	// DuplicateToolCallIDs gives every call in a response the first call's
+	// id, in both turns: the id is reused within a turn and across turns.
+	prov := fake.New([]fake.Step{
+		fake.ToolCalls(getCall("dup", "http://lab/a"), getCall("other", "http://lab/b")),
+		fake.ToolCalls(getCall("dup", "http://lab/c"), getCall("other2", "http://lab/d")),
+		fake.Text("done"),
+	}, fake.Options{DuplicateToolCallIDs: true})
+	res, err := Run(context.Background(), params(t, aud, nil, prov, &denyPolicy{}, okVerifier{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ToolCalls != 4 || res.IDCollisions != 3 {
+		t.Fatalf("result = %s", res)
+	}
+	// Within a turn the second call is rejected; across turns it executes.
+	r1 := prov.Calls()[1].Messages[2].ToolResults
+	r2 := prov.Calls()[2].Messages[4].ToolResults
+	if len(r1) != 2 || r1[0].IsError || !r1[1].IsError || !strings.Contains(r1[1].Content, "duplicate id") {
+		t.Fatalf("turn 1 results = %+v", r1)
+	}
+	if len(r2) != 2 || r2[0].IsError || !r2[1].IsError {
+		t.Fatalf("turn 2 results = %+v", r2)
+	}
+	for _, rs := range [][]model.ToolResult{r1, r2} {
+		for _, r := range rs {
+			if r.ToolCallID != "dup" {
+				t.Fatalf("model must see its own id, got %q", r.ToolCallID)
+			}
+		}
+	}
+	ids, claimed := controlIDs(aud)
+	want := []string{"dup", "dup#1", "dup#2", "dup#2.2"}
+	if strings.Join(ids, ",") != strings.Join(want, ",") {
+		t.Fatalf("control ids = %v, want %v", ids, want)
+	}
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if seen[id] {
+			t.Fatalf("control id %q recorded twice", id)
+		}
+		seen[id] = true
+	}
+	for _, id := range want[1:] {
+		if claimed[id] != "dup" {
+			t.Fatalf("%s claimed = %q", id, claimed[id])
+		}
+	}
+	if _, ok := claimed["dup"]; ok {
+		t.Fatal("first use must not carry a claimed_tool_call_id")
+	}
+}
+
+func TestSharedIDSpaceDisambiguatesAcrossTasks(t *testing.T) {
+	script := func() *fake.Provider {
+		return fake.New([]fake.Step{fake.ToolCalls(getCall("fk-1", "http://lab/")), fake.Text("done")}, fake.Options{})
+	}
+	// Separate spaces (the default): both tasks record fk-1, which is what
+	// the committed run shows for one script run against several labs.
+	aud := &memAuditor{}
+	for _, task := range []string{"lab-a:m", "lab-b:m"} {
+		p := params(t, aud, nil, script(), &denyPolicy{}, okVerifier{})
+		p.TaskID = task
+		if _, err := Run(context.Background(), p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ids, _ := controlIDs(aud)
+	if strings.Join(ids, ",") != "fk-1,fk-1" {
+		t.Fatalf("per-task spaces: %v", ids)
+	}
+	// One space shared by every agent of the run: the second task's call
+	// is recorded under a derived id and names the claimed one.
+	aud = &memAuditor{}
+	space := NewIDSpace()
+	for _, task := range []string{"lab-a:m", "lab-b:m"} {
+		p := params(t, aud, nil, script(), &denyPolicy{}, okVerifier{})
+		p.TaskID, p.IDs = task, space
+		res, err := Run(context.Background(), p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if task == "lab-b:m" && res.IDCollisions != 1 {
+			t.Fatalf("second task collisions = %d", res.IDCollisions)
+		}
+	}
+	ids, claimed := controlIDs(aud)
+	if strings.Join(ids, ",") != "fk-1,fk-1#1" || claimed["fk-1#1"] != "fk-1" {
+		t.Fatalf("shared space: %v %v", ids, claimed)
+	}
+}
+
+func TestIDSpaceControlIsUniqueAndDeterministic(t *testing.T) {
+	s := NewIDSpace()
+	cases := []struct {
+		claimed string
+		turn    int
+		want    string
+		collide bool
+	}{
+		{"a", 1, "a", false},
+		{"a", 1, "a#1", true},
+		{"a", 1, "a#1.2", true},
+		{"a#2", 1, "a#2", false}, // a model may claim the derived shape itself
+		{"a", 2, "a#2.2", true},
+		{"b", 2, "b", false},
+	}
+	for _, c := range cases {
+		got, collided := s.control(c.claimed, c.turn)
+		if got != c.want || collided != c.collide {
+			t.Fatalf("control(%q,%d) = %q,%v want %q,%v", c.claimed, c.turn, got, collided, c.want, c.collide)
+		}
+	}
+	var zero IDSpace // usable without the constructor
+	if got, _ := zero.control("z", 1); got != "z" {
+		t.Fatalf("zero value: %q", got)
+	}
+}

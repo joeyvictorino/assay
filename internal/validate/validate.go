@@ -39,6 +39,9 @@ type Env struct {
 	Markers map[string]string
 	// Now is the clock (tests); nil means time.Now.
 	Now func() time.Time
+	// Pace is the gap between paced requests in observational checks (rate
+	// limiting). Zero means 100ms; negative disables pacing (tests).
+	Pace time.Duration
 }
 
 func (e Env) now() time.Time {
@@ -79,6 +82,13 @@ func Checkers() []Checker {
 		pathTraversal{},
 		idor{},
 		defaultCreds{},
+		authBypass{},
+		jwtWeak{},
+		massAssignment{},
+		xssStored{},
+		rateLimitMissing{},
+		csrf{},
+		ssrf{},
 	}
 	byClass := map[model.Class]Checker{}
 	for _, c := range all {
