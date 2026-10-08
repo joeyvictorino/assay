@@ -1,0 +1,12 @@
+flowchart LR
+    F_f_1fcca4728961d56d["f-1fcca4728961d56d: info-disclosure GET /"]
+    F_f_b42470c62564c89a["f-b42470c62564c89a: sqli POST /login.php"]
+    O_account_takeover(((account-takeover)))
+    O_data_access(((data-access)))
+    X_config_read([config-read])
+    X_credential_exposure([credential-exposure])
+    F_f_1fcca4728961d56d --> X_config_read
+    F_f_b42470c62564c89a --> O_data_access
+    F_f_b42470c62564c89a --> X_credential_exposure
+    X_config_read --> X_credential_exposure
+    X_credential_exposure --> O_account_takeover
