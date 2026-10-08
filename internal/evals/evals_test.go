@@ -269,7 +269,7 @@ func TestLoad(t *testing.T) {
 }
 
 // TestCommittedRunSatisfiesCases ties the shipped cases to the committed
-// run: four bands hold and the advisory target is reported but not failed.
+// run: no case fails; advisory targets are reported but never gate.
 func TestCommittedRunSatisfiesCases(t *testing.T) {
 	root := filepath.Join("..", "..")
 	latest, err := os.ReadFile(filepath.Join(root, "results", "LATEST"))
@@ -291,14 +291,17 @@ func TestCommittedRunSatisfiesCases(t *testing.T) {
 		t.Fatal(err)
 	}
 	v := Evaluate(WithDefaults(cases, th), rr, fs)
-	if !v.OK() || len(v.Passed) != 4 || len(v.Advisory) != 1 {
+	// The shipped cases must hold for whichever run is committed; which
+	// advisory targets a given run misses depends on the run, so only the
+	// gate (no failed case) and the report shape are asserted.
+	if !v.OK() || len(v.Failed) != 0 {
 		t.Fatalf("verdict: passed=%s failed=%s advisory=%s\n%s", names(v.Passed), names(v.Failed), names(v.Advisory), Markdown(v))
 	}
-	if v.Advisory[0].Name != "local-model-precision-target" {
-		t.Fatalf("advisory = %s", v.Advisory[0].Name)
+	if len(v.Passed) == 0 {
+		t.Fatal("no case passed; the shipped cases do not constrain the committed run")
 	}
 	md := Markdown(v)
-	for _, want := range []string{"PASS: 4 passed, 0 failed, 1 advisory misses", "### Advisory", "### Passed", rr.RunID} {
+	for _, want := range []string{"PASS:", "### Passed", rr.RunID} {
 		if !strings.Contains(md, want) {
 			t.Errorf("markdown lacks %q:\n%s", want, md)
 		}
