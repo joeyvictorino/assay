@@ -23,6 +23,8 @@ jobs:
       - run: go build ./cmd/assay
       - run: ./assay version
       - run: sh scripts/name-audit.sh
+      - name: calibration table script
+        run: python3 -m unittest scripts.calibration_test
       - name: lab module tests
         run: cd labs/synthetic-ops && go test ./... -count=1 -race
 

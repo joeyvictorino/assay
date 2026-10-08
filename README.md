@@ -41,6 +41,10 @@ produced it; `results/README.md` describes the files and how to regenerate the
 overlap matrix. The dashboard is at
 [joeyvictorino.github.io/assay/dashboard](https://joeyvictorino.github.io/assay/dashboard/).
 
+`python3 scripts/calibration.py` prints, for every committed run with
+self-reflection records, each model's own scores beside what the checkers then
+said about its findings and its recall where a lab has complete ground truth.
+
 The latest committed run is `20261007-215749-7290ba88`
 ([CI run](https://github.com/joeyvictorino/assay/actions/runs/37692863751/attempts/1)).
 It is labelled `degraded`: the only real model was a local open-weight model
