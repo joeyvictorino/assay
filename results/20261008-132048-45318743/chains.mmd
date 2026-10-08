@@ -1,0 +1,15 @@
+flowchart LR
+    F_f_1fcca4728961d56d["f-1fcca4728961d56d: info-disclosure GET /"]
+    F_f_253c80d2cb933f6e["f-253c80d2cb933f6e: jwt-weak GET /api/users"]
+    F_f_56555bbd5a67af51["f-56555bbd5a67af51: info-disclosure GET /login"]
+    O_account_takeover(((account-takeover)))
+    O_privilege_escalation(((privilege-escalation)))
+    X_admin_session([admin-session])
+    X_config_read([config-read])
+    X_credential_exposure([credential-exposure])
+    F_f_1fcca4728961d56d --> X_config_read
+    F_f_253c80d2cb933f6e --> X_admin_session
+    F_f_56555bbd5a67af51 --> X_config_read
+    X_admin_session --> O_privilege_escalation
+    X_config_read --> X_credential_exposure
+    X_credential_exposure --> O_account_takeover

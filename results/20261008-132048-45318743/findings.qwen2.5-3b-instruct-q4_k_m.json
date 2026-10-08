@@ -1,0 +1,518 @@
+[
+  {
+    "id": "f-1fcca4728961d56d",
+    "dedup_key": "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad",
+    "run_id": "20261008-132048-45318743",
+    "lab": "synthetic-ops",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Server banner disclosure through HTTP inspection.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "http_get-2",
+      "inspect_headers-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-132048-45318743",
+        "seq": 18
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-08T13:22:47.270350019Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET / from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-1fcca4728961d56d',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-1fcca4728961d56d\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-1fcca4728961d56d',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T13:21:49.489501109Z",
+    "last_seen": "2026-10-08T13:21:49.489501109Z"
+  },
+  {
+    "id": "f-253c80d2cb933f6e",
+    "dedup_key": "253c80d2cb933f6e3e1f60d8a41f2e1e7b37f3c04972b7a51b0b068bcb36b115",
+    "run_id": "20261008-132048-45318743",
+    "lab": "synthetic-ops",
+    "class": "jwt-weak",
+    "location": {
+      "method": "GET",
+      "path_template": "/api/users",
+      "param": "token"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "Weak JWT configuration detected, exposing user claims without proper protection.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-2"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-132048-45318743",
+        "seq": 20
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "jwt-weak",
+      "note": "bearer token is not a JWT",
+      "checked_at": "2026-10-08T13:22:47.271496631Z"
+    },
+    "remediation": {
+      "config_change": "Verify JWT signatures with an asymmetric algorithm pinned server-side (reject alg=none and algorithm switching); rotate the signing key; set short expiry and validate iss and aud on GET /api/users.",
+      "virtual_patch": "SecRule REQUEST_HEADERS:Authorization \"@rx (?i)^bearer\\s+eyJhbGciOiJub25l\" \"id:9100015,phase:2,deny,status:403,log,t:none,msg:'assay jwt-weak virtual patch f-253c80d2cb933f6e',tag:'assay/jwt-weak'\"\n{\"class\":\"jwt-weak\",\"engine\":\"modsecurity\",\"finding\":\"f-253c80d2cb933f6e\",\"id\":9100015,\"rule\":\"SecRule REQUEST_HEADERS:Authorization \\\"@rx (?i)^bearer\\\\s+eyJhbGciOiJub25l\\\" \\\"id:9100015,phase:2,deny,status:403,log,t:none,msg:'assay jwt-weak virtual patch f-253c80d2cb933f6e',tag:'assay/jwt-weak'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T13:21:49.490190199Z",
+    "last_seen": "2026-10-08T13:21:49.490190199Z"
+  },
+  {
+    "id": "f-be983aea8cbfd46f",
+    "dedup_key": "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d",
+    "run_id": "20261008-132048-45318743",
+    "lab": "synthetic-ops",
+    "class": "security-headers",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "high",
+    "state": "validated",
+    "summary": "Missing security headers (X-Frame-Options, Content-Security-Policy, X-XSS-Protection) and Content-Type header disclosure.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "inspect_headers-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-132048-45318743",
+        "seq": 24
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "validated",
+      "checker": "security-headers",
+      "evidence": [
+        {
+          "kind": "header-missing",
+          "tool_call_id": "http-ebcd57764c0d4f80",
+          "audit_seq": 47,
+          "request_digest": "f9fe0f30df061ab9e0c070c7d789a350ce71cca0c18d750ed37b3293732523c8",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "Content-Security-Policy,X-Content-Type-Options,X-Frame-Options"
+        },
+        {
+          "kind": "header-missing",
+          "tool_call_id": "http-b2d2f43d0ddf5f0b",
+          "audit_seq": 49,
+          "request_digest": "f9fe0f30df061ab9e0c070c7d789a350ce71cca0c18d750ed37b3293732523c8",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "Content-Security-Policy,X-Content-Type-Options,X-Frame-Options"
+        }
+      ],
+      "note": "missing: Content-Security-Policy,X-Content-Type-Options,X-Frame-Options",
+      "checked_at": "2026-10-08T13:22:47.268883904Z"
+    },
+    "remediation": {
+      "code_diff": "--- a/handlers/router.go\n+++ b/handlers/router.go\n@@ -58,10 +58,13 @@\n \treturn s.middleware(mux)\n }\n \n-// middleware adds permissive CORS and recovers panics with a verbose page.\n-// VULN: security-headers no Content-Security-Policy, X-Content-Type-Options, X-Frame-Options or Referrer-Policy are ever set\n+// middleware sets baseline security headers, adds CORS and recovers panics.\n func (s *Server) middleware(next http.Handler) http.Handler {\n \treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n+\t\tw.Header().Set(\"Content-Security-Policy\", \"default-src 'self'; frame-ancestors 'none'\")\n+\t\tw.Header().Set(\"X-Content-Type-Options\", \"nosniff\")\n+\t\tw.Header().Set(\"X-Frame-Options\", \"DENY\")\n+\t\tw.Header().Set(\"Referrer-Policy\", \"no-referrer\")\n \t\tw.Header().Set(\"Access-Control-Allow-Origin\", \"*\") // VULN: cors-misconfig wildcard origin combined with credentials\n \t\tw.Header().Set(\"Access-Control-Allow-Credentials\", \"true\")\n \t\tw.Header().Set(\"Access-Control-Allow-Headers\", \"Authorization, Content-Type\")\n",
+      "config_change": "Set Content-Security-Policy, X-Content-Type-Options: nosniff, X-Frame-Options: DENY (or frame-ancestors), Referrer-Policy: no-referrer and, over TLS, Strict-Transport-Security on every response in shared middleware or at the reverse proxy.",
+      "virtual_patch": "SecRule \u0026RESPONSE_HEADERS:Content-Security-Policy \"@eq 0\" \"id:9100012,phase:3,pass,log,t:none,msg:'assay security-headers virtual patch f-be983aea8cbfd46f',tag:'assay/security-headers'\"\n{\"class\":\"security-headers\",\"engine\":\"modsecurity\",\"finding\":\"f-be983aea8cbfd46f\",\"id\":9100012,\"rule\":\"SecRule \\u0026RESPONSE_HEADERS:Content-Security-Policy \\\"@eq 0\\\" \\\"id:9100012,phase:3,pass,log,t:none,msg:'assay security-headers virtual patch f-be983aea8cbfd46f',tag:'assay/security-headers'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T13:22:17.909303155Z",
+    "last_seen": "2026-10-08T13:22:17.909303155Z"
+  },
+  {
+    "id": "f-4ddc0c9eda5009f7",
+    "dedup_key": "4ddc0c9eda5009f75ae434568733eaf78d9271118856a92a5db5f5454663a0dd",
+    "run_id": "20261008-132048-45318743",
+    "lab": "synthetic-ops",
+    "class": "open-redirect",
+    "location": {
+      "method": "GET",
+      "path_template": "/healthcheck",
+      "param": "redirect"
+    },
+    "severity": "medium",
+    "state": "refuted",
+    "summary": "Potential open redirect vulnerability found in /healthcheck endpoint.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-132048-45318743",
+        "seq": 28
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "refuted",
+      "checker": "open-redirect",
+      "note": "no redirect to external host",
+      "checked_at": "2026-10-08T13:22:47.272937389Z"
+    },
+    "remediation": {
+      "config_change": "On GET /healthcheck, accept only relative paths or destinations from an explicit allowlist for redirect; resolve the target and compare host and scheme before redirecting; otherwise redirect to the site root.",
+      "virtual_patch": "SecRule ARGS:redirect \"@rx ^(?i)(https?:)?//\" \"id:9100008,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay open-redirect virtual patch f-4ddc0c9eda5009f7',tag:'assay/open-redirect'\"\n{\"class\":\"open-redirect\",\"engine\":\"modsecurity\",\"finding\":\"f-4ddc0c9eda5009f7\",\"id\":9100008,\"rule\":\"SecRule ARGS:redirect \\\"@rx ^(?i)(https?:)?//\\\" \\\"id:9100008,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay open-redirect virtual patch f-4ddc0c9eda5009f7',tag:'assay/open-redirect'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T13:22:28.232650436Z",
+    "last_seen": "2026-10-08T13:22:28.232650436Z"
+  },
+  {
+    "id": "f-6016341fd5b70be1",
+    "dedup_key": "6016341fd5b70be101fa12f134054cafbb183afcc2dbfe5d7f5914bd8a6069d4",
+    "run_id": "20261008-132048-45318743",
+    "lab": "synthetic-ops",
+    "class": "cors-misconfig",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "high",
+    "state": "validated",
+    "summary": "Cross-Origin Resource Sharing (CORS) misconfiguration detected for the / endpoint, allowing unauthorized access.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-132048-45318743",
+        "seq": 32
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "validated",
+      "checker": "cors-misconfig",
+      "evidence": [
+        {
+          "kind": "http-exchange",
+          "tool_call_id": "http-76f8df608196a5d3",
+          "audit_seq": 61,
+          "request_digest": "5daeb7300a27147d564a50ab789a89014742df689424cdc5ee089c84bccad27d",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "https://assay-aaca77e90ce9.invalid"
+        },
+        {
+          "kind": "http-exchange",
+          "tool_call_id": "http-1ce9b8ebdca21dc4",
+          "audit_seq": 63,
+          "request_digest": "5daeb7300a27147d564a50ab789a89014742df689424cdc5ee089c84bccad27d",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "https://assay-aaca77e90ce9.invalid"
+        }
+      ],
+      "note": "wildcard origin with credentials",
+      "checked_at": "2026-10-08T13:22:47.273968613Z"
+    },
+    "remediation": {
+      "code_diff": "--- a/handlers/router.go\n+++ b/handlers/router.go\n@@ -58,14 +58,19 @@\n \treturn s.middleware(mux)\n }\n \n-// middleware adds permissive CORS and recovers panics with a verbose page.\n+// allowedOrigins is the explicit CORS allowlist; empty means same-origin only.\n+var allowedOrigins = map[string]bool{}\n+\n+// middleware adds allowlisted CORS and recovers panics with a verbose page.\n // VULN: security-headers no Content-Security-Policy, X-Content-Type-Options, X-Frame-Options or Referrer-Policy are ever set\n func (s *Server) middleware(next http.Handler) http.Handler {\n \treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n-\t\tw.Header().Set(\"Access-Control-Allow-Origin\", \"*\") // VULN: cors-misconfig wildcard origin combined with credentials\n-\t\tw.Header().Set(\"Access-Control-Allow-Credentials\", \"true\")\n-\t\tw.Header().Set(\"Access-Control-Allow-Headers\", \"Authorization, Content-Type\")\n-\t\tw.Header().Set(\"Access-Control-Allow-Methods\", \"GET, POST, OPTIONS\")\n+\t\tif origin := r.Header.Get(\"Origin\"); origin != \"\" \u0026\u0026 allowedOrigins[origin] {\n+\t\t\tw.Header().Set(\"Access-Control-Allow-Origin\", origin)\n+\t\t\tw.Header().Set(\"Vary\", \"Origin\")\n+\t\t\tw.Header().Set(\"Access-Control-Allow-Headers\", \"Authorization, Content-Type\")\n+\t\t\tw.Header().Set(\"Access-Control-Allow-Methods\", \"GET, POST, OPTIONS\")\n+\t\t}\n \t\tw.Header().Set(\"Server\", \"synthetic-ops/0.1 (go net/http)\")\n \t\tif r.Method == http.MethodOptions {\n \t\t\tw.WriteHeader(http.StatusNoContent)\n",
+      "config_change": "Replace Access-Control-Allow-Origin: * with an explicit allowlist of origins compared exactly; never combine a wildcard or reflected origin with Access-Control-Allow-Credentials: true; omit CORS headers for same-origin APIs.",
+      "virtual_patch": "SecRule RESPONSE_HEADERS:Access-Control-Allow-Origin \"@streq *\" \"id:9100013,phase:3,pass,log,t:none,msg:'assay cors-misconfig virtual patch f-6016341fd5b70be1',tag:'assay/cors-misconfig'\"\n{\"class\":\"cors-misconfig\",\"engine\":\"modsecurity\",\"finding\":\"f-6016341fd5b70be1\",\"id\":9100013,\"rule\":\"SecRule RESPONSE_HEADERS:Access-Control-Allow-Origin \\\"@streq *\\\" \\\"id:9100013,phase:3,pass,log,t:none,msg:'assay cors-misconfig virtual patch f-6016341fd5b70be1',tag:'assay/cors-misconfig'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T13:22:39.525861086Z",
+    "last_seen": "2026-10-08T13:22:39.525861086Z"
+  },
+  {
+    "id": "f-f591c11ec33c9ae4",
+    "dedup_key": "f591c11ec33c9ae4699732b53be1412f66f1b8a14bff0ffd1f68488c3ecc682a",
+    "run_id": "20261008-132048-45318743",
+    "lab": "juice-shop",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Health check endpoint exposes sensitive information about the application server.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "inspect_headers-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-132048-45318743",
+        "seq": 93
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-08T13:23:29.838497277Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET / from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-f591c11ec33c9ae4',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-f591c11ec33c9ae4\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-f591c11ec33c9ae4',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T13:23:29.749979333Z",
+    "last_seen": "2026-10-08T13:23:29.749979333Z"
+  },
+  {
+    "id": "f-c91396b0ebd8185d",
+    "dedup_key": "c91396b0ebd8185d40d9295fd7e12d79d52f8c753aa4803c97ddeec33401d5ba",
+    "run_id": "20261008-132048-45318743",
+    "lab": "juice-shop",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/users"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Users endpoint without authentication checks reveals user information without authorization.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "inspect_headers-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-132048-45318743",
+        "seq": 95
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-08T13:23:29.838503709Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /users from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/users\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-c91396b0ebd8185d',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-c91396b0ebd8185d\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/users\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-c91396b0ebd8185d',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T13:23:29.750422278Z",
+    "last_seen": "2026-10-08T13:23:29.750422278Z"
+  },
+  {
+    "id": "f-56555bbd5a67af51",
+    "dedup_key": "56555bbd5a67af51a98b3c0d53a55738f2fb86d4138caa045fb95520ec5f86ec",
+    "run_id": "20261008-132048-45318743",
+    "lab": "juice-shop",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/login"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Login endpoint without authentication checks reveals login information without authorization.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "inspect_headers-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-132048-45318743",
+        "seq": 97
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-08T13:23:29.838508027Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /login from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/login\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-56555bbd5a67af51',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-56555bbd5a67af51\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/login\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-56555bbd5a67af51',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T13:23:29.750882034Z",
+    "last_seen": "2026-10-08T13:23:29.750882034Z"
+  },
+  {
+    "id": "f-ca398941105eae5a",
+    "dedup_key": "ca398941105eae5a85187743f6afbd4c0dd87633121e8fc6617c9d245e1bca0a",
+    "run_id": "20261008-132048-45318743",
+    "lab": "juice-shop",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/signup"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Signup endpoint without authentication checks reveals registration information without authorization.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "inspect_headers-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-132048-45318743",
+        "seq": 99
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-08T13:23:29.838516102Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /signup from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/signup\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-ca398941105eae5a',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-ca398941105eae5a\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/signup\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-ca398941105eae5a',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T13:23:29.751476805Z",
+    "last_seen": "2026-10-08T13:23:29.751476805Z"
+  },
+  {
+    "id": "f-fd046096c6ea825b",
+    "dedup_key": "fd046096c6ea825b172acd8a1dedca012d07bb6ef4222aca4325be2fa0d80c85",
+    "run_id": "20261008-132048-45318743",
+    "lab": "dvwa",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/login"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "A reflected XSS vulnerability is present in the login page due to the lack of validation or sanitization on the 'username' and 'password' fields.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "http_get-2",
+      "inspect_headers-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-132048-45318743",
+        "seq": 150
+      },
+      {
+        "run_id": "20261008-132048-45318743",
+        "seq": 173
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-08T13:28:06.874616843Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET /login (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-fd046096c6ea825b',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-fd046096c6ea825b\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-fd046096c6ea825b',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T13:24:58.296556165Z",
+    "last_seen": "2026-10-08T13:27:37.927239565Z"
+  }
+]

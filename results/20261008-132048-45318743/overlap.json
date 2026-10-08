@@ -1,0 +1,144 @@
+{
+  "overlap": {
+    "models": [
+      "fake-model",
+      "qwen2.5-3b-instruct-q4_k_m"
+    ],
+    "keys": [
+      "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad",
+      "253c80d2cb933f6e3e1f60d8a41f2e1e7b37f3c04972b7a51b0b068bcb36b115",
+      "35376b17f2ae9932c231df1b340c875f8026175798f048e2d36a852d7d4bd8c8",
+      "4ddc0c9eda5009f75ae434568733eaf78d9271118856a92a5db5f5454663a0dd",
+      "519b08b0a9f130aea6adc5755077fa19b680fbd70a03726db6cbffb1b2d70c66",
+      "56555bbd5a67af51a98b3c0d53a55738f2fb86d4138caa045fb95520ec5f86ec",
+      "6016341fd5b70be101fa12f134054cafbb183afcc2dbfe5d7f5914bd8a6069d4",
+      "7c770924cf9accddc2780b2339eaac2eef33709e19a7dbbefeaf13da71afafa1",
+      "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d",
+      "c91396b0ebd8185d40d9295fd7e12d79d52f8c753aa4803c97ddeec33401d5ba",
+      "ca398941105eae5a85187743f6afbd4c0dd87633121e8fc6617c9d245e1bca0a",
+      "efad13ea43d7c7b75aaa13270f055fe432532881e92132edf0a7e24a553f3982",
+      "f591c11ec33c9ae4699732b53be1412f66f1b8a14bff0ffd1f68488c3ecc682a",
+      "fac9346cb6f024d96c8fd7754a05f6ebd9d4bfc3d4fa4639195ebd887839edf5",
+      "fd046096c6ea825b172acd8a1dedca012d07bb6ef4222aca4325be2fa0d80c85"
+    ],
+    "membership": {
+      "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad": [
+        1
+      ],
+      "253c80d2cb933f6e3e1f60d8a41f2e1e7b37f3c04972b7a51b0b068bcb36b115": [
+        1
+      ],
+      "35376b17f2ae9932c231df1b340c875f8026175798f048e2d36a852d7d4bd8c8": [
+        0
+      ],
+      "4ddc0c9eda5009f75ae434568733eaf78d9271118856a92a5db5f5454663a0dd": [
+        1
+      ],
+      "519b08b0a9f130aea6adc5755077fa19b680fbd70a03726db6cbffb1b2d70c66": [
+        0
+      ],
+      "56555bbd5a67af51a98b3c0d53a55738f2fb86d4138caa045fb95520ec5f86ec": [
+        1
+      ],
+      "6016341fd5b70be101fa12f134054cafbb183afcc2dbfe5d7f5914bd8a6069d4": [
+        1
+      ],
+      "7c770924cf9accddc2780b2339eaac2eef33709e19a7dbbefeaf13da71afafa1": [
+        0
+      ],
+      "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d": [
+        0,
+        1
+      ],
+      "c91396b0ebd8185d40d9295fd7e12d79d52f8c753aa4803c97ddeec33401d5ba": [
+        1
+      ],
+      "ca398941105eae5a85187743f6afbd4c0dd87633121e8fc6617c9d245e1bca0a": [
+        1
+      ],
+      "efad13ea43d7c7b75aaa13270f055fe432532881e92132edf0a7e24a553f3982": [
+        0
+      ],
+      "f591c11ec33c9ae4699732b53be1412f66f1b8a14bff0ffd1f68488c3ecc682a": [
+        1
+      ],
+      "fac9346cb6f024d96c8fd7754a05f6ebd9d4bfc3d4fa4639195ebd887839edf5": [
+        0
+      ],
+      "fd046096c6ea825b172acd8a1dedca012d07bb6ef4222aca4325be2fa0d80c85": [
+        1
+      ]
+    },
+    "pairwise": [
+      [
+        {
+          "both": 6,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        },
+        {
+          "both": 1,
+          "only_a": 5,
+          "only_b": 9,
+          "jaccard": 0.06666666666666667
+        }
+      ],
+      [
+        {
+          "both": 1,
+          "only_a": 9,
+          "only_b": 5,
+          "jaccard": 0.06666666666666667
+        },
+        {
+          "both": 10,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        }
+      ]
+    ],
+    "unique_per_model": {
+      "fake-model": [
+        "35376b17f2ae9932c231df1b340c875f8026175798f048e2d36a852d7d4bd8c8",
+        "519b08b0a9f130aea6adc5755077fa19b680fbd70a03726db6cbffb1b2d70c66",
+        "7c770924cf9accddc2780b2339eaac2eef33709e19a7dbbefeaf13da71afafa1",
+        "efad13ea43d7c7b75aaa13270f055fe432532881e92132edf0a7e24a553f3982",
+        "fac9346cb6f024d96c8fd7754a05f6ebd9d4bfc3d4fa4639195ebd887839edf5"
+      ],
+      "qwen2.5-3b-instruct-q4_k_m": [
+        "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad",
+        "253c80d2cb933f6e3e1f60d8a41f2e1e7b37f3c04972b7a51b0b068bcb36b115",
+        "4ddc0c9eda5009f75ae434568733eaf78d9271118856a92a5db5f5454663a0dd",
+        "56555bbd5a67af51a98b3c0d53a55738f2fb86d4138caa045fb95520ec5f86ec",
+        "6016341fd5b70be101fa12f134054cafbb183afcc2dbfe5d7f5914bd8a6069d4",
+        "c91396b0ebd8185d40d9295fd7e12d79d52f8c753aa4803c97ddeec33401d5ba",
+        "ca398941105eae5a85187743f6afbd4c0dd87633121e8fc6617c9d245e1bca0a",
+        "f591c11ec33c9ae4699732b53be1412f66f1b8a14bff0ffd1f68488c3ecc682a",
+        "fd046096c6ea825b172acd8a1dedca012d07bb6ef4222aca4325be2fa0d80c85"
+      ]
+    },
+    "union": 15,
+    "intersection": 1,
+    "inputs": []
+  },
+  "precision": {
+    "fake-model@synthetic-ops": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 13,
+      "precision": 1,
+      "recall": 0.13333333333333333,
+      "f1": 0.23529411764705882
+    },
+    "qwen2.5-3b-instruct-q4_k_m@synthetic-ops": {
+      "tp": 2,
+      "fp": 3,
+      "fn": 13,
+      "precision": 0.4,
+      "recall": 0.13333333333333333,
+      "f1": 0.2
+    }
+  }
+}
