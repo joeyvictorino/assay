@@ -1,0 +1,8 @@
+name: local-model-latency
+model_glob: "qwen*"
+# Band from results/LATEST: p95 81549 ms on the CI runner, cost 0 (local).
+max_p95_ms: 120000
+max_cost_usd: 0
+note: >
+  The llama.cpp model runs on the CI runner's CPU. A p95 above two minutes
+  means a bigger quant, a longer prompt or a slower runner.

@@ -1,0 +1,10 @@
+# Default regression bands. A case inherits every band it leaves unset.
+#
+# Bands are set from the committed run under results/LATEST with slack,
+# not from an absolute quality bar (ADR 0016). Tighten a default here when
+# a run beats it comfortably; loosen it only with a note on the commit.
+defaults:
+  # Any model may spend at most the run budget cap (runs/ci.yaml).
+  max_cost_usd: 15.0
+  # No model may take more than five minutes at p95 for one call.
+  max_p95_ms: 300000

@@ -1,0 +1,38 @@
+# Example orchestration plan. Field names follow model.Task.
+#
+#   assay plan validate --plan evals/plans/example.yaml
+#   assay plan waves    --plan evals/plans/example.yaml
+#
+# Waves are derived, never written by hand: a task's wave is the length of
+# its longest dependency chain. Tasks in one wave share no dependency and
+# are listed in id order.
+tasks:
+  - id: recon
+    kind: recon
+    agent: recon
+    lab: synthetic-ops
+  - id: probe-auth
+    kind: probe
+    agent: probe
+    lab: synthetic-ops
+    depends_on: [recon]
+  - id: probe-headers
+    kind: probe
+    agent: probe
+    lab: synthetic-ops
+    depends_on: [recon]
+  - id: validate
+    kind: validate
+    agent: validator
+    lab: synthetic-ops
+    depends_on: [probe-auth, probe-headers]
+  - id: remediate
+    kind: remediate
+    agent: remediator
+    lab: synthetic-ops
+    depends_on: [validate]
+  - id: score
+    kind: score
+    agent: judge
+    lab: synthetic-ops
+    depends_on: [validate]
