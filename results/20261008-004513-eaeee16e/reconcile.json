@@ -1,0 +1,69 @@
+{
+  "checked": 28,
+  "mismatches": [
+    {
+      "tool_call_id": "fk-1",
+      "reasons": [
+        "duplicate-transcript-tool-call-id",
+        "duplicate-control-tool-call-id"
+      ],
+      "transcript_seqs": [
+        49,
+        100,
+        186
+      ],
+      "control_seqs": [
+        53,
+        104,
+        191
+      ],
+      "claimed": "inspect_headers",
+      "actual": "inspect_headers",
+      "confidence": "medium"
+    },
+    {
+      "tool_call_id": "fk-2",
+      "reasons": [
+        "duplicate-transcript-tool-call-id",
+        "duplicate-control-tool-call-id"
+      ],
+      "transcript_seqs": [
+        54,
+        105,
+        192
+      ],
+      "control_seqs": [
+        56,
+        107,
+        194
+      ],
+      "claimed": "report_finding",
+      "actual": "report_finding",
+      "confidence": "medium"
+    },
+    {
+      "tool_call_id": "fk-3",
+      "reasons": [
+        "duplicate-transcript-tool-call-id",
+        "duplicate-control-tool-call-id"
+      ],
+      "transcript_seqs": [
+        54,
+        105,
+        192
+      ],
+      "control_seqs": [
+        58,
+        109,
+        196
+      ],
+      "claimed": "report_finding",
+      "actual": "report_finding",
+      "confidence": "medium"
+    }
+  ],
+  "reason_counts": {
+    "duplicate-control-tool-call-id": 3,
+    "duplicate-transcript-tool-call-id": 3
+  }
+}

@@ -1,0 +1,111 @@
+[
+  {
+    "id": "f-047df6ed0eb09e90",
+    "dedup_key": "047df6ed0eb09e904c633ecc173ac2c7b66cd45da9fd296409fbc8fcde851e65",
+    "run_id": "20261008-004513-eaeee16e",
+    "lab": "synthetic-ops",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/about"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "The '/about' endpoint is vulnerable to reflected XSS.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "http_get-2",
+      "http_get-3",
+      "http_get-4"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-004513-eaeee16e",
+        "seq": 24
+      },
+      {
+        "run_id": "20261008-004513-eaeee16e",
+        "seq": 28
+      },
+      {
+        "run_id": "20261008-004513-eaeee16e",
+        "seq": 32
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-08T00:48:17.325421678Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET /about (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-047df6ed0eb09e90',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-047df6ed0eb09e90\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-047df6ed0eb09e90',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T00:46:05.003727827Z",
+    "last_seen": "2026-10-08T00:46:38.876191755Z"
+  },
+  {
+    "id": "f-22a888d2ae2801dd",
+    "dedup_key": "22a888d2ae2801ddf0c658fc736d582a07a672bd0506c0a0d6a02847155a2c12",
+    "run_id": "20261008-004513-eaeee16e",
+    "lab": "synthetic-ops",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/healthz",
+      "param": "param"
+    },
+    "severity": "high",
+    "state": "refuted",
+    "summary": "The '/healthz' endpoint is vulnerable to reflected XSS with parameter manipulation.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-5",
+      "http_get-6"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-004513-eaeee16e",
+        "seq": 42
+      },
+      {
+        "run_id": "20261008-004513-eaeee16e",
+        "seq": 46
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "refuted",
+      "checker": "xss-reflected",
+      "note": "marker absent, encoded, or not in an HTML response",
+      "checked_at": "2026-10-08T00:48:17.326034858Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape param before writing it into the page for GET /healthz (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:param \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-22a888d2ae2801dd',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-22a888d2ae2801dd\",\"id\":9100002,\"rule\":\"SecRule ARGS:param \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-22a888d2ae2801dd',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T00:47:15.566083247Z",
+    "last_seen": "2026-10-08T00:47:48.211301638Z"
+  }
+]
