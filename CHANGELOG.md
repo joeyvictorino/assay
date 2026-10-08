@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-10-08)
 
 Added
 - Self-reflection in the pipeline (ADR 0017): `assay run` has each model score
@@ -37,7 +37,10 @@ Known limitations
 
 Changed
 - Known limitation from 0.2.0 closed: the orchestrator is now called by
-  `assay run`. No published run includes reflection data yet.
+  `assay run`. Three committed runs (a local 3B model plus a scripted
+  provider) include reflection data. They show the mechanism works end to end;
+  they do not show that revision helps or that a model's self-score tracks its
+  results.
 
 ## 0.2.0 (2026-10-08)
 
