@@ -13,7 +13,7 @@ Release binaries for macOS and Linux (amd64, arm64) with `checksums.txt` are on 
 [releases page](https://github.com/joeyvictorino/assay/releases). Or build from source:
 
 ```
-go install github.com/joeyvictorino/assay/cmd/assay@v0.1.0
+go install github.com/joeyvictorino/assay/cmd/assay@v0.2.0
 ```
 
 ## Quick start
