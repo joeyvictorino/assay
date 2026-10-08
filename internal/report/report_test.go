@@ -197,3 +197,32 @@ func TestRowsAndDashboardData(t *testing.T) {
 }
 
 func rows2run() []model.RunReport { return []model.RunReport{sampleRun()} }
+
+func TestMarkdownSelfReflectionTable(t *testing.T) {
+	rr := sampleRun()
+	rr.Reflection = []model.ReflectionResult{
+		{Lab: "lab-a", Model: "m1", Scored: true, Scores: []int{4, 9}, Revisions: 1, Final: 9, Passed: true},
+		{Lab: "lab-b", Model: "m1", Scored: false, Note: "the model did not report a score"},
+	}
+	md := Markdown(rr, nil, nil)
+	for _, want := range []string{
+		"### Self-reflection",
+		"| lab-a | m1 | 4, 9 | 1 | 9 | true |",
+		"| lab-b | m1 | - | 0 | - | false | the model did not report a score |",
+		"The score gates revision only",
+	} {
+		if !strings.Contains(md, want) {
+			t.Errorf("report lacks %q:\n%s", want, md)
+		}
+	}
+	// the table sits inside the Evaluation section, before Reconciliation
+	if strings.Index(md, "### Self-reflection") < strings.Index(md, "## Evaluation") ||
+		strings.Index(md, "### Self-reflection") > strings.Index(md, "## Reconciliation") {
+		t.Error("self-reflection must sit between Evaluation and Reconciliation")
+	}
+	// absent when a run has no reflection records
+	rr.Reflection = nil
+	if strings.Contains(Markdown(rr, nil, nil), "### Self-reflection") {
+		t.Error("table printed for a run with no reflection")
+	}
+}

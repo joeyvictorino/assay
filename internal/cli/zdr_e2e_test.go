@@ -33,7 +33,8 @@ func TestCanaryAndPromptTextNeverReachDisk(t *testing.T) {
 		t.Fatalf("scanner positive control failed: hits=%d err=%v", len(ctl), err)
 	}
 
-	needles := []string{canary, "You are assessing an intentionally vulnerable", "Enumerate its visible endpoints"}
+	needles := []string{canary, "You are assessing an intentionally vulnerable", "Enumerate its visible endpoints",
+		"You are reviewing a security assessment", "Covered the visible surface of the root page"}
 	hits, err := zdr.ScanTree(f.root, needles)
 	if err != nil {
 		t.Fatal(err)

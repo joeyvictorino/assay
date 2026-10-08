@@ -118,6 +118,28 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 		}
 		w("\nGround truth is consulted after detection only; it never changes a finding.\n\n")
 	}
+	if len(rr.Reflection) > 0 {
+		w("### Self-reflection\n\n")
+		w("Each model scored its own report from 0 to 10; a score below 7 sent it back with its own critique, at most twice. The score gates revision only: a finding is validated only by a deterministic checker. Critique text is not stored.\n\n")
+		w("| Lab | Model | Scores | Revisions | Final | Passed | Note |\n")
+		w("| --- | --- | --- | ---: | ---: | --- | --- |\n")
+		for _, r := range rr.Reflection {
+			scores := "-"
+			if len(r.Scores) > 0 {
+				parts := make([]string, len(r.Scores))
+				for i, sc := range r.Scores {
+					parts[i] = fmt.Sprintf("%d", sc)
+				}
+				scores = strings.Join(parts, ", ")
+			}
+			final := "-"
+			if r.Scored {
+				final = fmt.Sprintf("%d", r.Final)
+			}
+			w("| %s | %s | %s | %d | %s | %t | %s |\n", r.Lab, r.Model, scores, r.Revisions, final, r.Passed, r.Note)
+		}
+		w("\n")
+	}
 
 	// 6. Reconciliation.
 	w("## Reconciliation\n\n")

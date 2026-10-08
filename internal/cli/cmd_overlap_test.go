@@ -25,7 +25,7 @@ func writeJSONOverlap(t *testing.T, dir, name string, v any) string {
 	return p
 }
 
-func finding(modelName, class, path, param string) model.Finding {
+func mkTestFinding(modelName, class, path, param string) model.Finding {
 	return model.Finding{
 		Lab: "lab-a", Class: model.Class(class),
 		Location: model.Location{Method: "GET", PathTemplate: path, Param: param},
@@ -35,8 +35,8 @@ func finding(modelName, class, path, param string) model.Finding {
 
 func TestOverlapCommand(t *testing.T) {
 	dir := t.TempDir()
-	a := writeJSONOverlap(t, dir, "a.json", []model.Finding{finding("alpha", "idor", "/users/{id}", "id"), finding("alpha", "sqli", "/search", "q")})
-	b := writeJSONOverlap(t, dir, "b.json", []model.Finding{finding("beta", "idor", "/users/{id}", "id"), finding("beta", "csrf", "/transfer", "")})
+	a := writeJSONOverlap(t, dir, "a.json", []model.Finding{mkTestFinding("alpha", "idor", "/users/{id}", "id"), mkTestFinding("alpha", "sqli", "/search", "q")})
+	b := writeJSONOverlap(t, dir, "b.json", []model.Finding{mkTestFinding("beta", "idor", "/users/{id}", "id"), mkTestFinding("beta", "csrf", "/transfer", "")})
 	gt := writeJSONOverlap(t, dir, "gt.json", []overlap.GroundTruthEntry{
 		{Lab: "lab-a", Class: "idor", Method: "GET", PathTemplate: "/users/{id}", Param: "id"},
 		{Lab: "lab-a", Class: "csrf", Method: "POST", PathTemplate: "/transfer", Param: ""},
@@ -107,7 +107,7 @@ func TestOverlapCommand(t *testing.T) {
 
 func TestOverlapCommandWithoutGroundTruthOmitsPrecision(t *testing.T) {
 	dir := t.TempDir()
-	a := writeJSONOverlap(t, dir, "a.json", []model.Finding{finding("alpha", "idor", "/users/{id}", "id")})
+	a := writeJSONOverlap(t, dir, "a.json", []model.Finding{mkTestFinding("alpha", "idor", "/users/{id}", "id")})
 	out := filepath.Join(dir, "o.json")
 	var stdout, stderr bytes.Buffer
 	if code := Main([]string{"overlap", "--inputs", a, "--out", out}, &stdout, &stderr); code != ExitPass {

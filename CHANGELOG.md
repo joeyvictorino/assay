@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+Added
+- Self-reflection in the pipeline (ADR 0017): `assay run` has each model score
+  its own report from 0 to 10 through the signed `score_task` tool and sends it
+  back with its own critique when the score is below 7, at most twice. The run
+  report and `report.md` record the scores and revision counts per lab and
+  model. A score gates revision only; findings are validated by deterministic
+  checkers alone. Critique text is not stored.
+
+Changed
+- Known limitation from 0.2.0 closed: the orchestrator is now called by
+  `assay run`. No published run includes reflection data yet.
+
 ## 0.2.0 (2026-10-08)
 
 Added

@@ -377,29 +377,44 @@ type ModelResult struct {
 	Failovers int                  `json:"failovers"`
 }
 
+// ReflectionResult records one task's self-reflection: the model's own scores
+// for its report, in order, and how many revisions followed. Critique text is
+// never stored; only its hash reaches the audit log.
+type ReflectionResult struct {
+	Lab       string `json:"lab"`
+	Model     string `json:"model"`
+	Scored    bool   `json:"scored"`
+	Scores    []int  `json:"scores,omitempty"`
+	Revisions int    `json:"revisions"`
+	Final     int    `json:"final_score,omitempty"`
+	Passed    bool   `json:"passed"`
+	Note      string `json:"note,omitempty"` // why reflection did not happen, when it did not
+}
+
 // RunReport is the committed summary of a run.
 type RunReport struct {
-	RunID        string         `json:"run_id"`
-	GitSHA       string         `json:"git_sha"`
-	CIRunURL     string         `json:"ci_run_url,omitempty"`
-	Mode         string         `json:"mode"` // full | degraded
-	Started      time.Time      `json:"started"`
-	Finished     time.Time      `json:"finished"`
-	Scope        Decision       `json:"scope"`
-	Models       []ModelResult  `json:"models"`
-	Labs         []string       `json:"labs"`
-	Overlap      *OverlapMatrix `json:"overlap,omitempty"`
-	Precision    map[string]PRF `json:"precision,omitempty"` // model -> PRF (ground-truth labs only)
-	Chains       []AttackPath   `json:"chains,omitempty"`
-	Reconcile    map[string]int `json:"reconcile_reason_counts,omitempty"`
-	PolicyDenies map[string]int `json:"policy_denies_by_reason,omitempty"`
-	AuditHead    string         `json:"audit_head_hash"`
-	AuditCount   uint64         `json:"audit_record_count"`
-	BudgetCapUSD float64        `json:"budget_cap_usd"`
-	SpentUSD     float64        `json:"spent_usd"`
-	Truncated    bool           `json:"truncated"`
-	Verdict      string         `json:"verdict"` // PASS | BLOCKED | ERROR
-	ExitCode     int            `json:"exit_code"`
+	RunID        string             `json:"run_id"`
+	GitSHA       string             `json:"git_sha"`
+	CIRunURL     string             `json:"ci_run_url,omitempty"`
+	Mode         string             `json:"mode"` // full | degraded
+	Started      time.Time          `json:"started"`
+	Finished     time.Time          `json:"finished"`
+	Scope        Decision           `json:"scope"`
+	Models       []ModelResult      `json:"models"`
+	Labs         []string           `json:"labs"`
+	Overlap      *OverlapMatrix     `json:"overlap,omitempty"`
+	Precision    map[string]PRF     `json:"precision,omitempty"` // model -> PRF (ground-truth labs only)
+	Chains       []AttackPath       `json:"chains,omitempty"`
+	Reflection   []ReflectionResult `json:"reflection,omitempty"`
+	Reconcile    map[string]int     `json:"reconcile_reason_counts,omitempty"`
+	PolicyDenies map[string]int     `json:"policy_denies_by_reason,omitempty"`
+	AuditHead    string             `json:"audit_head_hash"`
+	AuditCount   uint64             `json:"audit_record_count"`
+	BudgetCapUSD float64            `json:"budget_cap_usd"`
+	SpentUSD     float64            `json:"spent_usd"`
+	Truncated    bool               `json:"truncated"`
+	Verdict      string             `json:"verdict"` // PASS | BLOCKED | ERROR
+	ExitCode     int                `json:"exit_code"`
 }
 
 // Task is one unit of orchestrated work.

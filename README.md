@@ -58,6 +58,10 @@ for; a run with several real models is not published.
   non-destructive and needs two consistent observations.
 - **Theorized only:** any finding whose class has no checker (`other`), and any
   finding a checker could not confirm.
+- **Self-reflection:** each model scores its own report and revises when the
+  score is below 7, at most twice (ADR 0017). The score gates revision only,
+  and a model grading itself is a biased judge; the scores are recorded so
+  that bias can be measured once runs with several real models exist.
 - **Not yet shown:** a multi-model overlap result, precision and recall for a
   frontier model, and an upstream adopter of the signed-manifest design.
 - **Zero data retention** is a tested property of this harness (an end-to-end

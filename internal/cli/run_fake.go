@@ -33,5 +33,10 @@ func fakeSteps(baseURL string) []fake.Step {
 			}},
 		),
 		fake.Text("Assessment complete."),
+		// Self-reflection turn: the same scripted model scores its own report.
+		fake.ToolCalls(model.ToolCall{ID: "fk-s1", Name: "score_task", Args: map[string]any{
+			"score": 8, "critique": "Covered the visible surface of the root page.",
+		}}),
+		fake.Text("Scored."),
 	}
 }

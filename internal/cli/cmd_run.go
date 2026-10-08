@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/joeyvictorino/assay/internal/agent"
 	"github.com/joeyvictorino/assay/internal/audit"
 	"github.com/joeyvictorino/assay/internal/chain"
 	"github.com/joeyvictorino/assay/internal/config"
@@ -35,7 +34,6 @@ import (
 	"github.com/joeyvictorino/assay/internal/tools"
 	"github.com/joeyvictorino/assay/internal/toolsig"
 	"github.com/joeyvictorino/assay/internal/validate"
-	"github.com/joeyvictorino/assay/internal/zdr"
 )
 
 // Lead-owned. `assay run` is the end-to-end pipeline: every configured
@@ -193,6 +191,13 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 			probeTools = append(probeTools, m)
 		}
 	}
+	var scoreTools []model.ToolManifest
+	for _, m := range manifests {
+		if allowsAgent(m, "score") && len(m.AllowedAgents) > 0 {
+			scoreTools = append(scoreTools, m)
+		}
+	}
+	var reflections []model.ReflectionResult
 
 	byModel := map[string]*perModel{}
 	for _, r := range refs {
@@ -228,40 +233,30 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 				return ExitError, err
 			}
 			rc := cfg.RouterConfig(o.runID)
-			rc.Routes = map[string][]model.ModelRef{"probe": {ref}}
+			rc.Routes = map[string][]model.ModelRef{"probe": {ref}, "score": {ref}}
 			rc.MaxFailovers = -1 // one model per route: attribution over availability
 			rt := router.New(rc, reg, aw)
 			client := newClient("probe")
 			pm := byModel[ref.Model]
-			var reported []model.Finding
 			t0 := time.Now()
-			res, err := agent.Run(ctx, agent.Params{
-				Router: rt, TaskKind: "probe", TaskID: name + ":" + ref.Model, Agent: "probe",
-				Lab: name, RunID: o.runID, Objective: objective(lab), System: systemPrompt,
-				Tools: probeTools, Verifier: ts, Policy: eng, Auditor: aw,
-				Executor: tools.NewExecutor(),
-				Env: tools.Env{HTTP: client.Do, Gate: gate, Lab: name, RunID: o.runID, Model: ref,
-					Report: func(f model.Finding) { reported = append(reported, f) }, Sanitize: redact.Sanitize},
-				MaxTurns: cfg.Agent.MaxTurns, MaxTokens: cfg.Agent.MaxTokens, Sink: zdr.NullSink{},
+			res := runProbeTask(ctx, probeInputs{
+				cfg: cfg, rt: rt, lab: lab, labName: name, ref: ref, client: client, gate: gate,
+				ts: ts, eng: eng, aw: aw, probeTools: probeTools, scoreTools: scoreTools,
+				runID: o.runID, stderr: stderr,
 			})
 			pm.lat = append(pm.lat, time.Since(t0).Milliseconds())
 			pm.spent += rt.Spent()
-			if err != nil {
-				if errors.Is(err, router.ErrBudgetExceeded) {
-					truncated = true
-				}
-				fmt.Fprintf(stderr, "run: %s on %s: %v\n", ref.Model, name, err)
+			if res.Err != nil {
+				fmt.Fprintf(stderr, "run: %s on %s: %v\n", ref.Model, name, res.Err)
 			}
-			if res.Declined {
-				pm.refusals++
+			if res.Truncated {
+				truncated = true
 			}
+			pm.refusals += res.Refusals
 			pm.failover += res.Failovers
 			pm.usage = addUsage(pm.usage, res.Usage)
-			fs := res.Findings
-			if len(fs) == 0 {
-				fs = reported
-			}
-			labFindings[ref.Model] = fs
+			reflections = append(reflections, res.Reflection)
+			labFindings[ref.Model] = res.Findings
 		}
 		// Shared deterministic validation over the union, then project the
 		// state back onto every model's copy by key.
@@ -348,7 +343,7 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 		Started: started, Finished: time.Now().UTC(),
 		Scope:  model.Decision{Effect: model.EffectAllow, Reason: "SCOPE_VERIFIED", Rationale: "scope " + gate.Fingerprint(), PolicyHash: gate.Fingerprint()},
 		Models: results, Labs: labsRun, Overlap: &om, Precision: precision, Chains: chains,
-		Reconcile: rec.ReasonCounts, AuditHead: head, AuditCount: count,
+		Reflection: reflections, Reconcile: rec.ReasonCounts, AuditHead: head, AuditCount: count,
 		BudgetCapUSD: cfg.Budgets.PerRun.MaxUSD, SpentUSD: spent, Truncated: truncated,
 		Verdict: verdict, ExitCode: code,
 	}
