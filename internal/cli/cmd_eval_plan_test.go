@@ -195,7 +195,9 @@ func TestEvalCommandOnCommittedRun(t *testing.T) {
 	if code != ExitPass {
 		t.Fatalf("exit = %d\n%s\n%s", code, out, errOut)
 	}
-	if !strings.Contains(out, "PASS: 4 passed, 0 failed, 1 advisory misses") {
+	// The counts change as runs are committed; assert the run and the verdict.
+	id := strings.TrimSpace(string(latest))
+	if !strings.Contains(out, "Eval verdict for run "+id) || !strings.Contains(out, "PASS:") || strings.Contains(out, "FAIL:") {
 		t.Fatalf("stdout:\n%s", out)
 	}
 }
