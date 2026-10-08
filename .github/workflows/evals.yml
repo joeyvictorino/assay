@@ -1,15 +1,19 @@
 name: evals
 
-# When a results commit lands on main, check the newest run against the
-# eval cases' regression bands (ADR 0016). A regression opens or updates
-# one issue titled "Eval regression"; a clean run closes it. Advisory cases
-# are reported in the body but never fail the verdict.
+# After a full run or a scheduled continuous run finishes, check the newest
+# committed run against the eval cases' regression bands (ADR 0016). A
+# regression opens or updates one issue titled "Eval regression"; a clean run
+# closes it. Advisory cases are reported in the body but never fail the
+# verdict.
+#
+# This listens for the workflows finishing rather than for a push that touches
+# results/: the results commit is marked [skip ci], which suppresses every
+# push-triggered workflow, so a push trigger would never fire.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "results/**"
+  workflow_run:
+    workflows: [full-run, continuous]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -18,6 +22,8 @@ permissions:
 
 jobs:
   eval:
+    # Evaluate runs that finished; a failed run committed nothing to judge.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

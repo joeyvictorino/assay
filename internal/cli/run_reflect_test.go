@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -132,6 +133,43 @@ func TestModelThatReportsNoScoreIsRecordedNotGuessed(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 	if !strings.Contains(r.Note, "did not report a score") {
+		t.Errorf("note: %q", r.Note)
+	}
+}
+
+func TestFailedRevisionIsVisibleInTheNote(t *testing.T) {
+	f := newPipelineFixture(t, "NOT-A-SECRET-LAB-MARKER")
+	rr := f.runWithScript(t, func(string) []fake.Step {
+		return []fake.Step{
+			reportStep("a1", "security-headers", "/"), fake.Text("done"),
+			scoreStep("s1", 3), fake.Text("scored"),
+			fake.Fail(errors.New("context size exceeded")), // the revision run fails
+		}
+	})
+	r := reflectionFor(t, rr, "synthetic-ops")
+	if !r.Scored || len(r.Scores) != 1 || r.Scores[0] != 3 || r.Passed {
+		t.Fatalf("%+v", r)
+	}
+	if !strings.Contains(r.Note, "revision failed") || !strings.Contains(r.Note, "context size exceeded") {
+		t.Errorf("note: %q", r.Note)
+	}
+}
+
+func TestScoreErrorAfterARevisionIsNotCalledARevisionFailure(t *testing.T) {
+	f := newPipelineFixture(t, "NOT-A-SECRET-LAB-MARKER")
+	rr := f.runWithScript(t, func(string) []fake.Step {
+		return []fake.Step{
+			fake.Text("done"),
+			scoreStep("s1", 3), fake.Text("scored"),
+			fake.Text("revised"),                     // the revision succeeds
+			fake.Text("I could not decide a score."), // the second score turn reports nothing
+		}
+	})
+	r := reflectionFor(t, rr, "synthetic-ops")
+	if r.Revisions != 1 || len(r.Scores) != 1 {
+		t.Fatalf("%+v", r)
+	}
+	if !strings.HasPrefix(r.Note, "score failed") {
 		t.Errorf("note: %q", r.Note)
 	}
 }

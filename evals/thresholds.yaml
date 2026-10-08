@@ -6,5 +6,9 @@
 defaults:
   # Any model may spend at most the run budget cap (runs/ci.yaml).
   max_cost_usd: 15.0
-  # No model may take more than five minutes at p95 for one call.
-  max_p95_ms: 300000
+  # p95 wall time of one lab assessment: the probe, the model's own scoring
+  # of it, and up to two revisions. Evidence: 81 s, 156 s and 217 s without
+  # reflection; 1319 s (22 min) with it, for the local 3B model on a shared CI
+  # runner (run 20261008-134835-97b5fbe2). The band catches a hang or a
+  # runaway, not a slowdown: 50 minutes is about twice the worst observed.
+  max_p95_ms: 3000000

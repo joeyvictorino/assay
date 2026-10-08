@@ -194,8 +194,13 @@ func runProbeTask(ctx context.Context, in probeInputs) probeOutcome {
 				out.Reflection.Scored = true
 				out.Reflection.Scores = append(out.Reflection.Scores, a.Score)
 			}
-			if strings.HasPrefix(a.Err, "score: ") {
-				out.Reflection.Note = redact.Sanitize(strings.TrimPrefix(a.Err, "score: "))
+			// The orchestrator records a scoring error on whichever attempt
+			// came last, so the prefix is checked before the attempt kind.
+			switch {
+			case strings.HasPrefix(a.Err, "score: "):
+				out.Reflection.Note = noteFor("score failed", strings.TrimPrefix(a.Err, "score: "))
+			case a.Err != "" && a.Kind == orchestrate.AttemptRevision:
+				out.Reflection.Note = noteFor("revision failed", a.Err)
 			}
 		}
 		if out.Reflection.Scored {
@@ -207,4 +212,13 @@ func runProbeTask(ctx context.Context, in probeInputs) probeOutcome {
 		out.Findings = append(out.Findings, acc[k])
 	}
 	return out
+}
+
+// noteFor builds a short, redacted explanation for the run report.
+func noteFor(what, err string) string {
+	err = redact.Sanitize(strings.Join(strings.Fields(err), " "))
+	if len(err) > 160 {
+		err = err[:160] + "..."
+	}
+	return what + ": " + err
 }

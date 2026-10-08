@@ -10,6 +10,15 @@ Added
   model. A score gates revision only; findings are validated by deterministic
   checkers alone. Critique text is not stored.
 
+Fixed
+- The evals workflow never ran: it listened for pushes touching `results/`,
+  but results commits are marked `[skip ci]`. It now listens for the `full-run`
+  and `continuous` workflows finishing.
+- The local model's context window was too small for Juice Shop during a
+  revision; it is now 32768 tokens. A revision that fails is recorded in the
+  run report's reflection note instead of being silent.
+- The latency band now describes a lab assessment including reflection.
+
 Changed
 - Known limitation from 0.2.0 closed: the orchestrator is now called by
   `assay run`. No published run includes reflection data yet.
