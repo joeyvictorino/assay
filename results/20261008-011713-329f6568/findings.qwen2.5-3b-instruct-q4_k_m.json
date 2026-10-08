@@ -1,0 +1,211 @@
+[
+  {
+    "id": "f-2c5e6035e8fd2752",
+    "dedup_key": "2c5e6035e8fd2752c25d98e075ad70f079a80cd32dccaa5a2f44440da92778f3",
+    "run_id": "20261008-011713-329f6568",
+    "lab": "synthetic-ops",
+    "class": "sqli",
+    "location": {
+      "method": "GET",
+      "path_template": "/search",
+      "param": "term"
+    },
+    "severity": "high",
+    "state": "refuted",
+    "summary": "The search endpoint is vulnerable to SQL Injection through the `term` parameter using a UNION ALL SELECT query.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get_1",
+      "http_get_2"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-011713-329f6568",
+        "seq": 24
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "refuted",
+      "checker": "sqli",
+      "note": "tautology and contradiction return identical result counts for every form",
+      "checked_at": "2026-10-08T01:19:16.704583457Z"
+    },
+    "remediation": {
+      "config_change": "Replace string concatenation with a parameterized query (placeholders and bound arguments) for GET /search parameter term; reject input that fails a strict allowlist before it reaches the database; run the application's database role with SELECT-only grants where the endpoint only reads.",
+      "virtual_patch": "SecRule ARGS:term \"@detectSQLi\" \"id:9100001,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sqli virtual patch f-2c5e6035e8fd2752',tag:'assay/sqli'\"\n{\"class\":\"sqli\",\"engine\":\"modsecurity\",\"finding\":\"f-2c5e6035e8fd2752\",\"id\":9100001,\"rule\":\"SecRule ARGS:term \\\"@detectSQLi\\\" \\\"id:9100001,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sqli virtual patch f-2c5e6035e8fd2752',tag:'assay/sqli'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T01:18:20.071065548Z",
+    "last_seen": "2026-10-08T01:18:20.071065548Z"
+  },
+  {
+    "id": "f-a851e98e80694730",
+    "dedup_key": "a851e98e80694730052fcd3d49a053417ab1317f9cf381e64767c05e4b4fb594",
+    "run_id": "20261008-011713-329f6568",
+    "lab": "juice-shop",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/health"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Security headers disclose the last modified date of the application.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-8b759810",
+      "inspect_headers-56105480",
+      "inspect_headers-62e2d568",
+      "inspect_headers-80540561"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-011713-329f6568",
+        "seq": 101
+      },
+      {
+        "run_id": "20261008-011713-329f6568",
+        "seq": 107
+      },
+      {
+        "run_id": "20261008-011713-329f6568",
+        "seq": 113
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-08T01:23:50.087616495Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /health from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/health\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-a851e98e80694730',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-a851e98e80694730\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/health\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-a851e98e80694730',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T01:22:21.937325398Z",
+    "last_seen": "2026-10-08T01:23:32.82716328Z"
+  },
+  {
+    "id": "f-8cf487b6135a9081",
+    "dedup_key": "8cf487b6135a90812c7cd34291360d12394380d21e6bea8b4291fc8abb3abd2c",
+    "run_id": "20261008-011713-329f6568",
+    "lab": "juice-shop",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/products"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Security headers disclose the last modified date of the application.",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-8b759810",
+      "inspect_headers-56105480",
+      "inspect_headers-62e2d568",
+      "inspect_headers-80540561"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-011713-329f6568",
+        "seq": 103
+      },
+      {
+        "run_id": "20261008-011713-329f6568",
+        "seq": 109
+      },
+      {
+        "run_id": "20261008-011713-329f6568",
+        "seq": 115
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-08T01:23:50.087619249Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /products from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/products\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-8cf487b6135a9081',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-8cf487b6135a9081\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/products\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-8cf487b6135a9081',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T01:22:21.937596795Z",
+    "last_seen": "2026-10-08T01:23:32.827836339Z"
+  },
+  {
+    "id": "f-fd046096c6ea825b",
+    "dedup_key": "fd046096c6ea825b172acd8a1dedca012d07bb6ef4222aca4325be2fa0d80c85",
+    "run_id": "20261008-011713-329f6568",
+    "lab": "dvwa",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/login"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "Login form contains a reflected XSS vulnerability",
+    "model": {
+      "provider": "local",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "http_get-2"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261008-011713-329f6568",
+        "seq": 172
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-08T01:24:33.257364789Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET /login (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-fd046096c6ea825b',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-fd046096c6ea825b\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-fd046096c6ea825b',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-08T01:24:28.760061899Z",
+    "last_seen": "2026-10-08T01:24:28.760061899Z"
+  }
+]

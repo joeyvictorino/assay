@@ -1,0 +1,8 @@
+flowchart LR
+    F_f_8cf487b6135a9081["f-8cf487b6135a9081: info-disclosure GET /products"]
+    O_account_takeover(((account-takeover)))
+    X_config_read([config-read])
+    X_credential_exposure([credential-exposure])
+    F_f_8cf487b6135a9081 --> X_config_read
+    X_config_read --> X_credential_exposure
+    X_credential_exposure --> O_account_takeover

@@ -1,0 +1,119 @@
+{
+  "overlap": {
+    "models": [
+      "fake-model",
+      "qwen2.5-3b-instruct-q4_k_m"
+    ],
+    "keys": [
+      "2c5e6035e8fd2752c25d98e075ad70f079a80cd32dccaa5a2f44440da92778f3",
+      "35376b17f2ae9932c231df1b340c875f8026175798f048e2d36a852d7d4bd8c8",
+      "519b08b0a9f130aea6adc5755077fa19b680fbd70a03726db6cbffb1b2d70c66",
+      "7c770924cf9accddc2780b2339eaac2eef33709e19a7dbbefeaf13da71afafa1",
+      "8cf487b6135a90812c7cd34291360d12394380d21e6bea8b4291fc8abb3abd2c",
+      "a851e98e80694730052fcd3d49a053417ab1317f9cf381e64767c05e4b4fb594",
+      "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d",
+      "efad13ea43d7c7b75aaa13270f055fe432532881e92132edf0a7e24a553f3982",
+      "fac9346cb6f024d96c8fd7754a05f6ebd9d4bfc3d4fa4639195ebd887839edf5",
+      "fd046096c6ea825b172acd8a1dedca012d07bb6ef4222aca4325be2fa0d80c85"
+    ],
+    "membership": {
+      "2c5e6035e8fd2752c25d98e075ad70f079a80cd32dccaa5a2f44440da92778f3": [
+        1
+      ],
+      "35376b17f2ae9932c231df1b340c875f8026175798f048e2d36a852d7d4bd8c8": [
+        0
+      ],
+      "519b08b0a9f130aea6adc5755077fa19b680fbd70a03726db6cbffb1b2d70c66": [
+        0
+      ],
+      "7c770924cf9accddc2780b2339eaac2eef33709e19a7dbbefeaf13da71afafa1": [
+        0
+      ],
+      "8cf487b6135a90812c7cd34291360d12394380d21e6bea8b4291fc8abb3abd2c": [
+        1
+      ],
+      "a851e98e80694730052fcd3d49a053417ab1317f9cf381e64767c05e4b4fb594": [
+        1
+      ],
+      "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d": [
+        0
+      ],
+      "efad13ea43d7c7b75aaa13270f055fe432532881e92132edf0a7e24a553f3982": [
+        0
+      ],
+      "fac9346cb6f024d96c8fd7754a05f6ebd9d4bfc3d4fa4639195ebd887839edf5": [
+        0
+      ],
+      "fd046096c6ea825b172acd8a1dedca012d07bb6ef4222aca4325be2fa0d80c85": [
+        1
+      ]
+    },
+    "pairwise": [
+      [
+        {
+          "both": 6,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        },
+        {
+          "both": 0,
+          "only_a": 6,
+          "only_b": 4,
+          "jaccard": 0
+        }
+      ],
+      [
+        {
+          "both": 0,
+          "only_a": 4,
+          "only_b": 6,
+          "jaccard": 0
+        },
+        {
+          "both": 4,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        }
+      ]
+    ],
+    "unique_per_model": {
+      "fake-model": [
+        "35376b17f2ae9932c231df1b340c875f8026175798f048e2d36a852d7d4bd8c8",
+        "519b08b0a9f130aea6adc5755077fa19b680fbd70a03726db6cbffb1b2d70c66",
+        "7c770924cf9accddc2780b2339eaac2eef33709e19a7dbbefeaf13da71afafa1",
+        "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d",
+        "efad13ea43d7c7b75aaa13270f055fe432532881e92132edf0a7e24a553f3982",
+        "fac9346cb6f024d96c8fd7754a05f6ebd9d4bfc3d4fa4639195ebd887839edf5"
+      ],
+      "qwen2.5-3b-instruct-q4_k_m": [
+        "2c5e6035e8fd2752c25d98e075ad70f079a80cd32dccaa5a2f44440da92778f3",
+        "8cf487b6135a90812c7cd34291360d12394380d21e6bea8b4291fc8abb3abd2c",
+        "a851e98e80694730052fcd3d49a053417ab1317f9cf381e64767c05e4b4fb594",
+        "fd046096c6ea825b172acd8a1dedca012d07bb6ef4222aca4325be2fa0d80c85"
+      ]
+    },
+    "union": 10,
+    "intersection": 0,
+    "inputs": []
+  },
+  "precision": {
+    "fake-model@synthetic-ops": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 13,
+      "precision": 1,
+      "recall": 0.13333333333333333,
+      "f1": 0.23529411764705882
+    },
+    "qwen2.5-3b-instruct-q4_k_m@synthetic-ops": {
+      "tp": 0,
+      "fp": 1,
+      "fn": 15,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0
+    }
+  }
+}
