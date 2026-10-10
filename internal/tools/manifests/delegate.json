@@ -27,10 +27,9 @@
   "side_effects": false,
   "timeout_ms": 600000,
   "allowed_agents": [
-    "recon",
-    "probe"
+    "orchestrator"
   ],
   "signer": "2b27f3ae1608dce4",
-  "signed_at": "2026-10-07T18:46:34Z",
-  "signature": "7B2nlAUZH98kboO4G1DnXAiOuU0aTJFx//niUMgA4UHklCBPSW3UYEJ39WvjoJs8YDoQNnnDtSeBUw2zT5dpBA=="
+  "signed_at": "2026-10-10T13:55:54Z",
+  "signature": "W7ISIunSF9if51BV+C+xdAIeePkk9YlLZNF0mLfiF02Gzpw1F5xX0LHQGRGmZLJggnvjAXoWsvj+qfG8l/LBAg=="
 }

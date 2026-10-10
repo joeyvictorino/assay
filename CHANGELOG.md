@@ -22,11 +22,31 @@ Fixed
   model among the assessed models, so a keyed run would have included a
   scripted model in the overlap matrix. Routes now point at the Anthropic models
   with the local model as the keyless fallback.
+- The signed `delegate` tool listed `allowed_agents` [recon, probe], but
+  `policy/default.yaml` denies delegation to those agents and allows it only for
+  the orchestrator. The manifest check runs first, so the orchestrator was
+  refused (`AGENT_NOT_ALLOWED_FOR_TOOL`) and the allow rule was unreachable. The
+  manifest now lists [orchestrator], re-signed with the owner key already in
+  `trust/keys`, and tests evaluate the shipped manifests against the shipped
+  policy. A side effect: probe and recon agents are no longer offered a tool
+  they could never use.
 - A push to `main` that touched `internal/`, `labs/`, `runs/` or `scope/`
   started a full run whose degraded result replaced the latest one. Push-triggered
   runs are now opt-in (repository variable `ASSAY_FULL_RUN_ON_PUSH`), a degraded
   run is committed only when dispatched by hand, and a run that hit its budget cap
   is uploaded as an artifact instead of being lost.
+
+Known limitations
+- `assay run` does not wire delegation: `tools.Env.Delegate` is never set, so a
+  `delegate` call would return "delegation not available in this context". The
+  tool is now authorized for the orchestrator by manifest and policy, which is
+  tested, but multi-agent delegation does not run in the pipeline.
+  `internal/orchestrate` has it as library code with tests.
+- Four more manifest and policy disagreements remain: the policy lists
+  `report_finding` and `score_task` for the orchestrator, and `http_get` and
+  `report_finding` for the remediate agent, but those manifests' `allowed_agents`
+  exclude those agents, so the requests are denied. The default pipeline does
+  not use either agent for those tools.
 
 ## 0.3.0 (2026-10-08)
 
