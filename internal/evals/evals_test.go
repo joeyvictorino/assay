@@ -66,6 +66,7 @@ func TestEvaluate(t *testing.T) {
 		nilFindings  bool
 		wantPassed   bool
 		wantAdvisory bool // lands in Verdict.Advisory
+		wantNA       bool // lands in Verdict.NotApplicable
 		wantReason   string
 		wantMiss     []string // check names that failed
 	}{
@@ -85,6 +86,8 @@ func TestEvaluate(t *testing.T) {
 		{name: "refusals", c: Case{Name: "a", RequireZeroRefusals: true}, wantMiss: []string{"require_zero_refusals"}},
 		{name: "refusals scoped by glob", c: Case{Name: "a", ModelGlob: "qwen*", RequireZeroRefusals: true}, wantPassed: true},
 		{name: "no model matches", c: Case{Name: "a", ModelGlob: "gpt-*", MinValidated: iptr(0)}, wantReason: "no model in the run matches"},
+		{name: "when_present without a match is not applicable", c: Case{Name: "a", ModelGlob: "gpt-*", WhenPresent: true, MinValidated: iptr(0)}, wantNA: true, wantReason: "not applicable: no model in the run matches"},
+		{name: "when_present has no effect when a model matches", c: Case{Name: "a", ModelGlob: "fake-*", WhenPresent: true, MaxP95MS: i64ptr(1)}, wantMiss: []string{"max_p95_ms"}},
 		{name: "no bands", c: Case{Name: "a", ModelGlob: "*"}, wantReason: "no bands"},
 		{name: "advisory miss does not fail", c: Case{Name: "a", Advisory: true, MinValidated: iptr(99)}, wantAdvisory: true, wantMiss: []string{"min_validated"}},
 		{name: "advisory pass is a pass", c: Case{Name: "a", Advisory: true, MinValidated: iptr(1)}, wantPassed: true},
@@ -107,6 +110,14 @@ func TestEvaluate(t *testing.T) {
 					t.Fatalf("verdict = %+v, want one pass", v)
 				}
 				res = v.Passed[0]
+			case tc.wantNA:
+				if len(v.NotApplicable) != 1 || len(v.Passed) != 0 || len(v.Failed) != 0 || len(v.Advisory) != 0 || !v.OK() {
+					t.Fatalf("verdict = %+v, want one not-applicable case", v)
+				}
+				res = v.NotApplicable[0]
+				if !res.NotApplicable || !strings.Contains(Markdown(v), "### Not applicable to this run") {
+					t.Fatalf("result = %+v, markdown:\n%s", res, Markdown(v))
+				}
 			case tc.wantAdvisory:
 				if len(v.Advisory) != 1 || len(v.Failed) != 0 || !v.OK() {
 					t.Fatalf("verdict = %+v, want one advisory miss", v)

@@ -1,5 +1,8 @@
 name: fake-provider-band
 model_glob: "fake-*"
+# Only the ci and pr configs include the scripted provider; a run without it
+# (the local open-weight ensemble) lists this case as not applicable.
+when_present: true
 # Band from results/LATEST: 0.00252 USD, p95 4 ms, 0 refusals.
 max_cost_usd: 0.005
 max_p95_ms: 50

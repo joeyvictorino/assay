@@ -41,6 +41,11 @@ type Case struct {
 	MaxReconcileMismatches *int     `yaml:"max_reconcile_mismatches,omitempty" json:"max_reconcile_mismatches,omitempty"`
 	RequireZeroRefusals    bool     `yaml:"require_zero_refusals,omitempty" json:"require_zero_refusals,omitempty"`
 	Advisory               bool     `yaml:"advisory,omitempty" json:"advisory,omitempty"`
+	// WhenPresent limits the case to runs that include a model matching
+	// ModelGlob. Without it a run with no matching model fails the case;
+	// with it the case is listed as not applicable. For providers that only
+	// some run configs include, such as the scripted fake provider.
+	WhenPresent bool `yaml:"when_present,omitempty" json:"when_present,omitempty"`
 	// Note is free text explaining the band or the target.
 	Note string `yaml:"note,omitempty" json:"note,omitempty"`
 	// Source is the file the case was loaded from; set by Load.
@@ -70,6 +75,9 @@ type CaseResult struct {
 	Models   []string `json:"models"`
 	Checks   []Check  `json:"checks"`
 	Reason   string   `json:"reason,omitempty"` // why no check could run
+	// NotApplicable is set for a WhenPresent case whose glob matched no
+	// model in the run.
+	NotApplicable bool `json:"not_applicable,omitempty"`
 }
 
 // Verdict groups case results. Advisory holds advisory cases that missed
@@ -79,6 +87,9 @@ type Verdict struct {
 	Passed   []CaseResult `json:"passed"`
 	Failed   []CaseResult `json:"failed"`
 	Advisory []CaseResult `json:"advisory"`
+	// NotApplicable holds WhenPresent cases with no matching model; they
+	// neither pass nor fail.
+	NotApplicable []CaseResult `json:"not_applicable"`
 }
 
 // OK reports whether no non-advisory case failed.
@@ -237,10 +248,12 @@ func WithDefaults(cases []Case, t Thresholds) []Case {
 // per-model counts in the report, reconciliation mismatches from the
 // report's reason counts, and a case with a lab filter cannot run.
 func Evaluate(cases []Case, rr model.RunReport, findings []model.Finding) Verdict {
-	v := Verdict{RunID: rr.RunID, Passed: []CaseResult{}, Failed: []CaseResult{}, Advisory: []CaseResult{}}
+	v := Verdict{RunID: rr.RunID, Passed: []CaseResult{}, Failed: []CaseResult{}, Advisory: []CaseResult{}, NotApplicable: []CaseResult{}}
 	for _, c := range cases {
 		res := evaluateCase(c, rr, findings)
 		switch {
+		case res.NotApplicable:
+			v.NotApplicable = append(v.NotApplicable, res)
 		case res.Passed:
 			v.Passed = append(v.Passed, res)
 		case c.Advisory:
@@ -285,6 +298,10 @@ func evaluateCase(c Case, rr model.RunReport, findings []model.Finding) CaseResu
 	sort.Strings(res.Models)
 	if len(res.Models) == 0 {
 		res.Reason = fmt.Sprintf("no model in the run matches %q", glob)
+		if c.WhenPresent {
+			res.NotApplicable = true
+			res.Reason = "not applicable: " + res.Reason
+		}
 		return res
 	}
 	if findings == nil {
@@ -382,5 +399,6 @@ func Markdown(v Verdict) string {
 	section("Failed", v.Failed)
 	section("Advisory (target not yet met)", v.Advisory)
 	section("Passed", v.Passed)
+	section("Not applicable to this run", v.NotApplicable)
 	return b.String()
 }
