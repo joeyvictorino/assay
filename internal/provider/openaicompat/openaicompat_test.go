@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -231,6 +232,40 @@ func TestBuildRequestMessages(t *testing.T) {
 	}
 	if wr.ToolChoice != "" {
 		t.Fatal("tool_choice set without tools")
+	}
+}
+
+// The agent hands tool results back on a user turn with no text. They must
+// become tool messages right after the assistant turn, with no empty user
+// message in between; user text on the same turn follows the results.
+func TestBuildRequestToolResultsOnUserTurn(t *testing.T) {
+	req := model.Request{
+		Messages: []model.Message{
+			{Role: "user", Content: "objective"},
+			{Role: "assistant", ToolCalls: []model.ToolCall{{ID: "c1", Name: "http_get"}, {ID: "c2", Name: "http_get"}}},
+			{Role: "user", ToolResults: []model.ToolResult{{ToolCallID: "c1", Content: "a"}, {ToolCallID: "c2", Content: "b"}}},
+			{Role: "assistant", ToolCalls: []model.ToolCall{{ID: "c3", Name: "http_get"}}},
+			{Role: "user", Content: "continue", ToolResults: []model.ToolResult{{ToolCallID: "c3", Content: "c"}}},
+		},
+	}
+	wr, err := BuildRequest(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var roles []string
+	for _, m := range wr.Messages {
+		r := m.Role
+		if m.ToolCallID != "" {
+			r += ":" + m.ToolCallID
+		}
+		roles = append(roles, r)
+	}
+	want := "user assistant tool:c1 tool:c2 assistant tool:c3 user"
+	if got := strings.Join(roles, " "); got != want {
+		t.Fatalf("roles = %q, want %q", got, want)
+	}
+	if *wr.Messages[len(wr.Messages)-1].Content != "continue" {
+		t.Fatalf("last = %+v", wr.Messages[len(wr.Messages)-1])
 	}
 }
 

@@ -138,9 +138,17 @@ func BuildRequest(req model.Request) (wireRequest, error) {
 	for i, m := range req.Messages {
 		switch m.Role {
 		case "system", "user":
-			out.Messages = append(out.Messages, wireMessage{Role: m.Role, Content: str(m.Content)})
+			// The agent returns tool results on a user turn (the Anthropic
+			// shape). Here they become tool messages that must directly
+			// follow the assistant turn that made the calls, so they go
+			// first and the user text, if any, after them. An empty user
+			// message between the calls and their results is rejected by
+			// strict chat templates and APIs.
 			for _, r := range m.ToolResults {
 				out.Messages = append(out.Messages, toolResultMessage(r))
+			}
+			if m.Content != "" || len(m.ToolResults) == 0 {
+				out.Messages = append(out.Messages, wireMessage{Role: m.Role, Content: str(m.Content)})
 			}
 		case "assistant":
 			wm := wireMessage{Role: "assistant"}
