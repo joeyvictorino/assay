@@ -1,0 +1,157 @@
+{
+  "overlap": {
+    "models": [
+      "llama-3.2-3b-instruct-q4_k_m",
+      "ministral-3-3b-instruct-q4_k_m",
+      "qwen2.5-3b-instruct-q4_k_m"
+    ],
+    "keys": [
+      "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad",
+      "6016341fd5b70be101fa12f134054cafbb183afcc2dbfe5d7f5914bd8a6069d4",
+      "652e9b3ca2077610a49a14fba32ff94005d2556e8e632a64a0cb84f732a5ea83",
+      "a0cb21c9adcc085f93e320cd4c08024e3de5718ba3ab0090164723303fd8eeee",
+      "b90b52b92bc24e26c2f60730b6d0bcd9361ea2f66176e70ecea8f24bffe92ae5",
+      "c956a0504592676091343cbc863a07d47e1764b2da0fa61cbf97957c7877ba8d",
+      "ca9f2b2faefaac4ca0f11b64c8dbcb7f82048fa2142ae36be16cca5c814421b4",
+      "cdfe850c885d5dda96f453bb07d11d63cb65c0e14ca44f1d92e4e4846204b7ad",
+      "d95c36fc6199fc1dcbbe7627bebb15f2ec0475034bc11342cffb50e3ea742121"
+    ],
+    "membership": {
+      "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad": [
+        0
+      ],
+      "6016341fd5b70be101fa12f134054cafbb183afcc2dbfe5d7f5914bd8a6069d4": [
+        1
+      ],
+      "652e9b3ca2077610a49a14fba32ff94005d2556e8e632a64a0cb84f732a5ea83": [
+        2
+      ],
+      "a0cb21c9adcc085f93e320cd4c08024e3de5718ba3ab0090164723303fd8eeee": [
+        2
+      ],
+      "b90b52b92bc24e26c2f60730b6d0bcd9361ea2f66176e70ecea8f24bffe92ae5": [
+        1
+      ],
+      "c956a0504592676091343cbc863a07d47e1764b2da0fa61cbf97957c7877ba8d": [
+        1
+      ],
+      "ca9f2b2faefaac4ca0f11b64c8dbcb7f82048fa2142ae36be16cca5c814421b4": [
+        2
+      ],
+      "cdfe850c885d5dda96f453bb07d11d63cb65c0e14ca44f1d92e4e4846204b7ad": [
+        2
+      ],
+      "d95c36fc6199fc1dcbbe7627bebb15f2ec0475034bc11342cffb50e3ea742121": [
+        2
+      ]
+    },
+    "pairwise": [
+      [
+        {
+          "both": 1,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        },
+        {
+          "both": 0,
+          "only_a": 1,
+          "only_b": 3,
+          "jaccard": 0
+        },
+        {
+          "both": 0,
+          "only_a": 1,
+          "only_b": 5,
+          "jaccard": 0
+        }
+      ],
+      [
+        {
+          "both": 0,
+          "only_a": 3,
+          "only_b": 1,
+          "jaccard": 0
+        },
+        {
+          "both": 3,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        },
+        {
+          "both": 0,
+          "only_a": 3,
+          "only_b": 5,
+          "jaccard": 0
+        }
+      ],
+      [
+        {
+          "both": 0,
+          "only_a": 5,
+          "only_b": 1,
+          "jaccard": 0
+        },
+        {
+          "both": 0,
+          "only_a": 5,
+          "only_b": 3,
+          "jaccard": 0
+        },
+        {
+          "both": 5,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        }
+      ]
+    ],
+    "unique_per_model": {
+      "llama-3.2-3b-instruct-q4_k_m": [
+        "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad"
+      ],
+      "ministral-3-3b-instruct-q4_k_m": [
+        "6016341fd5b70be101fa12f134054cafbb183afcc2dbfe5d7f5914bd8a6069d4",
+        "b90b52b92bc24e26c2f60730b6d0bcd9361ea2f66176e70ecea8f24bffe92ae5",
+        "c956a0504592676091343cbc863a07d47e1764b2da0fa61cbf97957c7877ba8d"
+      ],
+      "qwen2.5-3b-instruct-q4_k_m": [
+        "652e9b3ca2077610a49a14fba32ff94005d2556e8e632a64a0cb84f732a5ea83",
+        "a0cb21c9adcc085f93e320cd4c08024e3de5718ba3ab0090164723303fd8eeee",
+        "ca9f2b2faefaac4ca0f11b64c8dbcb7f82048fa2142ae36be16cca5c814421b4",
+        "cdfe850c885d5dda96f453bb07d11d63cb65c0e14ca44f1d92e4e4846204b7ad",
+        "d95c36fc6199fc1dcbbe7627bebb15f2ec0475034bc11342cffb50e3ea742121"
+      ]
+    },
+    "union": 9,
+    "intersection": 0,
+    "inputs": []
+  },
+  "precision": {
+    "llama-3.2-3b-instruct-q4_k_m@synthetic-ops": {
+      "tp": 0,
+      "fp": 1,
+      "fn": 15,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0
+    },
+    "ministral-3-3b-instruct-q4_k_m@synthetic-ops": {
+      "tp": 2,
+      "fp": 1,
+      "fn": 13,
+      "precision": 0.6666666666666666,
+      "recall": 0.13333333333333333,
+      "f1": 0.2222222222222222
+    },
+    "qwen2.5-3b-instruct-q4_k_m@synthetic-ops": {
+      "tp": 1,
+      "fp": 3,
+      "fn": 14,
+      "precision": 0.25,
+      "recall": 0.06666666666666667,
+      "f1": 0.10526315789473685
+    }
+  }
+}

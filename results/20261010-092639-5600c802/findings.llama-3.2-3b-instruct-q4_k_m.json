@@ -1,0 +1,49 @@
+[
+  {
+    "id": "f-1fcca4728961d56d",
+    "dedup_key": "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad",
+    "run_id": "20261010-092639-5600c802",
+    "lab": "synthetic-ops",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Deliberately vulnerable lab service for authorized CI testing only.",
+    "model": {
+      "provider": "local-llama",
+      "model": "llama-3.2-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get",
+      "inspect_headers"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-092639-5600c802",
+        "seq": 116
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-10T09:47:57.089436911Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET / from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-1fcca4728961d56d',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-1fcca4728961d56d\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-1fcca4728961d56d',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:38:58.308579928Z",
+    "last_seen": "2026-10-10T09:38:58.308579928Z"
+  }
+]

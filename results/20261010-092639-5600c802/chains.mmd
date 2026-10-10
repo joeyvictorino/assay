@@ -1,0 +1,8 @@
+flowchart LR
+    F_f_cdfe850c885d5dda["f-cdfe850c885d5dda: sqli GET /healthcheck"]
+    O_account_takeover(((account-takeover)))
+    O_data_access(((data-access)))
+    X_credential_exposure([credential-exposure])
+    F_f_cdfe850c885d5dda --> O_data_access
+    F_f_cdfe850c885d5dda --> X_credential_exposure
+    X_credential_exposure --> O_account_takeover

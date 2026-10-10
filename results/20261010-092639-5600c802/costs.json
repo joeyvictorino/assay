@@ -1,0 +1,26 @@
+{
+  "llama-3.2-3b-instruct-q4_k_m": {
+    "cache_read_tokens": 83300,
+    "input_tokens": 7179,
+    "output_tokens": 1953,
+    "p50_ms": 218619,
+    "p95_ms": 218619,
+    "usd": 0
+  },
+  "ministral-3-3b-instruct-q4_k_m": {
+    "cache_read_tokens": 40969,
+    "input_tokens": 16323,
+    "output_tokens": 2455,
+    "p50_ms": 1916130,
+    "p95_ms": 1916130,
+    "usd": 0
+  },
+  "qwen2.5-3b-instruct-q4_k_m": {
+    "cache_read_tokens": 30693,
+    "input_tokens": 7764,
+    "output_tokens": 4368,
+    "p50_ms": 583909,
+    "p95_ms": 583909,
+    "usd": 0
+  }
+}

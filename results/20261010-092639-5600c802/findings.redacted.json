@@ -1,0 +1,490 @@
+[
+  {
+    "id": "f-1fcca4728961d56d",
+    "dedup_key": "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad",
+    "run_id": "20261010-092639-5600c802",
+    "lab": "synthetic-ops",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Deliberately vulnerable lab service for authorized CI testing only.",
+    "model": {
+      "provider": "local-llama",
+      "model": "llama-3.2-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get",
+      "inspect_headers"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-092639-5600c802",
+        "seq": 116
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-10T09:47:57.089436911Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET / from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-1fcca4728961d56d',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-1fcca4728961d56d\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-1fcca4728961d56d',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:38:58.308579928Z",
+    "last_seen": "2026-10-10T09:47:57.089436911Z"
+  },
+  {
+    "id": "f-6016341fd5b70be1",
+    "dedup_key": "6016341fd5b70be101fa12f134054cafbb183afcc2dbfe5d7f5914bd8a6069d4",
+    "run_id": "20261010-092639-5600c802",
+    "lab": "synthetic-ops",
+    "class": "cors-misconfig",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "medium",
+    "state": "validated",
+    "summary": "CORS policy allows unrestricted origins, exposing the application to XSS, DoS, and other attacks.",
+    "model": {
+      "provider": "local-mistral",
+      "model": "ministral-3-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "inspect_headers_127.0.0.1_9000"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-092639-5600c802",
+        "seq": 198
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "validated",
+      "checker": "cors-misconfig",
+      "evidence": [
+        {
+          "kind": "http-exchange",
+          "tool_call_id": "http-ea3e4ec4696884f1",
+          "audit_seq": 217,
+          "request_digest": "84ee5f84477ee60f2b639c73e48a0084594c0da0d6c4e1cef6fb56fc1127a0c0",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "https://assay-8438c158c16e.invalid"
+        },
+        {
+          "kind": "http-exchange",
+          "tool_call_id": "http-884d9729d3e91d3d",
+          "audit_seq": 219,
+          "request_digest": "84ee5f84477ee60f2b639c73e48a0084594c0da0d6c4e1cef6fb56fc1127a0c0",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "https://assay-8438c158c16e.invalid"
+        }
+      ],
+      "note": "wildcard origin with credentials",
+      "checked_at": "2026-10-10T09:47:57.091210039Z"
+    },
+    "remediation": {
+      "code_diff": "--- a/handlers/router.go\n+++ b/handlers/router.go\n@@ -58,14 +58,19 @@\n \treturn s.middleware(mux)\n }\n \n-// middleware adds permissive CORS and recovers panics with a verbose page.\n+// allowedOrigins is the explicit CORS allowlist; empty means same-origin only.\n+var allowedOrigins = map[string]bool{}\n+\n+// middleware adds allowlisted CORS and recovers panics with a verbose page.\n // VULN: security-headers no Content-Security-Policy, X-Content-Type-Options, X-Frame-Options or Referrer-Policy are ever set\n func (s *Server) middleware(next http.Handler) http.Handler {\n \treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n-\t\tw.Header().Set(\"Access-Control-Allow-Origin\", \"*\") // VULN: cors-misconfig wildcard origin combined with credentials\n-\t\tw.Header().Set(\"Access-Control-Allow-Credentials\", \"true\")\n-\t\tw.Header().Set(\"Access-Control-Allow-Headers\", \"Authorization, Content-Type\")\n-\t\tw.Header().Set(\"Access-Control-Allow-Methods\", \"GET, POST, OPTIONS\")\n+\t\tif origin := r.Header.Get(\"Origin\"); origin != \"\" \u0026\u0026 allowedOrigins[origin] {\n+\t\t\tw.Header().Set(\"Access-Control-Allow-Origin\", origin)\n+\t\t\tw.Header().Set(\"Vary\", \"Origin\")\n+\t\t\tw.Header().Set(\"Access-Control-Allow-Headers\", \"Authorization, Content-Type\")\n+\t\t\tw.Header().Set(\"Access-Control-Allow-Methods\", \"GET, POST, OPTIONS\")\n+\t\t}\n \t\tw.Header().Set(\"Server\", \"synthetic-ops/0.1 (go net/http)\")\n \t\tif r.Method == http.MethodOptions {\n \t\t\tw.WriteHeader(http.StatusNoContent)\n",
+      "config_change": "Replace Access-Control-Allow-Origin: * with an explicit allowlist of origins compared exactly; never combine a wildcard or reflected origin with Access-Control-Allow-Credentials: true; omit CORS headers for same-origin APIs.",
+      "virtual_patch": "SecRule RESPONSE_HEADERS:Access-Control-Allow-Origin \"@streq *\" \"id:9100013,phase:3,pass,log,t:none,msg:'assay cors-misconfig virtual patch f-6016341fd5b70be1',tag:'assay/cors-misconfig'\"\n{\"class\":\"cors-misconfig\",\"engine\":\"modsecurity\",\"finding\":\"f-6016341fd5b70be1\",\"id\":9100013,\"rule\":\"SecRule RESPONSE_HEADERS:Access-Control-Allow-Origin \\\"@streq *\\\" \\\"id:9100013,phase:3,pass,log,t:none,msg:'assay cors-misconfig virtual patch f-6016341fd5b70be1',tag:'assay/cors-misconfig'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:45:29.243200175Z",
+    "last_seen": "2026-10-10T09:47:57.091210039Z"
+  },
+  {
+    "id": "f-b90b52b92bc24e26",
+    "dedup_key": "b90b52b92bc24e26c2f60730b6d0bcd9361ea2f66176e70ecea8f24bffe92ae5",
+    "run_id": "20261010-092639-5600c802",
+    "lab": "synthetic-ops",
+    "class": "path-traversal",
+    "location": {
+      "method": "GET",
+      "path_template": "/files",
+      "param": "name"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "Path traversal vulnerability in `/files` endpoint allows accessing arbitrary files via malformed `name` parameter.",
+    "model": {
+      "provider": "local-mistral",
+      "model": "ministral-3-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get_127.0.0.1_9000_files"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-092639-5600c802",
+        "seq": 202
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "path-traversal",
+      "note": "no traversal marker configured",
+      "checked_at": "2026-10-10T09:47:57.091215179Z"
+    },
+    "remediation": {
+      "code_diff": "--- a/handlers/files.go\n+++ b/handlers/files.go\n@@ -4,6 +4,7 @@\n \t\"net/http\"\n \t\"os\"\n \t\"path/filepath\"\n+\t\"strings\"\n )\n \n // files serves a file from the public directory by name.\n@@ -13,10 +14,20 @@\n \t\thttp.Error(w, \"name required\", http.StatusBadRequest)\n \t\treturn\n \t}\n-\tp := filepath.Join(s.opts.PublicDir, name) // VULN: path-traversal joined path is never checked to stay inside PublicDir\n+\tbase, err := filepath.Abs(s.opts.PublicDir)\n+\tif err != nil {\n+\t\thttp.Error(w, \"unavailable\", http.StatusInternalServerError)\n+\t\treturn\n+\t}\n+\tp := filepath.Join(base, filepath.Clean(\"/\"+name))\n+\trel, err := filepath.Rel(base, p)\n+\tif err != nil || rel == \"..\" || strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {\n+\t\thttp.Error(w, \"not found\", http.StatusNotFound)\n+\t\treturn\n+\t}\n \tdata, err := os.ReadFile(p)\n \tif err != nil {\n-\t\thttp.Error(w, \"not found: \"+p, http.StatusNotFound)\n+\t\thttp.Error(w, \"not found\", http.StatusNotFound)\n \t\treturn\n \t}\n \tw.Header().Set(\"Content-Type\", \"text/plain; charset=utf-8\")\n",
+      "config_change": "On GET /files, resolve name against the base directory, clean it, and refuse any result that does not stay inside the base (filepath.Rel without a leading ..); or map names to files through a fixed table.",
+      "virtual_patch": "SecRule ARGS:name \"@rx (?:\\.\\./|\\.\\.\\\\|%2e%2e)\" \"id:9100009,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay path-traversal virtual patch f-b90b52b92bc24e26',tag:'assay/path-traversal'\"\n{\"class\":\"path-traversal\",\"engine\":\"modsecurity\",\"finding\":\"f-b90b52b92bc24e26\",\"id\":9100009,\"rule\":\"SecRule ARGS:name \\\"@rx (?:\\\\.\\\\./|\\\\.\\\\.\\\\\\\\|%2e%2e)\\\" \\\"id:9100009,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay path-traversal virtual patch f-b90b52b92bc24e26',tag:'assay/path-traversal'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:46:21.152198568Z",
+    "last_seen": "2026-10-10T09:47:57.091215179Z"
+  },
+  {
+    "id": "f-c956a05045926760",
+    "dedup_key": "c956a0504592676091343cbc863a07d47e1764b2da0fa61cbf97957c7877ba8d",
+    "run_id": "20261010-092639-5600c802",
+    "lab": "synthetic-ops",
+    "class": "rate-limit-missing",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "medium",
+    "state": "validated",
+    "summary": "No rate limiting headers detected; exposure to brute-force and DDoS attacks is possible.",
+    "model": {
+      "provider": "local-mistral",
+      "model": "ministral-3-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "inspect_headers_127.0.0.1_9000"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-092639-5600c802",
+        "seq": 206
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "validated",
+      "checker": "rate-limit-missing",
+      "evidence": [
+        {
+          "kind": "http-exchange",
+          "tool_call_id": "http-1ef4ffb5200fc00d",
+          "audit_seq": 235,
+          "request_digest": "f9fe0f30df061ab9e0c070c7d789a350ce71cca0c18d750ed37b3293732523c8",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "8 identical requests, none rate-limited"
+        },
+        {
+          "kind": "http-exchange",
+          "tool_call_id": "http-0f798c81a45cdb75",
+          "audit_seq": 251,
+          "request_digest": "f9fe0f30df061ab9e0c070c7d789a350ce71cca0c18d750ed37b3293732523c8",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "8 identical requests, none rate-limited"
+        }
+      ],
+      "note": "16 identical paced GET requests in two batches, none rate-limited (observational)",
+      "checked_at": "2026-10-10T09:47:58.707946789Z"
+    },
+    "remediation": {
+      "config_change": "Rate-limit GET / per account and per source address (for example 5 attempts per minute with exponential backoff); add account lockout or step-up verification after repeated failures.",
+      "virtual_patch": "SecRule IP:LOGIN_ATTEMPTS \"@gt 5\" \"id:9100016,phase:2,deny,status:403,log,t:none,msg:'assay rate-limit-missing virtual patch f-c956a05045926760',tag:'assay/rate-limit-missing'\"\n{\"class\":\"rate-limit-missing\",\"engine\":\"modsecurity\",\"finding\":\"f-c956a05045926760\",\"id\":9100016,\"rule\":\"SecRule IP:LOGIN_ATTEMPTS \\\"@gt 5\\\" \\\"id:9100016,phase:2,deny,status:403,log,t:none,msg:'assay rate-limit-missing virtual patch f-c956a05045926760',tag:'assay/rate-limit-missing'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:47:09.489610114Z",
+    "last_seen": "2026-10-10T09:47:58.707946789Z"
+  },
+  {
+    "id": "f-a0cb21c9adcc085f",
+    "dedup_key": "a0cb21c9adcc085f93e320cd4c08024e3de5718ba3ab0090164723303fd8eeee",
+    "run_id": "20261010-092639-5600c802",
+    "lab": "synthetic-ops",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/search",
+      "param": "term"
+    },
+    "severity": "medium",
+    "state": "validated",
+    "summary": "XSS injection vulnerability in the search endpoint.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-092639-5600c802",
+        "seq": 12
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "validated",
+      "checker": "xss-reflected",
+      "evidence": [
+        {
+          "kind": "marker-reflected",
+          "tool_call_id": "http-493a1e4fbf94eaff",
+          "audit_seq": 253,
+          "request_digest": "fe5cf5ce15b35c4f875f89c40aaab03e4c9a1dc386b8b800e18649f2d9d3a9c6",
+          "response_digest": "80121813e2b88734eeedf7cccc7b6d4756a57e08e886199c1687298f3cb221f3",
+          "status_code": 200,
+          "marker": "assay-d513871c01c8"
+        },
+        {
+          "kind": "marker-reflected",
+          "tool_call_id": "http-d831b75b0ad5c4c1",
+          "audit_seq": 255,
+          "request_digest": "fe5cf5ce15b35c4f875f89c40aaab03e4c9a1dc386b8b800e18649f2d9d3a9c6",
+          "response_digest": "80121813e2b88734eeedf7cccc7b6d4756a57e08e886199c1687298f3cb221f3",
+          "status_code": 200,
+          "marker": "assay-d513871c01c8"
+        }
+      ],
+      "note": "benign tag reflected unescaped in HTML",
+      "checked_at": "2026-10-10T09:47:58.709433573Z"
+    },
+    "remediation": {
+      "code_diff": "--- a/handlers/reflect.go\n+++ b/handlers/reflect.go\n@@ -2,12 +2,13 @@\n \n import (\n \t\"fmt\"\n+\t\"html\"\n \t\"net/http\"\n )\n \n // htmlSearch renders a search page that echoes the term.\n func (s *Server) htmlSearch(w http.ResponseWriter, r *http.Request) {\n-\tterm := r.URL.Query().Get(\"term\")\n+\tterm := html.EscapeString(r.URL.Query().Get(\"term\"))\n \tw.Header().Set(\"Content-Type\", \"text/html; charset=utf-8\")\n-\tfmt.Fprintf(w, \"\u003c!doctype html\u003e\u003chtml\u003e\u003chead\u003e\u003ctitle\u003eSearch\u003c/title\u003e\u003c/head\u003e\u003cbody\u003e\u003ch1\u003eSearch\u003c/h1\u003e\u003cp\u003eResults for: %s\u003c/p\u003e\u003cul\u003e\u003cli\u003eWidget\u003c/li\u003e\u003cli\u003eGadget\u003c/li\u003e\u003c/ul\u003e\u003c/body\u003e\u003c/html\u003e\", term) // VULN: xss-reflected query parameter echoed unescaped\n+\tfmt.Fprintf(w, \"\u003c!doctype html\u003e\u003chtml\u003e\u003chead\u003e\u003ctitle\u003eSearch\u003c/title\u003e\u003c/head\u003e\u003cbody\u003e\u003ch1\u003eSearch\u003c/h1\u003e\u003cp\u003eResults for: %s\u003c/p\u003e\u003cul\u003e\u003cli\u003eWidget\u003c/li\u003e\u003cli\u003eGadget\u003c/li\u003e\u003c/ul\u003e\u003c/body\u003e\u003c/html\u003e\", term)\n }\n",
+      "config_change": "HTML-escape term before writing it into the page for GET /search (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:term \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-a0cb21c9adcc085f',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-a0cb21c9adcc085f\",\"id\":9100002,\"rule\":\"SecRule ARGS:term \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-a0cb21c9adcc085f',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:28:19.879116653Z",
+    "last_seen": "2026-10-10T09:47:58.709433573Z"
+  },
+  {
+    "id": "f-652e9b3ca2077610",
+    "dedup_key": "652e9b3ca2077610a49a14fba32ff94005d2556e8e632a64a0cb84f732a5ea83",
+    "run_id": "20261010-092639-5600c802",
+    "lab": "synthetic-ops",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/login"
+    },
+    "severity": "medium",
+    "state": "theorized",
+    "summary": "Login page contains a reflected XSS vulnerability.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-0",
+      "http_get-1",
+      "http_get-2"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-092639-5600c802",
+        "seq": 67
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-10T09:47:58.709437611Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET /login (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-652e9b3ca2077610',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-652e9b3ca2077610\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-652e9b3ca2077610',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:30:32.734233186Z",
+    "last_seen": "2026-10-10T09:47:58.709437611Z"
+  },
+  {
+    "id": "f-d95c36fc6199fc1d",
+    "dedup_key": "d95c36fc6199fc1dcbbe7627bebb15f2ec0475034bc11342cffb50e3ea742121",
+    "run_id": "20261010-092639-5600c802",
+    "lab": "synthetic-ops",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/status"
+    },
+    "severity": "medium",
+    "state": "theorized",
+    "summary": "Status page contains a reflected XSS vulnerability.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-4"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-092639-5600c802",
+        "seq": 71
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-10T09:47:58.70944228Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET /status (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-d95c36fc6199fc1d',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-d95c36fc6199fc1d\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-d95c36fc6199fc1d',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:31:41.881838787Z",
+    "last_seen": "2026-10-10T09:47:58.70944228Z"
+  },
+  {
+    "id": "f-cdfe850c885d5dda",
+    "dedup_key": "cdfe850c885d5dda96f453bb07d11d63cb65c0e14ca44f1d92e4e4846204b7ad",
+    "run_id": "20261010-092639-5600c802",
+    "lab": "synthetic-ops",
+    "class": "sqli",
+    "location": {
+      "method": "GET",
+      "path_template": "/healthcheck"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "Healthcheck endpoint contains a SQL injection vulnerability.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-3",
+      "http_get-5"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-092639-5600c802",
+        "seq": 73
+      },
+      {
+        "run_id": "20261010-092639-5600c802",
+        "seq": 77
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "sqli",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-10T09:47:58.709449142Z"
+    },
+    "remediation": {
+      "config_change": "Replace string concatenation with a parameterized query (placeholders and bound arguments) for GET /healthcheck parameter \u003cparameter\u003e; reject input that fails a strict allowlist before it reaches the database; run the application's database role with SELECT-only grants where the endpoint only reads.",
+      "virtual_patch": "SecRule ARGS:* \"@detectSQLi\" \"id:9100001,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sqli virtual patch f-cdfe850c885d5dda',tag:'assay/sqli'\"\n{\"class\":\"sqli\",\"engine\":\"modsecurity\",\"finding\":\"f-cdfe850c885d5dda\",\"id\":9100001,\"rule\":\"SecRule ARGS:* \\\"@detectSQLi\\\" \\\"id:9100001,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sqli virtual patch f-cdfe850c885d5dda',tag:'assay/sqli'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:31:41.882471347Z",
+    "last_seen": "2026-10-10T09:47:58.709449142Z"
+  },
+  {
+    "id": "f-ca9f2b2faefaac4c",
+    "dedup_key": "ca9f2b2faefaac4ca0f11b64c8dbcb7f82048fa2142ae36be16cca5c814421b4",
+    "run_id": "20261010-092639-5600c802",
+    "lab": "dvwa",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/login.php"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "The login form on http://127.0.0.1:8080/ contains a reflected XSS vulnerability, as evidenced by the login.php response body",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "inspect_headers-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-092639-5600c802",
+        "seq": 467
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-10T11:39:24.461491303Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET /login.php (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-ca9f2b2faefaac4c',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-ca9f2b2faefaac4c\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-ca9f2b2faefaac4c',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T11:02:09.432305819Z",
+    "last_seen": "2026-10-10T11:39:24.461491303Z"
+  }
+]

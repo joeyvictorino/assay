@@ -1,0 +1,183 @@
+[
+  {
+    "id": "f-6016341fd5b70be1",
+    "dedup_key": "6016341fd5b70be101fa12f134054cafbb183afcc2dbfe5d7f5914bd8a6069d4",
+    "run_id": "20261010-092639-5600c802",
+    "lab": "synthetic-ops",
+    "class": "cors-misconfig",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "medium",
+    "state": "validated",
+    "summary": "CORS policy allows unrestricted origins, exposing the application to XSS, DoS, and other attacks.",
+    "model": {
+      "provider": "local-mistral",
+      "model": "ministral-3-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "inspect_headers_127.0.0.1_9000"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-092639-5600c802",
+        "seq": 198
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "validated",
+      "checker": "cors-misconfig",
+      "evidence": [
+        {
+          "kind": "http-exchange",
+          "tool_call_id": "http-ea3e4ec4696884f1",
+          "audit_seq": 217,
+          "request_digest": "84ee5f84477ee60f2b639c73e48a0084594c0da0d6c4e1cef6fb56fc1127a0c0",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "https://assay-8438c158c16e.invalid"
+        },
+        {
+          "kind": "http-exchange",
+          "tool_call_id": "http-884d9729d3e91d3d",
+          "audit_seq": 219,
+          "request_digest": "84ee5f84477ee60f2b639c73e48a0084594c0da0d6c4e1cef6fb56fc1127a0c0",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "https://assay-8438c158c16e.invalid"
+        }
+      ],
+      "note": "wildcard origin with credentials",
+      "checked_at": "2026-10-10T09:47:57.091210039Z"
+    },
+    "remediation": {
+      "code_diff": "--- a/handlers/router.go\n+++ b/handlers/router.go\n@@ -58,14 +58,19 @@\n \treturn s.middleware(mux)\n }\n \n-// middleware adds permissive CORS and recovers panics with a verbose page.\n+// allowedOrigins is the explicit CORS allowlist; empty means same-origin only.\n+var allowedOrigins = map[string]bool{}\n+\n+// middleware adds allowlisted CORS and recovers panics with a verbose page.\n // VULN: security-headers no Content-Security-Policy, X-Content-Type-Options, X-Frame-Options or Referrer-Policy are ever set\n func (s *Server) middleware(next http.Handler) http.Handler {\n \treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n-\t\tw.Header().Set(\"Access-Control-Allow-Origin\", \"*\") // VULN: cors-misconfig wildcard origin combined with credentials\n-\t\tw.Header().Set(\"Access-Control-Allow-Credentials\", \"true\")\n-\t\tw.Header().Set(\"Access-Control-Allow-Headers\", \"Authorization, Content-Type\")\n-\t\tw.Header().Set(\"Access-Control-Allow-Methods\", \"GET, POST, OPTIONS\")\n+\t\tif origin := r.Header.Get(\"Origin\"); origin != \"\" \u0026\u0026 allowedOrigins[origin] {\n+\t\t\tw.Header().Set(\"Access-Control-Allow-Origin\", origin)\n+\t\t\tw.Header().Set(\"Vary\", \"Origin\")\n+\t\t\tw.Header().Set(\"Access-Control-Allow-Headers\", \"Authorization, Content-Type\")\n+\t\t\tw.Header().Set(\"Access-Control-Allow-Methods\", \"GET, POST, OPTIONS\")\n+\t\t}\n \t\tw.Header().Set(\"Server\", \"synthetic-ops/0.1 (go net/http)\")\n \t\tif r.Method == http.MethodOptions {\n \t\t\tw.WriteHeader(http.StatusNoContent)\n",
+      "config_change": "Replace Access-Control-Allow-Origin: * with an explicit allowlist of origins compared exactly; never combine a wildcard or reflected origin with Access-Control-Allow-Credentials: true; omit CORS headers for same-origin APIs.",
+      "virtual_patch": "SecRule RESPONSE_HEADERS:Access-Control-Allow-Origin \"@streq *\" \"id:9100013,phase:3,pass,log,t:none,msg:'assay cors-misconfig virtual patch f-6016341fd5b70be1',tag:'assay/cors-misconfig'\"\n{\"class\":\"cors-misconfig\",\"engine\":\"modsecurity\",\"finding\":\"f-6016341fd5b70be1\",\"id\":9100013,\"rule\":\"SecRule RESPONSE_HEADERS:Access-Control-Allow-Origin \\\"@streq *\\\" \\\"id:9100013,phase:3,pass,log,t:none,msg:'assay cors-misconfig virtual patch f-6016341fd5b70be1',tag:'assay/cors-misconfig'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:45:29.243200175Z",
+    "last_seen": "2026-10-10T09:45:29.243200175Z"
+  },
+  {
+    "id": "f-b90b52b92bc24e26",
+    "dedup_key": "b90b52b92bc24e26c2f60730b6d0bcd9361ea2f66176e70ecea8f24bffe92ae5",
+    "run_id": "20261010-092639-5600c802",
+    "lab": "synthetic-ops",
+    "class": "path-traversal",
+    "location": {
+      "method": "GET",
+      "path_template": "/files",
+      "param": "name"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "Path traversal vulnerability in `/files` endpoint allows accessing arbitrary files via malformed `name` parameter.",
+    "model": {
+      "provider": "local-mistral",
+      "model": "ministral-3-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get_127.0.0.1_9000_files"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-092639-5600c802",
+        "seq": 202
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "path-traversal",
+      "note": "no traversal marker configured",
+      "checked_at": "2026-10-10T09:47:57.091215179Z"
+    },
+    "remediation": {
+      "code_diff": "--- a/handlers/files.go\n+++ b/handlers/files.go\n@@ -4,6 +4,7 @@\n \t\"net/http\"\n \t\"os\"\n \t\"path/filepath\"\n+\t\"strings\"\n )\n \n // files serves a file from the public directory by name.\n@@ -13,10 +14,20 @@\n \t\thttp.Error(w, \"name required\", http.StatusBadRequest)\n \t\treturn\n \t}\n-\tp := filepath.Join(s.opts.PublicDir, name) // VULN: path-traversal joined path is never checked to stay inside PublicDir\n+\tbase, err := filepath.Abs(s.opts.PublicDir)\n+\tif err != nil {\n+\t\thttp.Error(w, \"unavailable\", http.StatusInternalServerError)\n+\t\treturn\n+\t}\n+\tp := filepath.Join(base, filepath.Clean(\"/\"+name))\n+\trel, err := filepath.Rel(base, p)\n+\tif err != nil || rel == \"..\" || strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {\n+\t\thttp.Error(w, \"not found\", http.StatusNotFound)\n+\t\treturn\n+\t}\n \tdata, err := os.ReadFile(p)\n \tif err != nil {\n-\t\thttp.Error(w, \"not found: \"+p, http.StatusNotFound)\n+\t\thttp.Error(w, \"not found\", http.StatusNotFound)\n \t\treturn\n \t}\n \tw.Header().Set(\"Content-Type\", \"text/plain; charset=utf-8\")\n",
+      "config_change": "On GET /files, resolve name against the base directory, clean it, and refuse any result that does not stay inside the base (filepath.Rel without a leading ..); or map names to files through a fixed table.",
+      "virtual_patch": "SecRule ARGS:name \"@rx (?:\\.\\./|\\.\\.\\\\|%2e%2e)\" \"id:9100009,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay path-traversal virtual patch f-b90b52b92bc24e26',tag:'assay/path-traversal'\"\n{\"class\":\"path-traversal\",\"engine\":\"modsecurity\",\"finding\":\"f-b90b52b92bc24e26\",\"id\":9100009,\"rule\":\"SecRule ARGS:name \\\"@rx (?:\\\\.\\\\./|\\\\.\\\\.\\\\\\\\|%2e%2e)\\\" \\\"id:9100009,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay path-traversal virtual patch f-b90b52b92bc24e26',tag:'assay/path-traversal'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:46:21.152198568Z",
+    "last_seen": "2026-10-10T09:46:21.152198568Z"
+  },
+  {
+    "id": "f-c956a05045926760",
+    "dedup_key": "c956a0504592676091343cbc863a07d47e1764b2da0fa61cbf97957c7877ba8d",
+    "run_id": "20261010-092639-5600c802",
+    "lab": "synthetic-ops",
+    "class": "rate-limit-missing",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "medium",
+    "state": "validated",
+    "summary": "No rate limiting headers detected; exposure to brute-force and DDoS attacks is possible.",
+    "model": {
+      "provider": "local-mistral",
+      "model": "ministral-3-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "inspect_headers_127.0.0.1_9000"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-092639-5600c802",
+        "seq": 206
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "validated",
+      "checker": "rate-limit-missing",
+      "evidence": [
+        {
+          "kind": "http-exchange",
+          "tool_call_id": "http-1ef4ffb5200fc00d",
+          "audit_seq": 235,
+          "request_digest": "f9fe0f30df061ab9e0c070c7d789a350ce71cca0c18d750ed37b3293732523c8",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "8 identical requests, none rate-limited"
+        },
+        {
+          "kind": "http-exchange",
+          "tool_call_id": "http-0f798c81a45cdb75",
+          "audit_seq": 251,
+          "request_digest": "f9fe0f30df061ab9e0c070c7d789a350ce71cca0c18d750ed37b3293732523c8",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "8 identical requests, none rate-limited"
+        }
+      ],
+      "note": "16 identical paced GET requests in two batches, none rate-limited (observational)",
+      "checked_at": "2026-10-10T09:47:58.707946789Z"
+    },
+    "remediation": {
+      "config_change": "Rate-limit GET / per account and per source address (for example 5 attempts per minute with exponential backoff); add account lockout or step-up verification after repeated failures.",
+      "virtual_patch": "SecRule IP:LOGIN_ATTEMPTS \"@gt 5\" \"id:9100016,phase:2,deny,status:403,log,t:none,msg:'assay rate-limit-missing virtual patch f-c956a05045926760',tag:'assay/rate-limit-missing'\"\n{\"class\":\"rate-limit-missing\",\"engine\":\"modsecurity\",\"finding\":\"f-c956a05045926760\",\"id\":9100016,\"rule\":\"SecRule IP:LOGIN_ATTEMPTS \\\"@gt 5\\\" \\\"id:9100016,phase:2,deny,status:403,log,t:none,msg:'assay rate-limit-missing virtual patch f-c956a05045926760',tag:'assay/rate-limit-missing'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:47:09.489610114Z",
+    "last_seen": "2026-10-10T09:47:09.489610114Z"
+  }
+]

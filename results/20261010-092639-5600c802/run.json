@@ -1,0 +1,390 @@
+{
+  "run_id": "20261010-092639-5600c802",
+  "git_sha": "ebfe3472e143cffcaffac817809991db15966614",
+  "ci_run_url": "https://github.com/joeyvictorino/assay/actions/runs/38041295991/attempts/1",
+  "mode": "full",
+  "config": "local-ensemble",
+  "label": "local open-weight ensemble (Qwen2.5 3B, Llama 3.2 3B, Ministral 3 3B; Q4_K_M on CPU); no frontier models",
+  "started": "2026-10-10T09:26:39.325281071Z",
+  "finished": "2026-10-10T11:39:24.64485934Z",
+  "scope": {
+    "effect": "allow",
+    "reason": "SCOPE_VERIFIED",
+    "rationale": "scope bb2bf862d81eb4915644f89b515c060eb177ee434ad8afb4579a42ad5c7a26e2",
+    "policy_hash": "bb2bf862d81eb4915644f89b515c060eb177ee434ad8afb4579a42ad5c7a26e2"
+  },
+  "models": [
+    {
+      "ref": {
+        "provider": "local-qwen",
+        "model": "qwen2.5-3b-instruct-q4_k_m",
+        "agent": ""
+      },
+      "findings_by_state": {
+        "theorized": 4,
+        "validated": 1
+      },
+      "usage": {
+        "input_tokens": 7764,
+        "output_tokens": 4368,
+        "cache_read_tokens": 30693,
+        "cache_write_tokens": 0,
+        "cost_usd": 0,
+        "latency_ms": 1215630
+      },
+      "p50_ms": 583909,
+      "p95_ms": 583909,
+      "refusals": 0,
+      "failovers": 0
+    },
+    {
+      "ref": {
+        "provider": "local-llama",
+        "model": "llama-3.2-3b-instruct-q4_k_m",
+        "agent": ""
+      },
+      "findings_by_state": {
+        "theorized": 1
+      },
+      "usage": {
+        "input_tokens": 7179,
+        "output_tokens": 1953,
+        "cache_read_tokens": 83300,
+        "cache_write_tokens": 0,
+        "cost_usd": 0,
+        "latency_ms": 1083142
+      },
+      "p50_ms": 218619,
+      "p95_ms": 218619,
+      "refusals": 0,
+      "failovers": 0
+    },
+    {
+      "ref": {
+        "provider": "local-mistral",
+        "model": "ministral-3-3b-instruct-q4_k_m",
+        "agent": ""
+      },
+      "findings_by_state": {
+        "theorized": 1,
+        "validated": 2
+      },
+      "usage": {
+        "input_tokens": 16323,
+        "output_tokens": 2455,
+        "cache_read_tokens": 40969,
+        "cache_write_tokens": 0,
+        "cost_usd": 0,
+        "latency_ms": 2581312
+      },
+      "p50_ms": 1916130,
+      "p95_ms": 1916130,
+      "refusals": 0,
+      "failovers": 0
+    }
+  ],
+  "labs": [
+    "synthetic-ops",
+    "juice-shop",
+    "dvwa"
+  ],
+  "overlap": {
+    "models": [
+      "llama-3.2-3b-instruct-q4_k_m",
+      "ministral-3-3b-instruct-q4_k_m",
+      "qwen2.5-3b-instruct-q4_k_m"
+    ],
+    "keys": [
+      "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad",
+      "6016341fd5b70be101fa12f134054cafbb183afcc2dbfe5d7f5914bd8a6069d4",
+      "652e9b3ca2077610a49a14fba32ff94005d2556e8e632a64a0cb84f732a5ea83",
+      "a0cb21c9adcc085f93e320cd4c08024e3de5718ba3ab0090164723303fd8eeee",
+      "b90b52b92bc24e26c2f60730b6d0bcd9361ea2f66176e70ecea8f24bffe92ae5",
+      "c956a0504592676091343cbc863a07d47e1764b2da0fa61cbf97957c7877ba8d",
+      "ca9f2b2faefaac4ca0f11b64c8dbcb7f82048fa2142ae36be16cca5c814421b4",
+      "cdfe850c885d5dda96f453bb07d11d63cb65c0e14ca44f1d92e4e4846204b7ad",
+      "d95c36fc6199fc1dcbbe7627bebb15f2ec0475034bc11342cffb50e3ea742121"
+    ],
+    "membership": {
+      "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad": [
+        0
+      ],
+      "6016341fd5b70be101fa12f134054cafbb183afcc2dbfe5d7f5914bd8a6069d4": [
+        1
+      ],
+      "652e9b3ca2077610a49a14fba32ff94005d2556e8e632a64a0cb84f732a5ea83": [
+        2
+      ],
+      "a0cb21c9adcc085f93e320cd4c08024e3de5718ba3ab0090164723303fd8eeee": [
+        2
+      ],
+      "b90b52b92bc24e26c2f60730b6d0bcd9361ea2f66176e70ecea8f24bffe92ae5": [
+        1
+      ],
+      "c956a0504592676091343cbc863a07d47e1764b2da0fa61cbf97957c7877ba8d": [
+        1
+      ],
+      "ca9f2b2faefaac4ca0f11b64c8dbcb7f82048fa2142ae36be16cca5c814421b4": [
+        2
+      ],
+      "cdfe850c885d5dda96f453bb07d11d63cb65c0e14ca44f1d92e4e4846204b7ad": [
+        2
+      ],
+      "d95c36fc6199fc1dcbbe7627bebb15f2ec0475034bc11342cffb50e3ea742121": [
+        2
+      ]
+    },
+    "pairwise": [
+      [
+        {
+          "both": 1,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        },
+        {
+          "both": 0,
+          "only_a": 1,
+          "only_b": 3,
+          "jaccard": 0
+        },
+        {
+          "both": 0,
+          "only_a": 1,
+          "only_b": 5,
+          "jaccard": 0
+        }
+      ],
+      [
+        {
+          "both": 0,
+          "only_a": 3,
+          "only_b": 1,
+          "jaccard": 0
+        },
+        {
+          "both": 3,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        },
+        {
+          "both": 0,
+          "only_a": 3,
+          "only_b": 5,
+          "jaccard": 0
+        }
+      ],
+      [
+        {
+          "both": 0,
+          "only_a": 5,
+          "only_b": 1,
+          "jaccard": 0
+        },
+        {
+          "both": 0,
+          "only_a": 5,
+          "only_b": 3,
+          "jaccard": 0
+        },
+        {
+          "both": 5,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        }
+      ]
+    ],
+    "unique_per_model": {
+      "llama-3.2-3b-instruct-q4_k_m": [
+        "1fcca4728961d56dd6ae9ffff2499b79b637d254e9ba3561c57d43c4e26552ad"
+      ],
+      "ministral-3-3b-instruct-q4_k_m": [
+        "6016341fd5b70be101fa12f134054cafbb183afcc2dbfe5d7f5914bd8a6069d4",
+        "b90b52b92bc24e26c2f60730b6d0bcd9361ea2f66176e70ecea8f24bffe92ae5",
+        "c956a0504592676091343cbc863a07d47e1764b2da0fa61cbf97957c7877ba8d"
+      ],
+      "qwen2.5-3b-instruct-q4_k_m": [
+        "652e9b3ca2077610a49a14fba32ff94005d2556e8e632a64a0cb84f732a5ea83",
+        "a0cb21c9adcc085f93e320cd4c08024e3de5718ba3ab0090164723303fd8eeee",
+        "ca9f2b2faefaac4ca0f11b64c8dbcb7f82048fa2142ae36be16cca5c814421b4",
+        "cdfe850c885d5dda96f453bb07d11d63cb65c0e14ca44f1d92e4e4846204b7ad",
+        "d95c36fc6199fc1dcbbe7627bebb15f2ec0475034bc11342cffb50e3ea742121"
+      ]
+    },
+    "union": 9,
+    "intersection": 0,
+    "inputs": []
+  },
+  "precision": {
+    "llama-3.2-3b-instruct-q4_k_m@synthetic-ops": {
+      "tp": 0,
+      "fp": 1,
+      "fn": 15,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0
+    },
+    "ministral-3-3b-instruct-q4_k_m@synthetic-ops": {
+      "tp": 2,
+      "fp": 1,
+      "fn": 13,
+      "precision": 0.6666666666666666,
+      "recall": 0.13333333333333333,
+      "f1": 0.2222222222222222
+    },
+    "qwen2.5-3b-instruct-q4_k_m@synthetic-ops": {
+      "tp": 1,
+      "fp": 3,
+      "fn": 14,
+      "precision": 0.25,
+      "recall": 0.06666666666666667,
+      "f1": 0.10526315789473685
+    }
+  },
+  "chains": [
+    {
+      "id": "path-b49da0b8b328",
+      "lab": "synthetic-ops",
+      "objective": "account-takeover",
+      "path": [
+        {
+          "type": "finding",
+          "id": "f-cdfe850c885d5dda",
+          "note": "sqli GET /healthcheck"
+        },
+        {
+          "type": "fact",
+          "id": "credential-exposure",
+          "note": "injection reads stored credentials"
+        },
+        {
+          "type": "objective",
+          "id": "account-takeover",
+          "note": "exposed credential takes over the account"
+        }
+      ],
+      "confidence": "theorized",
+      "source_refs": [
+        "audit:20261010-092639-5600c802:73",
+        "audit:20261010-092639-5600c802:77",
+        "finding:f-cdfe850c885d5dda"
+      ]
+    },
+    {
+      "id": "path-4e3874645b2e",
+      "lab": "synthetic-ops",
+      "objective": "data-access",
+      "path": [
+        {
+          "type": "finding",
+          "id": "f-cdfe850c885d5dda",
+          "note": "sqli GET /healthcheck"
+        },
+        {
+          "type": "objective",
+          "id": "data-access",
+          "note": "injection reads database rows"
+        }
+      ],
+      "confidence": "theorized",
+      "source_refs": [
+        "audit:20261010-092639-5600c802:73",
+        "audit:20261010-092639-5600c802:77",
+        "finding:f-cdfe850c885d5dda"
+      ]
+    }
+  ],
+  "reflection": [
+    {
+      "lab": "synthetic-ops",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "scored": true,
+      "scores": [
+        2,
+        8
+      ],
+      "revisions": 1,
+      "final_score": 8,
+      "passed": true
+    },
+    {
+      "lab": "synthetic-ops",
+      "model": "llama-3.2-3b-instruct-q4_k_m",
+      "scored": false,
+      "revisions": 0,
+      "passed": false,
+      "note": "score failed: the model did not report a score"
+    },
+    {
+      "lab": "synthetic-ops",
+      "model": "ministral-3-3b-instruct-q4_k_m",
+      "scored": true,
+      "scores": [
+        7
+      ],
+      "revisions": 0,
+      "final_score": 7,
+      "passed": true
+    },
+    {
+      "lab": "juice-shop",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "scored": false,
+      "revisions": 0,
+      "passed": false,
+      "note": "assessment failed: exec failed after 2 attempts: local-qwen: Post \"http://127.0.0.1:8081/v1/chat/completions\": context deadline exceeded"
+    },
+    {
+      "lab": "juice-shop",
+      "model": "llama-3.2-3b-instruct-q4_k_m",
+      "scored": false,
+      "revisions": 0,
+      "passed": false,
+      "note": "score failed: the model did not report a score"
+    },
+    {
+      "lab": "juice-shop",
+      "model": "ministral-3-3b-instruct-q4_k_m",
+      "scored": false,
+      "revisions": 0,
+      "passed": false,
+      "note": "assessment failed: exec failed after 2 attempts: local-mistral: Post \"http://127.0.0.1:8083/v1/chat/completions\": context deadline exceeded"
+    },
+    {
+      "lab": "dvwa",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "scored": true,
+      "scores": [
+        8
+      ],
+      "revisions": 0,
+      "final_score": 8,
+      "passed": true
+    },
+    {
+      "lab": "dvwa",
+      "model": "llama-3.2-3b-instruct-q4_k_m",
+      "scored": false,
+      "revisions": 0,
+      "passed": false,
+      "note": "score failed: the model did not report a score"
+    },
+    {
+      "lab": "dvwa",
+      "model": "ministral-3-3b-instruct-q4_k_m",
+      "scored": false,
+      "revisions": 0,
+      "passed": false,
+      "note": "assessment failed: exec failed after 2 attempts: local-mistral: Post \"http://127.0.0.1:8083/v1/chat/completions\": context deadline exceeded"
+    }
+  ],
+  "audit_head_hash": "dee18a9fadffd0008a15a314ed6f21a15aa957573527bedb9448bdacba16432b",
+  "audit_record_count": 644,
+  "budget_cap_usd": 1,
+  "spent_usd": 0,
+  "truncated": false,
+  "verdict": "PASS",
+  "exit_code": 0
+}
