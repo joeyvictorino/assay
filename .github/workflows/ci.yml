@@ -25,6 +25,8 @@ jobs:
       - run: sh scripts/name-audit.sh
       - name: calibration table script
         run: python3 -m unittest scripts.calibration_test
+      - name: results commit gate
+        run: python3 -m unittest scripts.results_gate_test
       - name: every committed overlap matrix recomputes from its findings
         run: |
           for run in results/2*/; do

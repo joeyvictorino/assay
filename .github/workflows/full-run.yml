@@ -5,17 +5,32 @@ name: full-run
 # or by a push to main that changes harness, lab, run or scope inputs. The
 # results commit carries [skip ci] and touches none of the filtered paths,
 # so it never retriggers this workflow.
+#
+# Guards against a lesser result replacing the latest one:
+#   - A push starts the run only when the repository variable
+#     ASSAY_FULL_RUN_ON_PUSH is "true" (off by default; a push-triggered run
+#     of the default config would otherwise replace the latest result).
+#   - config=frontier fails at once, before anything is built, when
+#     ANTHROPIC_API_KEY is not set.
+#   - scripts/ci/results-gate.py refuses to commit a run in which a real model
+#     never completed a call, and commits a degraded run (a provider dropped
+#     for lack of a key) only when the workflow was dispatched by hand.
+#   - A run that hit its budget cap (verdict BLOCKED) is uploaded as an
+#     artifact and fails the job, but is not committed.
 
 on:
   workflow_dispatch:
     inputs:
       config:
         description: >-
-          Run config. ci: frontier models when their keys are set, else the
-          pinned local model. local-ensemble: three local open-weight models
+          Run config. frontier: Claude Opus 5.5, Sonnet 5.5 and Haiku 4.5, plus
+          OpenAI when OPENAI_API_KEY is set; needs ANTHROPIC_API_KEY; capped at
+          $15 (runs/frontier.yaml, docs/frontier-run.md). ci: Claude Sonnet 5.5
+          and Haiku 4.5 when ANTHROPIC_API_KEY is set, plus the pinned local
+          model. local-ensemble: three local open-weight models
           (runs/local-ensemble.yaml), no keys, no frontier models.
         type: choice
-        options: [ci, local-ensemble]
+        options: [ci, local-ensemble, frontier]
         default: ci
   workflow_call:
     secrets:
@@ -41,7 +56,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.decide.outputs.proceed }}
+    steps:
+      - name: Decide whether this run should start
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          RUN_CONFIG: ${{ inputs.config || 'ci' }}
+          ON_PUSH: ${{ vars.ASSAY_FULL_RUN_ON_PUSH }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -eu
+          if [ "$RUN_CONFIG" = frontier ] && [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "config=frontier needs the ANTHROPIC_API_KEY secret: gh secret set ANTHROPIC_API_KEY (docs/frontier-run.md)" >&2
+            exit 1
+          fi
+          if [ "$EVENT" = push ] && [ "$ON_PUSH" != true ]; then
+            echo "push-triggered full runs are off (set the repository variable ASSAY_FULL_RUN_ON_PUSH=true to enable them)"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+
   full-run:
+    needs: gate
+    if: ${{ needs.gate.outputs.proceed == 'true' }}
     runs-on: ubuntu-latest
     # The ensemble runs three CPU models one after another; one 3B model
     # took 52 minutes on 2026-10-08 (run 37801616910).
@@ -90,14 +132,14 @@ jobs:
         run: sh scripts/ci/dvwa-setup.sh http://127.0.0.1:8080
 
       - name: Cache llama.cpp release and model
-        if: env.RUN_CONFIG != 'local-ensemble'
+        if: env.RUN_CONFIG == 'ci'
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/assay-llama
           key: llama-${{ runner.os }}-${{ hashFiles('labs/models.lock') }}
 
       - name: Start llama-server
-        if: env.RUN_CONFIG != 'local-ensemble'
+        if: env.RUN_CONFIG == 'ci'
         run: bash scripts/ci/start-llama.sh labs/models.lock "${RUNNER_TEMP}/assay-llama"
 
       - name: Cache llama.cpp release and ensemble models
@@ -117,15 +159,18 @@ jobs:
           free -m
 
       - name: Run the harness
+        id: harness
         # Model API steps are hard failures; a missing key is not. The run
         # command drops models whose key is absent and labels the run
-        # degraded (--allow-missing-providers).
-        continue-on-error: false
+        # degraded (--allow-missing-providers). Exit 1 is a budget-capped run
+        # (verdict BLOCKED): its results are still written and uploaded, and
+        # the job fails at the end instead of here.
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ASSAY_AUDIT_KEY: ${{ secrets.ASSAY_AUDIT_KEY }}
         run: |
+          code=0
           ./assay run \
             --config "runs/${RUN_CONFIG}.yaml" \
             --mode full \
@@ -135,7 +180,12 @@ jobs:
             --policy policy/default.yaml \
             --audit-key-env ASSAY_AUDIT_KEY \
             --allow-missing-providers \
-            --ci-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT"
+            --ci-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT" \
+            || code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then
+            exit "$code"
+          fi
 
       - name: Render report and dashboard data
         continue-on-error: false
@@ -165,26 +215,27 @@ jobs:
           retention-days: 90
 
       - name: Commit results
+        if: steps.harness.outputs.code == '0'
         env:
           GIT_AUTHOR_NAME: github-actions[bot]
           GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
           GIT_COMMITTER_NAME: github-actions[bot]
           GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          EVENT: ${{ github.event_name }}
         run: |
           set -eu
           latest="$(cat results/LATEST)"
-          # Only runs with at least one real model provider are committed;
-          # fake-only runs stay in the workflow artifact.
-          if ! python3 - "results/$latest/run.json" <<'PY'
-          import json, sys
-          d = json.load(open(sys.argv[1]))
-          real = [m for m in d["models"] if m["ref"]["provider"] != "fake"]
-          sys.exit(0 if real else 1)
-          PY
-          then
-            echo "fake-only run $latest: not committed"
-            exit 0
-          fi
+          # See scripts/ci/results-gate.py: fake-only runs stay in the
+          # workflow artifact, a run in which a real model never completed a
+          # call fails the job, and a degraded run is committed only when
+          # dispatched by hand.
+          gate=0
+          python3 scripts/ci/results-gate.py "results/$latest/run.json" "$EVENT" || gate=$?
+          case "$gate" in
+            0) ;;
+            3) echo "run $latest not committed"; exit 0 ;;
+            *) echo "run $latest not committed and not usable" >&2; exit 1 ;;
+          esac
           stage="$RUNNER_TEMP/results-stage"
           rm -rf "$stage" && mkdir -p "$stage"
           cp -R "results/$latest" "$stage/"
@@ -212,3 +263,9 @@ jobs:
         run: |
           [ -f synthetic-ops.pid ] && kill "$(cat synthetic-ops.pid)" 2>/dev/null || true
           find "${RUNNER_TEMP}" -name llama-server.pid 2>/dev/null | while read -r pid; do kill "$(cat "$pid")" 2>/dev/null || true; done
+
+      - name: Fail the job on a budget-capped run
+        if: steps.harness.outputs.code == '1'
+        run: |
+          echo "the run hit its budget cap (verdict BLOCKED); results are in the artifact, not committed" >&2
+          exit 1
