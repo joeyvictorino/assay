@@ -1,0 +1,19 @@
+# Ensemble model 3 of 3 (port 8083). Ministral 3 3B Instruct (2512), Q4_K_M,
+# from Mistral AI's own GGUF repository.
+# License: Apache-2.0 (Hugging Face card license: apache-2.0).
+# Size 2147023008 bytes, X-Repo-Commit eb599d408350ea2bb60452cb86be7c7b2fc28227.
+# Replaced Granite 3.3 2B after run 38034104828: llama.cpp left Granite's tool
+# calls unparsed (a JSON array in the message text), so it could never call a
+# tool. Ministral's calls parse natively; checked locally before pinning.
+# Verified 2026-10-10: `curl -sI https://huggingface.co/<repo>/resolve/main/<file>`
+# returned HTTP 302 with the size and repo commit above; model_sha256 is the
+# LFS object id from raw/main/<file> ("oid sha256:..."), which is the content
+# sha256. The llama.cpp asset and digest are the ones pinned in
+# labs/models.lock. start-llama.sh re-verifies every asset on each run and has
+# no fallback for ensemble models: a mismatch fails the job.
+llama_cpp_release: b11476
+llama_cpp_asset: llama-b11476-bin-ubuntu-x64.tar.gz
+llama_cpp_sha256: "2cda5ff9363967f1aba5b5b096032e1b7d9eb568b011769282bf34e4f1cf4b5e"
+model_repo: mistralai/Ministral-3-3B-Instruct-2512-GGUF
+model_file: Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
+model_sha256: "9ed150d4367e68df0ac8e1540f6ddc65b42d0ee26378329d1ecbca60f93fc5f8"

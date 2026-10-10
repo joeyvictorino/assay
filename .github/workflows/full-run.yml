@@ -107,13 +107,13 @@ jobs:
           path: ${{ runner.temp }}/assay-ensemble
           key: ensemble-${{ runner.os }}-${{ hashFiles('labs/ensemble/*.lock') }}
 
-      - name: Start the ensemble llama-servers (8081 qwen, 8082 llama, 8083 granite)
+      - name: Start the ensemble llama-servers (8081 qwen, 8082 llama, 8083 ministral)
         if: env.RUN_CONFIG == 'local-ensemble'
         run: |
           bash scripts/ci/start-ensemble.sh "${RUNNER_TEMP}/assay-ensemble" \
             labs/ensemble/qwen2.5-3b.lock \
             labs/ensemble/llama-3.2-3b.lock \
-            labs/ensemble/granite-3.3-2b.lock
+            labs/ensemble/ministral-3-3b.lock
           free -m
 
       - name: Run the harness

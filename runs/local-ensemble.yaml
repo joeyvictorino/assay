@@ -7,10 +7,15 @@
 # model. Routes only matter for failover inside a route; the run command pins
 # each model's probe and score routes to that model alone.
 #
-# Agent limits match runs/ci.yaml (max_turns 8, max_tokens 2048) so the qwen
-# row is comparable with earlier committed runs.
+# Agent limits match runs/ci.yaml (max_turns 8, max_tokens 2048). Servers run
+# with a 32768-token context and a q8_0 KV cache (start-ensemble.sh); earlier
+# single-model runs used an f16 cache.
+#
+# Run 38034104828 (results/20261010-072327-3b2f2823) used a 16384-token
+# context, which one juice-shop prompt exceeded, and Granite 3.3 2B, whose tool
+# calls llama.cpp did not parse. Both are fixed here; that run stays committed.
 name: local-ensemble
-label: "local open-weight ensemble (Qwen2.5 3B, Llama 3.2 3B, Granite 3.3 2B; Q4_K_M on CPU); no frontier models"
+label: "local open-weight ensemble (Qwen2.5 3B, Llama 3.2 3B, Ministral 3 3B; Q4_K_M on CPU); no frontier models"
 default_model: qwen2.5-3b-instruct-q4_k_m
 
 providers:
@@ -22,7 +27,7 @@ providers:
     type: openaicompat
     base_url: http://127.0.0.1:8082/v1
     timeout_ms: 600000
-  local-granite:
+  local-mistral:
     type: openaicompat
     base_url: http://127.0.0.1:8083/v1
     timeout_ms: 600000
@@ -30,29 +35,29 @@ providers:
 models:
   - { provider: local-qwen,    model: qwen2.5-3b-instruct-q4_k_m,   max_latency_ms: 600000 }
   - { provider: local-llama,   model: llama-3.2-3b-instruct-q4_k_m, max_latency_ms: 600000 }
-  - { provider: local-granite, model: granite-3.3-2b-instruct-q4_k_m, max_latency_ms: 600000 }
+  - { provider: local-mistral, model: ministral-3-3b-instruct-q4_k_m, max_latency_ms: 600000 }
 
 routes:
   recon:
     - { provider: local-qwen,    model: qwen2.5-3b-instruct-q4_k_m }
     - { provider: local-llama,   model: llama-3.2-3b-instruct-q4_k_m }
-    - { provider: local-granite, model: granite-3.3-2b-instruct-q4_k_m }
+    - { provider: local-mistral, model: ministral-3-3b-instruct-q4_k_m }
   probe:
     - { provider: local-qwen,    model: qwen2.5-3b-instruct-q4_k_m }
     - { provider: local-llama,   model: llama-3.2-3b-instruct-q4_k_m }
-    - { provider: local-granite, model: granite-3.3-2b-instruct-q4_k_m }
+    - { provider: local-mistral, model: ministral-3-3b-instruct-q4_k_m }
   validate:
     - { provider: local-qwen,    model: qwen2.5-3b-instruct-q4_k_m }
     - { provider: local-llama,   model: llama-3.2-3b-instruct-q4_k_m }
-    - { provider: local-granite, model: granite-3.3-2b-instruct-q4_k_m }
+    - { provider: local-mistral, model: ministral-3-3b-instruct-q4_k_m }
   remediate:
     - { provider: local-qwen,    model: qwen2.5-3b-instruct-q4_k_m }
     - { provider: local-llama,   model: llama-3.2-3b-instruct-q4_k_m }
-    - { provider: local-granite, model: granite-3.3-2b-instruct-q4_k_m }
+    - { provider: local-mistral, model: ministral-3-3b-instruct-q4_k_m }
   score:
     - { provider: local-qwen,    model: qwen2.5-3b-instruct-q4_k_m }
     - { provider: local-llama,   model: llama-3.2-3b-instruct-q4_k_m }
-    - { provider: local-granite, model: granite-3.3-2b-instruct-q4_k_m }
+    - { provider: local-mistral, model: ministral-3-3b-instruct-q4_k_m }
 
 # Budgets must be positive; local models cost nothing per token, so these
 # caps never bind. The latency cap matches runs/ci.yaml.
@@ -65,7 +70,7 @@ budgets:
 cost_per_mtok:
   qwen2.5-3b-instruct-q4_k_m:     { input_usd: 0, output_usd: 0, cache_read_usd: 0 }
   llama-3.2-3b-instruct-q4_k_m:   { input_usd: 0, output_usd: 0, cache_read_usd: 0 }
-  granite-3.3-2b-instruct-q4_k_m: { input_usd: 0, output_usd: 0, cache_read_usd: 0 }
+  ministral-3-3b-instruct-q4_k_m: { input_usd: 0, output_usd: 0, cache_read_usd: 0 }
 
 max_failovers: 1
 
