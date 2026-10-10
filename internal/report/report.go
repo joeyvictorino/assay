@@ -52,6 +52,12 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 	w("- Git SHA: `%s`\n", orDash(rr.GitSHA))
 	w("- CI run: %s\n", linkOrDash(rr.CIRunURL))
 	w("- Mode: %s\n", orDash(rr.Mode))
+	if rr.Config != "" {
+		w("- Config: `%s`\n", rr.Config)
+	}
+	if rr.Label != "" {
+		w("- Label: %s\n", rr.Label)
+	}
 	w("- Labs: %s\n", listOrDash(rr.Labs))
 	w("- Models: %s\n\n", listOrDash(modelNames(rr)))
 

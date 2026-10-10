@@ -1,0 +1,74 @@
+# Local open-weight ensemble: three small models from three families, each
+# served by its own llama-server on the runner's CPU (scripts/ci/start-ensemble.sh,
+# pins in labs/ensemble/*.lock). No API keys, no frontier models.
+#
+# Like every run, the assessed set is the models list below: one independent
+# agent per model per lab, so every finding is attributed to exactly one
+# model. Routes only matter for failover inside a route; the run command pins
+# each model's probe and score routes to that model alone.
+#
+# Agent limits match runs/ci.yaml (max_turns 8, max_tokens 2048) so the qwen
+# row is comparable with earlier committed runs.
+name: local-ensemble
+label: "local open-weight ensemble (Qwen2.5 3B, Llama 3.2 3B, Granite 3.3 2B; Q4_K_M on CPU); no frontier models"
+default_model: qwen2.5-3b-instruct-q4_k_m
+
+providers:
+  local-qwen:
+    type: openaicompat
+    base_url: http://127.0.0.1:8081/v1
+    timeout_ms: 600000
+  local-llama:
+    type: openaicompat
+    base_url: http://127.0.0.1:8082/v1
+    timeout_ms: 600000
+  local-granite:
+    type: openaicompat
+    base_url: http://127.0.0.1:8083/v1
+    timeout_ms: 600000
+
+models:
+  - { provider: local-qwen,    model: qwen2.5-3b-instruct-q4_k_m,   max_latency_ms: 600000 }
+  - { provider: local-llama,   model: llama-3.2-3b-instruct-q4_k_m, max_latency_ms: 600000 }
+  - { provider: local-granite, model: granite-3.3-2b-instruct-q4_k_m, max_latency_ms: 600000 }
+
+routes:
+  recon:
+    - { provider: local-qwen,    model: qwen2.5-3b-instruct-q4_k_m }
+    - { provider: local-llama,   model: llama-3.2-3b-instruct-q4_k_m }
+    - { provider: local-granite, model: granite-3.3-2b-instruct-q4_k_m }
+  probe:
+    - { provider: local-qwen,    model: qwen2.5-3b-instruct-q4_k_m }
+    - { provider: local-llama,   model: llama-3.2-3b-instruct-q4_k_m }
+    - { provider: local-granite, model: granite-3.3-2b-instruct-q4_k_m }
+  validate:
+    - { provider: local-qwen,    model: qwen2.5-3b-instruct-q4_k_m }
+    - { provider: local-llama,   model: llama-3.2-3b-instruct-q4_k_m }
+    - { provider: local-granite, model: granite-3.3-2b-instruct-q4_k_m }
+  remediate:
+    - { provider: local-qwen,    model: qwen2.5-3b-instruct-q4_k_m }
+    - { provider: local-llama,   model: llama-3.2-3b-instruct-q4_k_m }
+    - { provider: local-granite, model: granite-3.3-2b-instruct-q4_k_m }
+  score:
+    - { provider: local-qwen,    model: qwen2.5-3b-instruct-q4_k_m }
+    - { provider: local-llama,   model: llama-3.2-3b-instruct-q4_k_m }
+    - { provider: local-granite, model: granite-3.3-2b-instruct-q4_k_m }
+
+# Budgets must be positive; local models cost nothing per token, so these
+# caps never bind. The latency cap matches runs/ci.yaml.
+budgets:
+  per_run:   { max_usd: 1 }
+  per_model: { max_usd: 1 }
+  per_task:  { max_usd: 1, max_latency_ms: 120000 }
+
+# Local open-weight models: no per-token price; compute cost is CI minutes.
+cost_per_mtok:
+  qwen2.5-3b-instruct-q4_k_m:     { input_usd: 0, output_usd: 0, cache_read_usd: 0 }
+  llama-3.2-3b-instruct-q4_k_m:   { input_usd: 0, output_usd: 0, cache_read_usd: 0 }
+  granite-3.3-2b-instruct-q4_k_m: { input_usd: 0, output_usd: 0, cache_read_usd: 0 }
+
+max_failovers: 1
+
+agent:
+  max_turns: 8
+  max_tokens: 2048

@@ -140,6 +140,19 @@ func TestMarkdownFallbacks(t *testing.T) {
 	}
 }
 
+func TestMarkdownConfigAndLabel(t *testing.T) {
+	rr := model.RunReport{RunID: "r3", Mode: "full", Config: "local-ensemble", Label: "local open-weight ensemble; no frontier models"}
+	md := Markdown(rr, nil, nil)
+	for _, want := range []string{"- Config: `local-ensemble`", "- Label: local open-weight ensemble; no frontier models"} {
+		if !strings.Contains(md, want) {
+			t.Fatalf("missing %q", want)
+		}
+	}
+	if strings.Contains(Markdown(model.RunReport{RunID: "r4"}, nil, nil), "- Label:") {
+		t.Fatal("label line printed for a run without a label")
+	}
+}
+
 func TestRowsAndDashboardData(t *testing.T) {
 	later := sampleRun()
 	later.RunID = "r0-later"

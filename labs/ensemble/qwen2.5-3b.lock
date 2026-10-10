@@ -1,0 +1,18 @@
+# Ensemble model 1 of 3 (port 8081). Qwen2.5-3B-Instruct, Q4_K_M.
+# License: Qwen Research License (Hugging Face card license_name
+# "qwen-research"; non-commercial research use). Used here only for this
+# non-commercial research harness against local labs. Already the model of
+# record in labs/models.lock.
+# Size 2104932768 bytes, X-Repo-Commit 7dabda4d13d513e3e842b20f0d435c732f172cbe.
+# Verified 2026-10-10: `curl -sI https://huggingface.co/<repo>/resolve/main/<file>`
+# returned HTTP 302 with the size and repo commit above; model_sha256 is the
+# LFS object id from raw/main/<file> ("oid sha256:..."), which is the content
+# sha256. The llama.cpp asset and digest are the ones pinned in
+# labs/models.lock. start-llama.sh re-verifies every asset on each run and has
+# no fallback for ensemble models: a mismatch fails the job.
+llama_cpp_release: b11476
+llama_cpp_asset: llama-b11476-bin-ubuntu-x64.tar.gz
+llama_cpp_sha256: "2cda5ff9363967f1aba5b5b096032e1b7d9eb568b011769282bf34e4f1cf4b5e"
+model_repo: Qwen/Qwen2.5-3B-Instruct-GGUF
+model_file: qwen2.5-3b-instruct-q4_k_m.gguf
+model_sha256: "626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d"

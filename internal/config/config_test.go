@@ -172,6 +172,35 @@ func TestLocalConfigLatency(t *testing.T) {
 	}
 }
 
+// The local ensemble must stay local: three distinct llama-server ports, no
+// keyed or fake provider, zero prices, and a label that says what ran.
+func TestLocalEnsembleConfig(t *testing.T) {
+	c, err := Load(filepath.Join("..", "..", "runs", "local-ensemble.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.Models) != 3 {
+		t.Fatalf("models = %d, want 3", len(c.Models))
+	}
+	ports := map[string]bool{}
+	for _, m := range c.Models {
+		p := c.Providers[m.Provider]
+		if p.Type != "openaicompat" || !strings.HasPrefix(p.BaseURL, "http://127.0.0.1:") || p.APIKeyEnv != "" {
+			t.Fatalf("model %s: provider %+v is not a keyless local server", m.Model, p)
+		}
+		ports[p.BaseURL] = true
+		if cost := c.CostPerMTok[m.Model]; cost.InputUSD != 0 || cost.OutputUSD != 0 {
+			t.Fatalf("model %s has a price: %+v", m.Model, cost)
+		}
+	}
+	if len(ports) != 3 {
+		t.Fatalf("models share a server: %v", ports)
+	}
+	if !strings.Contains(c.Label, "no frontier models") {
+		t.Fatalf("label = %q", c.Label)
+	}
+}
+
 func TestBuildRegistry(t *testing.T) {
 	c, err := Parse([]byte(good))
 	if err != nil {

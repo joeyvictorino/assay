@@ -8,6 +8,15 @@ name: full-run
 
 on:
   workflow_dispatch:
+    inputs:
+      config:
+        description: >-
+          Run config. ci: frontier models when their keys are set, else the
+          pinned local model. local-ensemble: three local open-weight models
+          (runs/local-ensemble.yaml), no keys, no frontier models.
+        type: choice
+        options: [ci, local-ensemble]
+        default: ci
   workflow_call:
     secrets:
       ANTHROPIC_API_KEY:
@@ -34,7 +43,9 @@ concurrency:
 jobs:
   full-run:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # The ensemble runs three CPU models one after another; one 3B model
+    # took 52 minutes on 2026-10-08 (run 37801616910).
+    timeout-minutes: ${{ inputs.config == 'local-ensemble' && 330 || 120 }}
     services:
       juice-shop:
         image: bkimminich/juice-shop
@@ -46,6 +57,7 @@ jobs:
           - 8080:80
     env:
       ASSAY_RESULTS_ROOT: results
+      RUN_CONFIG: ${{ inputs.config || 'ci' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,13 +90,31 @@ jobs:
         run: sh scripts/ci/dvwa-setup.sh http://127.0.0.1:8080
 
       - name: Cache llama.cpp release and model
+        if: env.RUN_CONFIG != 'local-ensemble'
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/assay-llama
           key: llama-${{ runner.os }}-${{ hashFiles('labs/models.lock') }}
 
       - name: Start llama-server
+        if: env.RUN_CONFIG != 'local-ensemble'
         run: bash scripts/ci/start-llama.sh labs/models.lock "${RUNNER_TEMP}/assay-llama"
+
+      - name: Cache llama.cpp release and ensemble models
+        if: env.RUN_CONFIG == 'local-ensemble'
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/assay-ensemble
+          key: ensemble-${{ runner.os }}-${{ hashFiles('labs/ensemble/*.lock') }}
+
+      - name: Start the ensemble llama-servers (8081 qwen, 8082 llama, 8083 granite)
+        if: env.RUN_CONFIG == 'local-ensemble'
+        run: |
+          bash scripts/ci/start-ensemble.sh "${RUNNER_TEMP}/assay-ensemble" \
+            labs/ensemble/qwen2.5-3b.lock \
+            labs/ensemble/llama-3.2-3b.lock \
+            labs/ensemble/granite-3.3-2b.lock
+          free -m
 
       - name: Run the harness
         # Model API steps are hard failures; a missing key is not. The run
@@ -97,7 +127,7 @@ jobs:
           ASSAY_AUDIT_KEY: ${{ secrets.ASSAY_AUDIT_KEY }}
         run: |
           ./assay run \
-            --config runs/ci.yaml \
+            --config "runs/${RUN_CONFIG}.yaml" \
             --mode full \
             --out results/ \
             --scope scope/ci.yaml \
@@ -181,4 +211,4 @@ jobs:
         if: always()
         run: |
           [ -f synthetic-ops.pid ] && kill "$(cat synthetic-ops.pid)" 2>/dev/null || true
-          [ -f "${RUNNER_TEMP}/assay-llama/llama-server.pid" ] && kill "$(cat "${RUNNER_TEMP}/assay-llama/llama-server.pid")" 2>/dev/null || true
+          find "${RUNNER_TEMP}" -name llama-server.pid 2>/dev/null | while read -r pid; do kill "$(cat "$pid")" 2>/dev/null || true; done

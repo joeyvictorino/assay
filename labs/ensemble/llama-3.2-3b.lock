@@ -1,0 +1,17 @@
+# Ensemble model 2 of 3 (port 8082). Llama-3.2-3B-Instruct, Q4_K_M, as
+# quantized by bartowski (ungated mirror of meta-llama/Llama-3.2-3B-Instruct).
+# License: Llama 3.2 Community License (Hugging Face tag license:llama3.2).
+# Built with Llama.
+# Size 2019377696 bytes, X-Repo-Commit 5ab33fa94d1d04e903623ae72c95d1696f09f9e8.
+# Verified 2026-10-10: `curl -sI https://huggingface.co/<repo>/resolve/main/<file>`
+# returned HTTP 302 with the size and repo commit above; model_sha256 is the
+# LFS object id from raw/main/<file> ("oid sha256:..."), which is the content
+# sha256. The llama.cpp asset and digest are the ones pinned in
+# labs/models.lock. start-llama.sh re-verifies every asset on each run and has
+# no fallback for ensemble models: a mismatch fails the job.
+llama_cpp_release: b11476
+llama_cpp_asset: llama-b11476-bin-ubuntu-x64.tar.gz
+llama_cpp_sha256: "2cda5ff9363967f1aba5b5b096032e1b7d9eb568b011769282bf34e4f1cf4b5e"
+model_repo: bartowski/Llama-3.2-3B-Instruct-GGUF
+model_file: Llama-3.2-3B-Instruct-Q4_K_M.gguf
+model_sha256: "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff"

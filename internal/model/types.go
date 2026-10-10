@@ -396,7 +396,9 @@ type RunReport struct {
 	RunID        string             `json:"run_id"`
 	GitSHA       string             `json:"git_sha"`
 	CIRunURL     string             `json:"ci_run_url,omitempty"`
-	Mode         string             `json:"mode"` // full | degraded
+	Mode         string             `json:"mode"`             // full | degraded
+	Config       string             `json:"config,omitempty"` // run config name
+	Label        string             `json:"label,omitempty"`  // run config label, e.g. which kind of models ran
 	Started      time.Time          `json:"started"`
 	Finished     time.Time          `json:"finished"`
 	Scope        Decision           `json:"scope"`

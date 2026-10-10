@@ -340,6 +340,7 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 	}
 	rr := model.RunReport{
 		RunID: o.runID, GitSHA: os.Getenv("GITHUB_SHA"), CIRunURL: ciURL(o.ciURL), Mode: mode,
+		Config: cfg.Name, Label: cfg.Label,
 		Started: started, Finished: time.Now().UTC(),
 		Scope:  model.Decision{Effect: model.EffectAllow, Reason: "SCOPE_VERIFIED", Rationale: "scope " + gate.Fingerprint(), PolicyHash: gate.Fingerprint()},
 		Models: results, Labs: labsRun, Overlap: &om, Precision: precision, Chains: chains,

@@ -81,6 +81,7 @@ type AgentConfig struct {
 // Config is the whole run configuration.
 type Config struct {
 	Name         string                    `yaml:"name"`
+	Label        string                    `yaml:"label"` // one honest line describing the model set; copied into run.json
 	DefaultModel string                    `yaml:"default_model"`
 	Providers    map[string]ProviderConfig `yaml:"providers"`
 	Models       []ModelConfig             `yaml:"models"`

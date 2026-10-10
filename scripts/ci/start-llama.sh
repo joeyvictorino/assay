@@ -2,7 +2,8 @@
 # start-llama.sh [LOCK_FILE] [WORK_DIR]
 # Downloads the pinned llama.cpp Linux x64 release and the pinned GGUF model
 # listed in labs/models.lock, verifies sha256 digests, starts llama-server on
-# 127.0.0.1:8081 and waits for /health.
+# 127.0.0.1:8081 (LLAMA_PORT) and waits for /health. LLAMA_CTX sets the
+# context size (default 32768) and LLAMA_THREADS the thread count (default 4).
 #
 # Hash policy: every sha256 in the lock file must match the downloaded file.
 # An EMPTY hash is accepted only when ASSAY_FIRST_RUN=1; the computed digest
@@ -12,6 +13,7 @@ set -euo pipefail
 LOCK="${1:-labs/models.lock}"
 WORK="${2:-${RUNNER_TEMP:-/tmp}/assay-llama}"
 PORT="${LLAMA_PORT:-8081}"
+CTX="${LLAMA_CTX:-32768}"
 mkdir -p "$WORK/release" "$WORK/models"
 
 lockval() { sed -n "s/^$1:[[:space:]]*\"\{0,1\}\([^\"#]*\)\"\{0,1\}.*/\1/p" "$LOCK" | head -n1 | tr -d '[:space:]'; }
@@ -91,7 +93,7 @@ fi
 # 3. Start the server and wait for health.
 LOG="$WORK/llama-server.log"
 echo "start-llama: starting llama-server on 127.0.0.1:$PORT with $(basename "$MODEL_PATH")"
-nohup "$SERVER" --host 127.0.0.1 --port "$PORT" -c 32768 -t 4 --jinja -m "$MODEL_PATH" >"$LOG" 2>&1 &
+nohup "$SERVER" --host 127.0.0.1 --port "$PORT" -c "$CTX" -t "${LLAMA_THREADS:-4}" --jinja -m "$MODEL_PATH" >"$LOG" 2>&1 &
 echo $! > "$WORK/llama-server.pid"
 "$(dirname "$0")/wait-for.sh" "http://127.0.0.1:$PORT/health" "${LLAMA_WAIT_SECONDS:-300}" 200 || { tail -n 50 "$LOG" >&2; exit 1; }
 echo "start-llama: ready (pid $(cat "$WORK/llama-server.pid"), log $LOG)"

@@ -1,0 +1,16 @@
+# Ensemble model 3 of 3 (port 8083). IBM Granite 3.3 2B Instruct, Q4_K_M,
+# from IBM's own GGUF repository.
+# License: Apache-2.0 (Hugging Face tag license:apache-2.0).
+# Size 1545303328 bytes, X-Repo-Commit 7cdf86ccd1f1bb3491c9b7017b033f2e51367397.
+# Verified 2026-10-10: `curl -sI https://huggingface.co/<repo>/resolve/main/<file>`
+# returned HTTP 302 with the size and repo commit above; model_sha256 is the
+# LFS object id from raw/main/<file> ("oid sha256:..."), which is the content
+# sha256. The llama.cpp asset and digest are the ones pinned in
+# labs/models.lock. start-llama.sh re-verifies every asset on each run and has
+# no fallback for ensemble models: a mismatch fails the job.
+llama_cpp_release: b11476
+llama_cpp_asset: llama-b11476-bin-ubuntu-x64.tar.gz
+llama_cpp_sha256: "2cda5ff9363967f1aba5b5b096032e1b7d9eb568b011769282bf34e4f1cf4b5e"
+model_repo: ibm-granite/granite-3.3-2b-instruct-GGUF
+model_file: granite-3.3-2b-instruct-Q4_K_M.gguf
+model_sha256: "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852"
