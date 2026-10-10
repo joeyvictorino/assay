@@ -102,22 +102,17 @@ func TestRejectPlaceholderModels(t *testing.T) {
 	}
 }
 
-// runs/frontier.yaml ships with an OpenAI model id that Joey must fill in.
-// While the OpenAI key is unset the provider is dropped and the placeholder
-// never matters; once the key is set the run must refuse to start.
-func TestFrontierConfigPlaceholderOnlyBitesWithAKey(t *testing.T) {
-	cfgPath := filepath.Join(repoRoot(t), "runs", "frontier.yaml")
-	load := func() *config.Config {
-		cfg, err := config.Load(cfgPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return cfg
+// runs/frontier.yaml must run on an Anthropic key alone: the OpenAI provider
+// is dropped without its key, and the placeholder model id it ships with
+// (until it is filled in) never matters. Nothing here depends on the
+// placeholder still being there.
+func TestFrontierConfigRunsOnAnAnthropicKeyAlone(t *testing.T) {
+	cfg, err := config.Load(filepath.Join(repoRoot(t), "runs", "frontier.yaml"))
+	if err != nil {
+		t.Fatal(err)
 	}
-
 	t.Setenv("ANTHROPIC_API_KEY", "test-key")
 	t.Setenv("OPENAI_API_KEY", "")
-	cfg := load()
 	if dropped := dropMissingProviders(cfg); len(dropped) != 1 || dropped[0] != "openai" {
 		t.Fatalf("dropped %v, want [openai]", dropped)
 	}
@@ -134,22 +129,48 @@ func TestFrontierConfigPlaceholderOnlyBitesWithAKey(t *testing.T) {
 		}
 	}
 	for kind, routes := range cfg.Routes {
+		if len(routes) == 0 {
+			t.Errorf("route %s is empty once openai is dropped", kind)
+		}
 		for _, r := range routes {
 			if r.Provider == "fake" {
-				t.Errorf("route %s still points at the fake provider", kind)
+				t.Errorf("route %s points at the fake provider", kind)
 			}
 		}
 	}
+	if cfg.Budgets.PerRun.MaxUSD > 15 {
+		t.Errorf("per-run cap is $%g; docs/frontier-run.md promises at most $15", cfg.Budgets.PerRun.MaxUSD)
+	}
+}
 
-	t.Setenv("OPENAI_API_KEY", "test-key")
-	cfg = load()
+// With a key set, a model id that is still a placeholder must stop the run.
+func TestPlaceholderStopsARunOnceItsKeyIsSet(t *testing.T) {
+	cfg, err := config.Parse([]byte(`name: t
+providers:
+  openai: { type: openaicompat, base_url: "https://api.example.test/v1", api_key_env: ASSAY_TEST_OPENAI_KEY }
+models:
+  - { provider: openai, model: REPLACE_WITH_X }
+routes:
+  recon: [{ provider: openai, model: REPLACE_WITH_X }]
+  probe: [{ provider: openai, model: REPLACE_WITH_X }]
+  validate: [{ provider: openai, model: REPLACE_WITH_X }]
+  remediate: [{ provider: openai, model: REPLACE_WITH_X }]
+  score: [{ provider: openai, model: REPLACE_WITH_X }]
+budgets:
+  per_run: { max_usd: 1 }
+  per_model: { max_usd: 1 }
+  per_task: { max_usd: 1, max_latency_ms: 1000 }
+cost_per_mtok:
+  REPLACE_WITH_X: { input_usd: 1, output_usd: 1, cache_read_usd: 1 }
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ASSAY_TEST_OPENAI_KEY", "test-key")
 	if dropped := dropMissingProviders(cfg); len(dropped) != 0 {
-		t.Fatalf("dropped %v with both keys set", dropped)
+		t.Fatalf("dropped %v with the key set", dropped)
 	}
 	if err := rejectPlaceholderModels(cfg); err == nil {
-		t.Fatal("run would call the unfilled OpenAI placeholder model id")
-	}
-	if cfg.Budgets.PerRun.MaxUSD != 15 {
-		t.Errorf("per-run cap is $%g, want $15", cfg.Budgets.PerRun.MaxUSD)
+		t.Fatal("run would call an unfilled placeholder model id")
 	}
 }
