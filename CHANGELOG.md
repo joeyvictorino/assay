@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+Added
+- `scripts/demo.sh`: a 60-second offline demo (no API key, no model) that builds
+  the harness and the synthetic lab, runs the scripted fake provider against it,
+  prints a plain-English summary and shows the audit chain failing after an edit.
+  `docs/demo.tape` records it.
+- `runs/frontier.yaml` and `docs/frontier-run.md`: a frontier run (Claude Opus
+  5.5, Sonnet 5.5, Haiku 4.5, and an OpenAI model whose id is a placeholder to
+  fill in), dispatched with `gh workflow run full-run.yml -f config=frontier`.
+  Capped at $15 per run.
+- `scripts/ci/results-gate.py`: decides what the full-run workflow may commit.
+
+Fixed
+- The per-run and per-model USD caps applied to each (lab, model) assessment
+  separately, because every assessment builds its own router. They now hold
+  across the whole run, and a run that reaches one is BLOCKED (ADR 0006
+  amendment).
+- `runs/ci.yaml` routed every task kind to the fake provider and listed the fake
+  model among the assessed models, so a keyed run would have included a
+  scripted model in the overlap matrix. Routes now point at the Anthropic models
+  with the local model as the keyless fallback.
+- A push to `main` that touched `internal/`, `labs/`, `runs/` or `scope/`
+  started a full run whose degraded result replaced the latest one. Push-triggered
+  runs are now opt-in (repository variable `ASSAY_FULL_RUN_ON_PUSH`), a degraded
+  run is committed only when dispatched by hand, and a run that hit its budget cap
+  is uploaded as an artifact instead of being lost.
+
 ## 0.3.0 (2026-10-08)
 
 Added
