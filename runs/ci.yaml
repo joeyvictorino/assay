@@ -1,7 +1,13 @@
-# CI run configuration. Pull requests use the scripted fake provider so the
-# pipeline exercises routing, policy, audit and overlap without spending
-# money or touching a model API. Pushes to main may swap the fake routes for
-# the anthropic ones below by setting ANTHROPIC_API_KEY.
+# Default run configuration (dispatch config=ci). With ANTHROPIC_API_KEY set
+# it assesses with Claude Sonnet 5.5 and Haiku 4.5 and the pinned local model;
+# without the key the Anthropic models are dropped, the run is labelled
+# degraded and only the local model runs. For the full frontier set (Opus 5.5
+# and an OpenAI model too) use runs/frontier.yaml. Pull requests do not use
+# this file; they run runs/pr.yaml with the scripted fake provider.
+#
+# The assessed set is the models list below (one independent agent per model
+# per lab); `assay run` pins each model's probe and score routes to that model
+# alone, so the routes here matter for other commands and for validation.
 name: ci
 default_model: claude-sonnet-5-5
 
@@ -14,21 +20,29 @@ providers:
     type: openaicompat
     base_url: http://127.0.0.1:8081/v1
     timeout_ms: 600000
-  fake:
-    type: fake
 
 models:
   - { provider: anthropic, model: claude-sonnet-5-5 }
   - { provider: anthropic, model: claude-haiku-4-5 }
   - { provider: local, model: qwen2.5-3b-instruct-q4_k_m, max_latency_ms: 600000 }
-  - { provider: fake, model: fake-model }
 
 routes:
-  recon:     [{ provider: fake, model: fake-model }]
-  probe:     [{ provider: fake, model: fake-model }]
-  validate:  [{ provider: fake, model: fake-model }]
-  remediate: [{ provider: fake, model: fake-model }]
-  score:     [{ provider: fake, model: fake-model }]
+  recon:
+    - { provider: anthropic, model: claude-haiku-4-5 }
+    - { provider: local, model: qwen2.5-3b-instruct-q4_k_m }
+  probe:
+    - { provider: anthropic, model: claude-sonnet-5-5 }
+    - { provider: anthropic, model: claude-haiku-4-5 }
+    - { provider: local, model: qwen2.5-3b-instruct-q4_k_m }
+  validate:
+    - { provider: anthropic, model: claude-sonnet-5-5 }
+    - { provider: anthropic, model: claude-haiku-4-5 }
+  remediate:
+    - { provider: anthropic, model: claude-sonnet-5-5 }
+    - { provider: anthropic, model: claude-haiku-4-5 }
+  score:
+    - { provider: anthropic, model: claude-haiku-4-5 }
+    - { provider: local, model: qwen2.5-3b-instruct-q4_k_m }
 
 budgets:
   per_run:   { max_usd: 15 }
@@ -40,7 +54,6 @@ cost_per_mtok:
   claude-sonnet-5-5: { input_usd: 2, output_usd: 10, cache_read_usd: 0.20 }
   claude-opus-5-5:   { input_usd: 4, output_usd: 20, cache_read_usd: 0.20 }
   claude-haiku-4-5:  { input_usd: 1, output_usd: 5,  cache_read_usd: 0.10 }
-  fake-model:        { input_usd: 1, output_usd: 5,  cache_read_usd: 0.10 }
   # Local open-weight model: no per-token price; compute cost is CI minutes.
   qwen2.5-3b-instruct-q4_k_m: { input_usd: 0, output_usd: 0, cache_read_usd: 0 }
 

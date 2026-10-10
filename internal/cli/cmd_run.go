@@ -126,6 +126,9 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 			fmt.Fprintf(stderr, "run: providers without credentials dropped: %s\n", strings.Join(dropped, ", "))
 		}
 	}
+	if err := rejectPlaceholderModels(cfg); err != nil {
+		return ExitError, err
+	}
 	// The assessed set is the config's models list (one independent agent
 	// per model per lab); routes only matter for failover inside a route.
 	refs := make([]model.ModelRef, 0, len(cfg.Models))
@@ -227,6 +230,17 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 			if cfg.Providers[ref.Provider].Type == "fake" {
 				overrides[ref.Provider] = fakeProviderFn(ref.Provider, lab.BaseURL())
 			}
+			pm := byModel[ref.Model]
+			// A router only sees its own spend, so give each one what is left
+			// of the run and model budgets; a task that cannot start is
+			// recorded as an incomplete run (BLOCKED), never skipped silently.
+			runLeft, modelLeft := budgetLeft(cfg, byModel, pm)
+			if runLeft <= 0 || modelLeft <= 0 {
+				fmt.Fprintf(stderr, "run: %s on %s not started: %s budget used up\n", ref.Model, name, exhaustedBudget(runLeft))
+				truncated = true
+				labFindings[ref.Model] = nil
+				continue
+			}
 			reg, err := cfg.BuildRegistry(overrides, os.Getenv)
 			if err != nil {
 				_ = aw.Close()
@@ -235,9 +249,10 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 			rc := cfg.RouterConfig(o.runID)
 			rc.Routes = map[string][]model.ModelRef{"probe": {ref}, "score": {ref}}
 			rc.MaxFailovers = -1 // one model per route: attribution over availability
+			rc.Budgets.PerRun.MaxUSD = runLeft
+			rc.Budgets.PerModel.MaxUSD = modelLeft
 			rt := router.New(rc, reg, aw)
 			client := newClient("probe")
-			pm := byModel[ref.Model]
 			t0 := time.Now()
 			res := runProbeTask(ctx, probeInputs{
 				cfg: cfg, rt: rt, lab: lab, labName: name, ref: ref, client: client, gate: gate,
@@ -377,6 +392,42 @@ func allowsAgent(m model.ToolManifest, agent string) bool {
 		}
 	}
 	return false
+}
+
+// budgetLeft returns what remains of the run-wide and the model-wide USD
+// caps. Each (lab, model) assessment builds its own router, which counts only
+// its own spend, so the caps are enforced here across routers: the router
+// checks before every model call, and one call may overshoot what is left.
+func budgetLeft(cfg *config.Config, byModel map[string]*perModel, pm *perModel) (run, modelLeft float64) {
+	var spent float64
+	for _, m := range byModel {
+		spent += m.spent
+	}
+	return cfg.Budgets.PerRun.MaxUSD - spent, cfg.Budgets.PerModel.MaxUSD - pm.spent
+}
+
+func exhaustedBudget(runLeft float64) string {
+	if runLeft <= 0 {
+		return "per-run"
+	}
+	return "per-model"
+}
+
+// placeholderPrefix marks a model id in a run config that a person must
+// replace before the model can be called (runs/frontier.yaml).
+const placeholderPrefix = "REPLACE_WITH_"
+
+// rejectPlaceholderModels refuses to start while a model that will actually
+// be called still carries a placeholder id. Models of dropped providers are
+// already gone from cfg.Models, so an unfilled placeholder is harmless until
+// its provider's key is set.
+func rejectPlaceholderModels(cfg *config.Config) error {
+	for _, m := range cfg.Models {
+		if strings.HasPrefix(m.Model, placeholderPrefix) {
+			return fmt.Errorf("model id %q for provider %q is a placeholder: edit the run config (see docs/frontier-run.md) or unset that provider's API key", m.Model, m.Provider)
+		}
+	}
+	return nil
 }
 
 // dropMissingProviders removes providers whose key env is empty, along

@@ -1,0 +1,89 @@
+# Frontier run: hosted Anthropic models, plus an OpenAI model when its key is
+# set. Needs the ANTHROPIC_API_KEY secret (and OPENAI_API_KEY for the OpenAI
+# row). Dispatch with
+#   gh workflow run full-run.yml -f config=frontier
+# docs/frontier-run.md has the whole procedure, the cost cap and what to check.
+#
+# Like every run, the assessed set is the models list below: one independent
+# agent per model per lab, so every finding is attributed to exactly one
+# model. `assay run` pins each model's probe and score routes to that model
+# alone; the routes here only satisfy config validation and rank candidates
+# for other commands.
+#
+# Providers without a key are dropped and the run is labelled degraded
+# (--allow-missing-providers), so the Anthropic models run without the OpenAI
+# key. A model id that still starts with REPLACE_WITH_ stops the run before any
+# call is made, but only once its provider's key is set.
+#
+# Agent limits: 8 turns, as in runs/local-ensemble.yaml, so the turn budget is
+# the same across the two result sets. max_tokens is 8192 rather than 2048
+# because the Opus and Sonnet models think by default and thinking tokens count
+# against it; 2048 could leave no room for the tool call. The two result sets
+# therefore do not share every limit, and any comparison must say so.
+name: frontier
+label: "frontier models via API (Anthropic Opus 5.5, Sonnet 5.5, Haiku 4.5; an OpenAI model when OPENAI_API_KEY is set); no local models"
+default_model: claude-sonnet-5-5
+
+providers:
+  anthropic:
+    type: anthropic
+    api_key_env: ANTHROPIC_API_KEY
+  openai:
+    type: openaicompat
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+
+models:
+  - { provider: anthropic, model: claude-opus-5-5 }
+  - { provider: anthropic, model: claude-sonnet-5-5 }
+  - { provider: anthropic, model: claude-haiku-4-5 }
+  # PLACEHOLDER: replace REPLACE_WITH_OPENAI_MODEL_ID with an OpenAI chat model
+  # id that supports tool calls, here, in routes.probe and in cost_per_mtok.
+  - { provider: openai, model: REPLACE_WITH_OPENAI_MODEL_ID }
+
+routes:
+  recon:
+    - { provider: anthropic, model: claude-haiku-4-5 }
+    - { provider: anthropic, model: claude-sonnet-5-5 }
+  probe:
+    - { provider: anthropic, model: claude-opus-5-5 }
+    - { provider: anthropic, model: claude-sonnet-5-5 }
+    - { provider: anthropic, model: claude-haiku-4-5 }
+    - { provider: openai, model: REPLACE_WITH_OPENAI_MODEL_ID }
+  validate:
+    - { provider: anthropic, model: claude-sonnet-5-5 }
+    - { provider: anthropic, model: claude-haiku-4-5 }
+  remediate:
+    - { provider: anthropic, model: claude-opus-5-5 }
+    - { provider: anthropic, model: claude-sonnet-5-5 }
+  score:
+    - { provider: anthropic, model: claude-haiku-4-5 }
+    - { provider: anthropic, model: claude-sonnet-5-5 }
+
+# The run cap is a hard stop checked before every model call (the call in
+# flight can overshoot it): a run that reaches it is reported BLOCKED, not
+# committed, and its results stay in the workflow artifact. per_model bounds
+# one model across all labs, per_task one agent loop.
+budgets:
+  per_run:   { max_usd: 15 }
+  per_model: { max_usd: 5 }
+  per_task:  { max_usd: 1.5, max_latency_ms: 180000 }
+
+# USD per million tokens. Anthropic prices: owner-published skill table,
+# 2026-09-25 (same as runs/ci.yaml). Cache-write tokens are priced at the
+# input rate here; Anthropic bills a premium for them, so the recorded cost can
+# sit slightly under the invoice, and the invoice is authoritative.
+cost_per_mtok:
+  claude-opus-5-5:   { input_usd: 4, output_usd: 20, cache_read_usd: 0.20 }
+  claude-sonnet-5-5: { input_usd: 2, output_usd: 10, cache_read_usd: 0.20 }
+  claude-haiku-4-5:  { input_usd: 1, output_usd: 5,  cache_read_usd: 0.10 }
+  # PLACEHOLDER prices, deliberately high so the cap errs on the safe side
+  # until they are replaced from the vendor price list. Rename this key to the
+  # real model id together with the two entries above.
+  REPLACE_WITH_OPENAI_MODEL_ID: { input_usd: 5, output_usd: 20, cache_read_usd: 0.5 }
+
+max_failovers: 1
+
+agent:
+  max_turns: 8
+  max_tokens: 8192

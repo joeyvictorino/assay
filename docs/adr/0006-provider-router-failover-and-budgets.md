@@ -49,3 +49,14 @@ records why each choice was made.
   at most one call's cost; caps are set with that margin in mind.
 - Operators read failover and budget behaviour from the audit log without
   access to any prompt or response text.
+
+## Amendment, 2026-10-10: caps across routers
+
+`assay run` builds one router per (lab, model) assessment, and a router
+counts only the spend it made, so the run and model caps would have applied
+to each assessment separately. The run command now gives every new router
+what is left of the run and model caps (the per-task cap is unchanged) and
+does not start an assessment when either is used up; that makes the run
+`BLOCKED` (exit 1, `truncated: true`) instead of letting it pass. The
+one-call overshoot above still applies. `TestRunAndModelBudgetsHoldAcrossLabs`
+pins this.
