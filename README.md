@@ -43,9 +43,12 @@ signed scope allows the lab and refuses `example.com`; the harness runs against
 the lab with the scripted `fake` provider; a plain-English summary of the result
 is printed; and the audit log's hash chain verifies, then fails after one
 character of one record is changed. Everything is stopped and removed when it
-ends. Measured here: about 6 seconds of wall-clock time with warm Go caches on
-an Apple-silicon Mac. A first run also compiles the pure-Go SQLite driver the
-lab uses and downloads modules, which takes longer.
+ends. Measured on an Apple-silicon Mac with warm Go caches: about 6 seconds of
+CPU time, 6 to 15 seconds of wall-clock time depending on how busy the machine
+was. The first run on a machine that has never built the project also downloads
+modules and compiles the dependencies (the pure-Go SQLite driver and the
+Anthropic SDK are the large ones); one cold-cache run used about 290 CPU-seconds
+on a heavily loaded machine, so plan on minutes for that first run.
 
 The part of the summary that matters:
 
