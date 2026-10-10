@@ -163,3 +163,25 @@ func TestOverlapCommandErrors(t *testing.T) {
 		})
 	}
 }
+
+// A model that reported nothing stays in the matrix, named from its
+// findings.<model>.json file, exactly as the run computes it.
+func TestOverlapCommandKeepsModelWithNoFindings(t *testing.T) {
+	dir := t.TempDir()
+	a := writeJSONOverlap(t, dir, "findings.alpha.json", []model.Finding{mkTestFinding("alpha", "idor", "/users/{id}", "id")})
+	b := writeJSONOverlap(t, dir, "findings.beta-1.json", []model.Finding{})
+	out := filepath.Join(dir, "o.json")
+	var stdout, stderr bytes.Buffer
+	if code := Main([]string{"overlap", "--inputs", a + "," + b, "--out", out}, &stdout, &stderr); code != ExitPass {
+		t.Fatalf("exit %d: %s", code, stderr.String())
+	}
+	raw, _ := os.ReadFile(out)
+	var rep overlap.Report
+	if err := json.Unmarshal(raw, &rep); err != nil {
+		t.Fatal(err)
+	}
+	want := overlap.Compute(map[string][]model.Finding{"alpha": {mkTestFinding("alpha", "idor", "/users/{id}", "id")}, "beta-1": {}}, nil)
+	if strings.Join(rep.Overlap.Models, ",") != "alpha,beta-1" || rep.Overlap.Intersection != want.Intersection || rep.Overlap.Union != want.Union {
+		t.Fatalf("overlap = %+v, want models alpha,beta-1 union %d intersection %d", rep.Overlap, want.Union, want.Intersection)
+	}
+}

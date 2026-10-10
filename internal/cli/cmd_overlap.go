@@ -62,6 +62,12 @@ func runOverlap(args []string, stdout, stderr io.Writer) int {
 		}
 		sum := sha256.Sum256(b)
 		digests = append(digests, model.FileDigest{Name: filepath.Base(path), SHA256: hex.EncodeToString(sum[:]), Bytes: int64(len(b))})
+		if len(findings) == 0 {
+			// A model that reported nothing is still in the matrix, as it is
+			// in the run; its name comes from findings.<model>.json.
+			name := strings.TrimPrefix(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), "findings.")
+			perModel[name] = []model.Finding{}
+		}
 		for _, f := range findings {
 			name := f.Model.Model
 			if name == "" {

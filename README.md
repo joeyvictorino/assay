@@ -45,12 +45,17 @@ overlap matrix. The dashboard is at
 self-reflection records, each model's own scores beside what the checkers then
 said about its findings and its recall where a lab has complete ground truth.
 
-The latest committed run is `20261007-215749-7290ba88`
-([CI run](https://github.com/joeyvictorino/assay/actions/runs/37692863751/attempts/1)).
-It is labelled `degraded`: the only real model was a local open-weight model
-(Qwen2.5-3B, 4-bit) next to the scripted provider, because no API keys were
-configured. That run does not yet show the multi-model overlap this project is
-for; a run with several real models is not published.
+The latest committed run is `20261010-092639-5600c802`
+([CI run 38041295991](https://github.com/joeyvictorino/assay/actions/runs/38041295991/attempts/1)):
+three small local open-weight models (Qwen2.5 3B, Llama 3.2 3B, Ministral 3
+3B; 4-bit, on the runner's CPU) against the three labs, with no API keys and
+no frontier models. All three called tools and reported findings; they
+reported 9 distinct findings between them and shared none. On synthetic-ops,
+the lab with complete ground truth (15 weaknesses), precision and recall were
+0.667 / 0.133 for Ministral, 0.250 / 0.067 for Qwen and 0 / 0 for Llama.
+Several tasks timed out on CPU. `results/README.md` has the full table, the
+limits, and the two superseded ensemble runs. A run with frontier models
+needs API keys and is not published.
 
 ## Status
 
@@ -66,8 +71,10 @@ for; a run with several real models is not published.
   score is below 7, at most twice (ADR 0017). The score gates revision only,
   and a model grading itself is a biased judge; the scores are recorded so
   that bias can be measured once runs with several real models exist.
-- **Not yet shown:** a multi-model overlap result, precision and recall for a
-  frontier model, and an upstream adopter of the signed-manifest design.
+- **Shown with small local models only:** a three-model overlap result and
+  per-model precision and recall (`results/README.md`).
+- **Not yet shown:** an overlap result or precision and recall for frontier
+  models, and an upstream adopter of the signed-manifest design.
 - **Zero data retention** is a tested property of this harness (an end-to-end
   test plants a canary in lab responses, model text and prompts and scans the
   disk after a run). Providers apply their own retention terms to the calls

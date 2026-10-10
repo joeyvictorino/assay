@@ -25,6 +25,12 @@ jobs:
       - run: sh scripts/name-audit.sh
       - name: calibration table script
         run: python3 -m unittest scripts.calibration_test
+      - name: every committed overlap matrix recomputes from its findings
+        run: |
+          for run in results/2*/; do
+            [ -f "$run/overlap.json" ] || continue
+            python3 scripts/check_overlap.py "$run" --assay ./assay > /dev/null || { echo "overlap differs: $run"; exit 1; }
+          done
       - name: lab module tests
         run: cd labs/synthetic-ops && go test ./... -count=1 -race
 
