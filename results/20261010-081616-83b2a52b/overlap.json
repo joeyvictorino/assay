@@ -1,0 +1,190 @@
+{
+  "overlap": {
+    "models": [
+      "llama-3.2-3b-instruct-q4_k_m",
+      "ministral-3-3b-instruct-q4_k_m",
+      "qwen2.5-3b-instruct-q4_k_m"
+    ],
+    "keys": [
+      "0ad9827b9fa1d8729a21de1ce9a97409c7a5c4f2155ad024d6abebdc968325f5",
+      "1a7b0ca6776bf67c214ebe4a0afeab76454b575cd51e95aa77a0388a64e7bb1d",
+      "2306158cfc281ac8b98ae1f632270f969f604a6dc985f3dab7773177098b9c50",
+      "241eb4d1f177aa75bde2d8c43a32803ec6299d4da6984d3a3af556b84d57cafa",
+      "31dacfe2d01d5c0a868fbf67633d174a925da3656ff863aa4621630ec51286b5",
+      "36a57ba8bc273dc38d2df256d3f0ac19785cc81d928a056a8622727dd279a74a",
+      "5f8c0d2b4c8673a0c4930fc01b88e900b661d2998f404302584907a47b4c5b73",
+      "9e34a55bf165134d0a6cac5e526fa375e550f2a66e4bd253a13e03151279e115",
+      "a851e98e80694730052fcd3d49a053417ab1317f9cf381e64767c05e4b4fb594",
+      "a91ed8871ce1cec9e075f03be89b09bc1ec7779d1b28421e0ae2463c05b11aca",
+      "bda6fb4c0225a71d1d6a376143ad184497863d5c0183a342d3715e51558c7c27",
+      "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d",
+      "c91396b0ebd8185d40d9295fd7e12d79d52f8c753aa4803c97ddeec33401d5ba",
+      "d94537b7b5b23f525a126eb280f02e4b8625344bf2a92c0bed6cee3cc7a0afde",
+      "dd8d8b7fd4289301555101a3cea7a9821c72b75dc60f146d65c528bf8d4aca61",
+      "f591c11ec33c9ae4699732b53be1412f66f1b8a14bff0ffd1f68488c3ecc682a"
+    ],
+    "membership": {
+      "0ad9827b9fa1d8729a21de1ce9a97409c7a5c4f2155ad024d6abebdc968325f5": [
+        2
+      ],
+      "1a7b0ca6776bf67c214ebe4a0afeab76454b575cd51e95aa77a0388a64e7bb1d": [
+        2
+      ],
+      "2306158cfc281ac8b98ae1f632270f969f604a6dc985f3dab7773177098b9c50": [
+        2
+      ],
+      "241eb4d1f177aa75bde2d8c43a32803ec6299d4da6984d3a3af556b84d57cafa": [
+        2
+      ],
+      "31dacfe2d01d5c0a868fbf67633d174a925da3656ff863aa4621630ec51286b5": [
+        2
+      ],
+      "36a57ba8bc273dc38d2df256d3f0ac19785cc81d928a056a8622727dd279a74a": [
+        2
+      ],
+      "5f8c0d2b4c8673a0c4930fc01b88e900b661d2998f404302584907a47b4c5b73": [
+        2
+      ],
+      "9e34a55bf165134d0a6cac5e526fa375e550f2a66e4bd253a13e03151279e115": [
+        2
+      ],
+      "a851e98e80694730052fcd3d49a053417ab1317f9cf381e64767c05e4b4fb594": [
+        2
+      ],
+      "a91ed8871ce1cec9e075f03be89b09bc1ec7779d1b28421e0ae2463c05b11aca": [
+        2
+      ],
+      "bda6fb4c0225a71d1d6a376143ad184497863d5c0183a342d3715e51558c7c27": [
+        2
+      ],
+      "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d": [
+        2
+      ],
+      "c91396b0ebd8185d40d9295fd7e12d79d52f8c753aa4803c97ddeec33401d5ba": [
+        2
+      ],
+      "d94537b7b5b23f525a126eb280f02e4b8625344bf2a92c0bed6cee3cc7a0afde": [
+        2
+      ],
+      "dd8d8b7fd4289301555101a3cea7a9821c72b75dc60f146d65c528bf8d4aca61": [
+        2
+      ],
+      "f591c11ec33c9ae4699732b53be1412f66f1b8a14bff0ffd1f68488c3ecc682a": [
+        2
+      ]
+    },
+    "pairwise": [
+      [
+        {
+          "both": 0,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 0
+        },
+        {
+          "both": 0,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 0
+        },
+        {
+          "both": 0,
+          "only_a": 0,
+          "only_b": 16,
+          "jaccard": 0
+        }
+      ],
+      [
+        {
+          "both": 0,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 0
+        },
+        {
+          "both": 0,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 0
+        },
+        {
+          "both": 0,
+          "only_a": 0,
+          "only_b": 16,
+          "jaccard": 0
+        }
+      ],
+      [
+        {
+          "both": 0,
+          "only_a": 16,
+          "only_b": 0,
+          "jaccard": 0
+        },
+        {
+          "both": 0,
+          "only_a": 16,
+          "only_b": 0,
+          "jaccard": 0
+        },
+        {
+          "both": 16,
+          "only_a": 0,
+          "only_b": 0,
+          "jaccard": 1
+        }
+      ]
+    ],
+    "unique_per_model": {
+      "llama-3.2-3b-instruct-q4_k_m": [],
+      "ministral-3-3b-instruct-q4_k_m": [],
+      "qwen2.5-3b-instruct-q4_k_m": [
+        "0ad9827b9fa1d8729a21de1ce9a97409c7a5c4f2155ad024d6abebdc968325f5",
+        "1a7b0ca6776bf67c214ebe4a0afeab76454b575cd51e95aa77a0388a64e7bb1d",
+        "2306158cfc281ac8b98ae1f632270f969f604a6dc985f3dab7773177098b9c50",
+        "241eb4d1f177aa75bde2d8c43a32803ec6299d4da6984d3a3af556b84d57cafa",
+        "31dacfe2d01d5c0a868fbf67633d174a925da3656ff863aa4621630ec51286b5",
+        "36a57ba8bc273dc38d2df256d3f0ac19785cc81d928a056a8622727dd279a74a",
+        "5f8c0d2b4c8673a0c4930fc01b88e900b661d2998f404302584907a47b4c5b73",
+        "9e34a55bf165134d0a6cac5e526fa375e550f2a66e4bd253a13e03151279e115",
+        "a851e98e80694730052fcd3d49a053417ab1317f9cf381e64767c05e4b4fb594",
+        "a91ed8871ce1cec9e075f03be89b09bc1ec7779d1b28421e0ae2463c05b11aca",
+        "bda6fb4c0225a71d1d6a376143ad184497863d5c0183a342d3715e51558c7c27",
+        "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d",
+        "c91396b0ebd8185d40d9295fd7e12d79d52f8c753aa4803c97ddeec33401d5ba",
+        "d94537b7b5b23f525a126eb280f02e4b8625344bf2a92c0bed6cee3cc7a0afde",
+        "dd8d8b7fd4289301555101a3cea7a9821c72b75dc60f146d65c528bf8d4aca61",
+        "f591c11ec33c9ae4699732b53be1412f66f1b8a14bff0ffd1f68488c3ecc682a"
+      ]
+    },
+    "union": 16,
+    "intersection": 0,
+    "inputs": []
+  },
+  "precision": {
+    "llama-3.2-3b-instruct-q4_k_m@synthetic-ops": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 15,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0
+    },
+    "ministral-3-3b-instruct-q4_k_m@synthetic-ops": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 15,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0
+    },
+    "qwen2.5-3b-instruct-q4_k_m@synthetic-ops": {
+      "tp": 1,
+      "fp": 6,
+      "fn": 14,
+      "precision": 0.14285714285714285,
+      "recall": 0.06666666666666667,
+      "f1": 0.09090909090909091
+    }
+  }
+}

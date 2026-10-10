@@ -1,0 +1,13 @@
+flowchart LR
+    F_f_241eb4d1f177aa75["f-241eb4d1f177aa75: info-disclosure GET /robots.txt"]
+    F_f_31dacfe2d01d5c0a["f-31dacfe2d01d5c0a: auth-missing GET /"]
+    F_f_5f8c0d2b4c8673a0["f-5f8c0d2b4c8673a0: info-disclosure GET /reviews"]
+    O_account_takeover(((account-takeover)))
+    O_data_access(((data-access)))
+    X_config_read([config-read])
+    X_credential_exposure([credential-exposure])
+    F_f_241eb4d1f177aa75 --> X_config_read
+    F_f_31dacfe2d01d5c0a --> O_data_access
+    F_f_5f8c0d2b4c8673a0 --> X_config_read
+    X_config_read --> X_credential_exposure
+    X_credential_exposure --> O_account_takeover

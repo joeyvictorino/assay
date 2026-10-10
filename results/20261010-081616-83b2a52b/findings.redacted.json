@@ -1,0 +1,800 @@
+[
+  {
+    "id": "f-241eb4d1f177aa75",
+    "dedup_key": "241eb4d1f177aa75bde2d8c43a32803ec6299d4da6984d3a3af556b84d57cafa",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "synthetic-ops",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/robots.txt"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "Robots.txt file visible at /robots.txt without authentication, disclosing server information.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-0",
+      "http_get-1",
+      "inspect_headers-0"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 24
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-10T08:28:38.775759257Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /robots.txt from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/robots\\.txt\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-241eb4d1f177aa75',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-241eb4d1f177aa75\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/robots\\\\.txt\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-241eb4d1f177aa75',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T08:17:55.641655053Z",
+    "last_seen": "2026-10-10T08:28:38.775759257Z"
+  },
+  {
+    "id": "f-be983aea8cbfd46f",
+    "dedup_key": "be983aea8cbfd46feb8e354423af5943f1d2ab099bc44e161fad5382426f2c9d",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "synthetic-ops",
+    "class": "security-headers",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "high",
+    "state": "validated",
+    "summary": "Server exposes sensitive information via headers like X-Content-Type-Options.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "inspect_headers-0"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 28
+      },
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 32
+      },
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 36
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "validated",
+      "checker": "security-headers",
+      "evidence": [
+        {
+          "kind": "header-missing",
+          "tool_call_id": "http-664c7e101d7c1efa",
+          "audit_seq": 185,
+          "request_digest": "f9fe0f30df061ab9e0c070c7d789a350ce71cca0c18d750ed37b3293732523c8",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "Content-Security-Policy,X-Content-Type-Options,X-Frame-Options"
+        },
+        {
+          "kind": "header-missing",
+          "tool_call_id": "http-6c5ee726dbf21f70",
+          "audit_seq": 187,
+          "request_digest": "f9fe0f30df061ab9e0c070c7d789a350ce71cca0c18d750ed37b3293732523c8",
+          "response_digest": "8dc26ac7c11b4b921b3c1682a5108fed8fecb27875c046019e626447a62a045a",
+          "status_code": 200,
+          "marker": "Content-Security-Policy,X-Content-Type-Options,X-Frame-Options"
+        }
+      ],
+      "note": "missing: Content-Security-Policy,X-Content-Type-Options,X-Frame-Options",
+      "checked_at": "2026-10-10T08:28:38.777484103Z"
+    },
+    "remediation": {
+      "code_diff": "--- a/handlers/router.go\n+++ b/handlers/router.go\n@@ -58,10 +58,13 @@\n \treturn s.middleware(mux)\n }\n \n-// middleware adds permissive CORS and recovers panics with a verbose page.\n-// VULN: security-headers no Content-Security-Policy, X-Content-Type-Options, X-Frame-Options or Referrer-Policy are ever set\n+// middleware sets baseline security headers, adds CORS and recovers panics.\n func (s *Server) middleware(next http.Handler) http.Handler {\n \treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n+\t\tw.Header().Set(\"Content-Security-Policy\", \"default-src 'self'; frame-ancestors 'none'\")\n+\t\tw.Header().Set(\"X-Content-Type-Options\", \"nosniff\")\n+\t\tw.Header().Set(\"X-Frame-Options\", \"DENY\")\n+\t\tw.Header().Set(\"Referrer-Policy\", \"no-referrer\")\n \t\tw.Header().Set(\"Access-Control-Allow-Origin\", \"*\") // VULN: cors-misconfig wildcard origin combined with credentials\n \t\tw.Header().Set(\"Access-Control-Allow-Credentials\", \"true\")\n \t\tw.Header().Set(\"Access-Control-Allow-Headers\", \"Authorization, Content-Type\")\n",
+      "config_change": "Set Content-Security-Policy, X-Content-Type-Options: nosniff, X-Frame-Options: DENY (or frame-ancestors), Referrer-Policy: no-referrer and, over TLS, Strict-Transport-Security on every response in shared middleware or at the reverse proxy.",
+      "virtual_patch": "SecRule \u0026RESPONSE_HEADERS:Content-Security-Policy \"@eq 0\" \"id:9100012,phase:3,pass,log,t:none,msg:'assay security-headers virtual patch f-be983aea8cbfd46f',tag:'assay/security-headers'\"\n{\"class\":\"security-headers\",\"engine\":\"modsecurity\",\"finding\":\"f-be983aea8cbfd46f\",\"id\":9100012,\"rule\":\"SecRule \\u0026RESPONSE_HEADERS:Content-Security-Policy \\\"@eq 0\\\" \\\"id:9100012,phase:3,pass,log,t:none,msg:'assay security-headers virtual patch f-be983aea8cbfd46f',tag:'assay/security-headers'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T08:18:15.81401026Z",
+    "last_seen": "2026-10-10T08:28:38.777484103Z"
+  },
+  {
+    "id": "f-bda6fb4c0225a71d",
+    "dedup_key": "bda6fb4c0225a71d1d6a376143ad184497863d5c0183a342d3715e51558c7c27",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "synthetic-ops",
+    "class": "sensitive-file",
+    "location": {
+      "method": "GET",
+      "path_template": "/health"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "The /health endpoint exposes sensitive internal file locations.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "7",
+      "8",
+      "http_get-0"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 71
+      },
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 120
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "sensitive-file",
+      "note": "no marker configured for sensitive-file",
+      "checked_at": "2026-10-10T08:28:38.777496451Z"
+    },
+    "remediation": {
+      "config_change": "Remove the file served at /health from the web root; block dotfiles, backups and dumps at the server (deny .git, .env, *.sql, *.bak); store backups outside any served directory.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx (?i)\\.(?:sql|bak|env|git|old|zip|tar\\.gz)(?:$|\\?)\" \"id:9100018,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sensitive-file virtual patch f-bda6fb4c0225a71d',tag:'assay/sensitive-file'\"\n{\"class\":\"sensitive-file\",\"engine\":\"modsecurity\",\"finding\":\"f-bda6fb4c0225a71d\",\"id\":9100018,\"rule\":\"SecRule REQUEST_URI \\\"@rx (?i)\\\\.(?:sql|bak|env|git|old|zip|tar\\\\.gz)(?:$|\\\\?)\\\" \\\"id:9100018,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sensitive-file virtual patch f-bda6fb4c0225a71d',tag:'assay/sensitive-file'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T08:20:16.044659365Z",
+    "last_seen": "2026-10-10T08:28:38.777496451Z"
+  },
+  {
+    "id": "f-1a7b0ca6776bf67c",
+    "dedup_key": "1a7b0ca6776bf67c214ebe4a0afeab76454b575cd51e95aa77a0388a64e7bb1d",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "synthetic-ops",
+    "class": "auth-bypass",
+    "location": {
+      "method": "POST",
+      "path_template": "/login",
+      "param": "username"
+    },
+    "severity": "medium",
+    "state": "theorized",
+    "summary": "Using a non-standard username bypasses the login mechanism.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "9"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 73
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "auth-bypass",
+      "note": "anonymous baseline is not consistently denied",
+      "checked_at": "2026-10-10T08:28:38.778387564Z"
+    },
+    "remediation": {
+      "config_change": "Trace the authentication decision for POST /login to a single server-side check that cannot be influenced by client input; invalidate sessions created through the bypass; add a regression test.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/login\" \"id:9100006,phase:2,pass,log,t:none,msg:'assay auth-bypass virtual patch f-1a7b0ca6776bf67c',tag:'assay/auth-bypass'\"\n{\"class\":\"auth-bypass\",\"engine\":\"modsecurity\",\"finding\":\"f-1a7b0ca6776bf67c\",\"id\":9100006,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/login\\\" \\\"id:9100006,phase:2,pass,log,t:none,msg:'assay auth-bypass virtual patch f-1a7b0ca6776bf67c',tag:'assay/auth-bypass'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T08:20:16.045130343Z",
+    "last_seen": "2026-10-10T08:28:38.778387564Z"
+  },
+  {
+    "id": "f-31dacfe2d01d5c0a",
+    "dedup_key": "31dacfe2d01d5c0a868fbf67633d174a925da3656ff863aa4621630ec51286b5",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "synthetic-ops",
+    "class": "auth-missing",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "Missing authentication endpoint",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-0",
+      "http_get-1",
+      "http_get-2",
+      "http_get-3",
+      "http_get-4"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 112
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "auth-missing",
+      "note": "ground truth does not mark this path as requiring authentication",
+      "checked_at": "2026-10-10T08:28:38.778396948Z"
+    },
+    "remediation": {
+      "config_change": "Require an authenticated session (and the appropriate role) on GET /; register the check in shared middleware so new routes inherit it; return 401 without credentials and 403 for the wrong role.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/\" \"id:9100005,phase:2,deny,status:403,log,t:none,msg:'assay auth-missing virtual patch f-31dacfe2d01d5c0a',tag:'assay/auth-missing'\"\n{\"class\":\"auth-missing\",\"engine\":\"modsecurity\",\"finding\":\"f-31dacfe2d01d5c0a\",\"id\":9100005,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/\\\" \\\"id:9100005,phase:2,deny,status:403,log,t:none,msg:'assay auth-missing virtual patch f-31dacfe2d01d5c0a',tag:'assay/auth-missing'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T08:21:41.865225595Z",
+    "last_seen": "2026-10-10T08:28:38.778396948Z"
+  },
+  {
+    "id": "f-9e34a55bf165134d",
+    "dedup_key": "9e34a55bf165134d0a6cac5e526fa375e550f2a66e4bd253a13e03151279e115",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "synthetic-ops",
+    "class": "open-redirect",
+    "location": {
+      "method": "GET",
+      "path_template": "/",
+      "param": "redirect"
+    },
+    "severity": "medium",
+    "state": "refuted",
+    "summary": "Potential open redirect vulnerability without sanitization",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-0"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 128
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "refuted",
+      "checker": "open-redirect",
+      "note": "no redirect to external host",
+      "checked_at": "2026-10-10T08:28:38.779240501Z"
+    },
+    "remediation": {
+      "config_change": "On GET /, accept only relative paths or destinations from an explicit allowlist for redirect; resolve the target and compare host and scheme before redirecting; otherwise redirect to the site root.",
+      "virtual_patch": "SecRule ARGS:redirect \"@rx ^(?i)(https?:)?//\" \"id:9100008,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay open-redirect virtual patch f-9e34a55bf165134d',tag:'assay/open-redirect'\"\n{\"class\":\"open-redirect\",\"engine\":\"modsecurity\",\"finding\":\"f-9e34a55bf165134d\",\"id\":9100008,\"rule\":\"SecRule ARGS:redirect \\\"@rx ^(?i)(https?:)?//\\\" \\\"id:9100008,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay open-redirect virtual patch f-9e34a55bf165134d',tag:'assay/open-redirect'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T08:23:23.575097179Z",
+    "last_seen": "2026-10-10T08:28:38.779240501Z"
+  },
+  {
+    "id": "f-0ad9827b9fa1d872",
+    "dedup_key": "0ad9827b9fa1d8729a21de1ce9a97409c7a5c4f2155ad024d6abebdc968325f5",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "synthetic-ops",
+    "class": "open-redirect",
+    "location": {
+      "method": "GET",
+      "path_template": "/search",
+      "param": "term"
+    },
+    "severity": "medium",
+    "state": "refuted",
+    "summary": "Potential open redirect vulnerability without sanitization",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-0"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 132
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "refuted",
+      "checker": "open-redirect",
+      "note": "no redirect to external host",
+      "checked_at": "2026-10-10T08:28:38.780207259Z"
+    },
+    "remediation": {
+      "config_change": "On GET /search, accept only relative paths or destinations from an explicit allowlist for term; resolve the target and compare host and scheme before redirecting; otherwise redirect to the site root.",
+      "virtual_patch": "SecRule ARGS:term \"@rx ^(?i)(https?:)?//\" \"id:9100008,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay open-redirect virtual patch f-0ad9827b9fa1d872',tag:'assay/open-redirect'\"\n{\"class\":\"open-redirect\",\"engine\":\"modsecurity\",\"finding\":\"f-0ad9827b9fa1d872\",\"id\":9100008,\"rule\":\"SecRule ARGS:term \\\"@rx ^(?i)(https?:)?//\\\" \\\"id:9100008,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay open-redirect virtual patch f-0ad9827b9fa1d872',tag:'assay/open-redirect'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T08:24:29.041258898Z",
+    "last_seen": "2026-10-10T08:28:38.780207259Z"
+  },
+  {
+    "id": "f-f591c11ec33c9ae4",
+    "dedup_key": "f591c11ec33c9ae4699732b53be1412f66f1b8a14bff0ffd1f68488c3ecc682a",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "juice-shop",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Server version and other sensitive information are exposed in the response headers.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-0",
+      "http_get-1",
+      "http_get-2",
+      "http_get-3",
+      "http_get-4"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 229
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-10T09:00:11.858845118Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET / from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-f591c11ec33c9ae4',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-f591c11ec33c9ae4\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-f591c11ec33c9ae4',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T08:29:30.81123523Z",
+    "last_seen": "2026-10-10T09:00:11.858845118Z"
+  },
+  {
+    "id": "f-a851e98e80694730",
+    "dedup_key": "a851e98e80694730052fcd3d49a053417ab1317f9cf381e64767c05e4b4fb594",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "juice-shop",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/health"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Health endpoint reveals server version and other sensitive information in the response headers.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-0"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 231
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-10T09:00:11.85885351Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /health from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/health\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-a851e98e80694730',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-a851e98e80694730\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/health\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-a851e98e80694730',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T08:29:30.81179109Z",
+    "last_seen": "2026-10-10T09:00:11.85885351Z"
+  },
+  {
+    "id": "f-c91396b0ebd8185d",
+    "dedup_key": "c91396b0ebd8185d40d9295fd7e12d79d52f8c753aa4803c97ddeec33401d5ba",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "juice-shop",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/users"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Users endpoint exposes sensitive information in the response headers.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-0"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 233
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-10T09:00:11.858859088Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /users from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/users\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-c91396b0ebd8185d',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-c91396b0ebd8185d\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/users\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-c91396b0ebd8185d',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T08:29:30.812802629Z",
+    "last_seen": "2026-10-10T09:00:11.858859088Z"
+  },
+  {
+    "id": "f-5f8c0d2b4c8673a0",
+    "dedup_key": "5f8c0d2b4c8673a0c4930fc01b88e900b661d2998f404302584907a47b4c5b73",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "juice-shop",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/reviews"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Reviews endpoint reveals sensitive information in the response headers.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-0"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 235
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-10T09:00:11.858863805Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /reviews from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/reviews\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-5f8c0d2b4c8673a0',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-5f8c0d2b4c8673a0\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/reviews\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-5f8c0d2b4c8673a0',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T08:29:30.813391177Z",
+    "last_seen": "2026-10-10T09:00:11.858863805Z"
+  },
+  {
+    "id": "f-a91ed8871ce1cec9",
+    "dedup_key": "a91ed8871ce1cec9e075f03be89b09bc1ec7779d1b28421e0ae2463c05b11aca",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "juice-shop",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/cart"
+    },
+    "severity": "info",
+    "state": "theorized",
+    "summary": "Cart endpoint exposes sensitive information in the response headers.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-0"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 237
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-10T09:00:11.85886714Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /cart from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/cart\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-a91ed8871ce1cec9',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-a91ed8871ce1cec9\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/cart\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-a91ed8871ce1cec9',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T08:29:30.813916142Z",
+    "last_seen": "2026-10-10T09:00:11.85886714Z"
+  },
+  {
+    "id": "f-36a57ba8bc273dc3",
+    "dedup_key": "36a57ba8bc273dc38d2df256d3f0ac19785cc81d928a056a8622727dd279a74a",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "dvwa",
+    "class": "xss-reflected",
+    "location": {
+      "method": "POST",
+      "path_template": "/login.php"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "The application allows injection via the `username` and `password` parameters which are reflected back in the HTML.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get",
+      "inspect_headers"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 406
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-10T09:21:00.156966617Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for POST /login.php (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-36a57ba8bc273dc3',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-36a57ba8bc273dc3\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-36a57ba8bc273dc3',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:09:15.025008096Z",
+    "last_seen": "2026-10-10T09:21:00.156966617Z"
+  },
+  {
+    "id": "f-d94537b7b5b23f52",
+    "dedup_key": "d94537b7b5b23f525a126eb280f02e4b8625344bf2a92c0bed6cee3cc7a0afde",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "dvwa",
+    "class": "csrf",
+    "location": {
+      "method": "POST",
+      "path_template": "/login.php"
+    },
+    "severity": "high",
+    "state": "refuted",
+    "summary": "The application allows CSRF attacks due to the presence of a hidden form field (`user_token`) and the lack of proper token validation.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get",
+      "inspect_headers"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 410
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "refuted",
+      "checker": "csrf",
+      "note": "post forms carry a token or the session cookie is SameSite",
+      "checked_at": "2026-10-10T09:21:00.161463297Z"
+    },
+    "remediation": {
+      "config_change": "Require a per-session anti-CSRF token on state-changing requests to /login.php; reject GET for state changes; set SameSite=Lax or Strict on the session cookie and verify Origin/Referer.",
+      "virtual_patch": "SecRule REQUEST_METHOD \"@rx ^(?:POST|PUT|PATCH|DELETE)$\" \"id:9100019,phase:2,pass,log,t:none,msg:'assay csrf virtual patch f-d94537b7b5b23f52',tag:'assay/csrf'\"\n{\"class\":\"csrf\",\"engine\":\"modsecurity\",\"finding\":\"f-d94537b7b5b23f52\",\"id\":9100019,\"rule\":\"SecRule REQUEST_METHOD \\\"@rx ^(?:POST|PUT|PATCH|DELETE)$\\\" \\\"id:9100019,phase:2,pass,log,t:none,msg:'assay csrf virtual patch f-d94537b7b5b23f52',tag:'assay/csrf'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:09:59.082220451Z",
+    "last_seen": "2026-10-10T09:21:00.161463297Z"
+  },
+  {
+    "id": "f-2306158cfc281ac8",
+    "dedup_key": "2306158cfc281ac8b98ae1f632270f969f604a6dc985f3dab7773177098b9c50",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "dvwa",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "The application reflects user input in the URL and user feedback, potentially allowing XSS attacks.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get",
+      "http_get",
+      "http_get",
+      "http_get",
+      "http_get",
+      "http_get",
+      "inspect_headers"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 458
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-10T09:21:00.161468785Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET / (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-2306158cfc281ac8',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-2306158cfc281ac8\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-2306158cfc281ac8',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:11:35.67112784Z",
+    "last_seen": "2026-10-10T09:21:00.161468785Z"
+  },
+  {
+    "id": "f-dd8d8b7fd4289301",
+    "dedup_key": "dd8d8b7fd4289301555101a3cea7a9821c72b75dc60f146d65c528bf8d4aca61",
+    "run_id": "20261010-081616-83b2a52b",
+    "lab": "dvwa",
+    "class": "xss-stored",
+    "location": {
+      "method": "POST",
+      "path_template": "/"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "The application stores user input and renders it in feedback without proper sanitization, allowing for XSS attacks.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get",
+      "http_get",
+      "http_get",
+      "http_get",
+      "http_get",
+      "http_get",
+      "inspect_headers"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-081616-83b2a52b",
+        "seq": 460
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-stored",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-10T09:21:00.161471599Z"
+    },
+    "remediation": {
+      "config_change": "Escape \u003cparameter\u003e at render time wherever it is displayed (not only at POST /); if rich text is required, sanitize with an allowlist HTML sanitizer at write time and store the sanitized form; add a Content-Security-Policy.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100003,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-stored virtual patch f-dd8d8b7fd4289301',tag:'assay/xss-stored'\"\n{\"class\":\"xss-stored\",\"engine\":\"modsecurity\",\"finding\":\"f-dd8d8b7fd4289301\",\"id\":9100003,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100003,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-stored virtual patch f-dd8d8b7fd4289301',tag:'assay/xss-stored'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T09:11:35.671542756Z",
+    "last_seen": "2026-10-10T09:21:00.161471599Z"
+  }
+]
