@@ -1,0 +1,695 @@
+[
+  {
+    "id": "f-62b349c5af53ef34",
+    "dedup_key": "62b349c5af53ef342a0da5581e2e0f16ef85a64927fbbd082056eafd6bc14d17",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "synthetic-ops",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/health"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "Server discloses information about the application (e.g. title, content-length) in the response headers.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get_1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 20
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-10T07:33:23.792365311Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /health from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/health\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-62b349c5af53ef34',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-62b349c5af53ef34\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/health\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-62b349c5af53ef34',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:24:48.373443834Z",
+    "last_seen": "2026-10-10T07:33:23.792365311Z"
+  },
+  {
+    "id": "f-50b4ad84ea9ea50e",
+    "dedup_key": "50b4ad84ea9ea50ec0de578d1f0ca158f2059a37fc9599514b047035005d4f8e",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "synthetic-ops",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/health",
+      "param": "url"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "Server discloses information about the application (e.g. title, content-length) in the response headers.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "inspect_headers_1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 24
+      },
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 28
+      },
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 32
+      },
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 36
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-10T07:33:23.792371363Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /health from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/health\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-50b4ad84ea9ea50e',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-50b4ad84ea9ea50e\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/health\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-50b4ad84ea9ea50e',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:25:04.904723671Z",
+    "last_seen": "2026-10-10T07:33:23.792371363Z"
+  },
+  {
+    "id": "f-814aefcb6c303e6d",
+    "dedup_key": "814aefcb6c303e6d8eb0a39442fb8807384941659d61b4f5093e2e666d7f25ad",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "synthetic-ops",
+    "class": "info-disclosure",
+    "location": {
+      "method": "GET",
+      "path_template": "/search",
+      "param": "term"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "Search endpoint leaks the search term (e.g. widget) in the response body.",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get_2"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 46
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "info-disclosure",
+      "note": "no marker configured for info-disclosure",
+      "checked_at": "2026-10-10T07:33:23.792376312Z"
+    },
+    "remediation": {
+      "config_change": "Remove GET /search from production builds or require an administrator session; never serialize configuration values into responses; move secrets to an injected secret store so they cannot appear in any dump.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/search\" \"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-814aefcb6c303e6d',tag:'assay/info-disclosure'\"\n{\"class\":\"info-disclosure\",\"engine\":\"modsecurity\",\"finding\":\"f-814aefcb6c303e6d\",\"id\":9100011,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/search\\\" \\\"id:9100011,phase:2,deny,status:403,log,t:none,msg:'assay info-disclosure virtual patch f-814aefcb6c303e6d',tag:'assay/info-disclosure'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:26:58.692617305Z",
+    "last_seen": "2026-10-10T07:33:23.792376312Z"
+  },
+  {
+    "id": "f-31dacfe2d01d5c0a",
+    "dedup_key": "31dacfe2d01d5c0a868fbf67633d174a925da3656ff863aa4621630ec51286b5",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "synthetic-ops",
+    "class": "auth-missing",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "Missing authentication mechanism",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "delegate-1",
+      "delegate-2",
+      "delegate-3"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 73
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "auth-missing",
+      "note": "ground truth does not mark this path as requiring authentication",
+      "checked_at": "2026-10-10T07:33:23.792380339Z"
+    },
+    "remediation": {
+      "config_change": "Require an authenticated session (and the appropriate role) on GET /; register the check in shared middleware so new routes inherit it; return 401 without credentials and 403 for the wrong role.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/\" \"id:9100005,phase:2,deny,status:403,log,t:none,msg:'assay auth-missing virtual patch f-31dacfe2d01d5c0a',tag:'assay/auth-missing'\"\n{\"class\":\"auth-missing\",\"engine\":\"modsecurity\",\"finding\":\"f-31dacfe2d01d5c0a\",\"id\":9100005,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/\\\" \\\"id:9100005,phase:2,deny,status:403,log,t:none,msg:'assay auth-missing virtual patch f-31dacfe2d01d5c0a',tag:'assay/auth-missing'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:27:44.167606503Z",
+    "last_seen": "2026-10-10T07:33:23.792380339Z"
+  },
+  {
+    "id": "f-5a39fbf6f16c4ec7",
+    "dedup_key": "5a39fbf6f16c4ec73721bd708e39531cc8916e424c745001044457cc94a9c74b",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "synthetic-ops",
+    "class": "default-creds",
+    "location": {
+      "method": "GET",
+      "path_template": "/login"
+    },
+    "severity": "high",
+    "state": "validated",
+    "summary": "Default credentials exposed in login endpoint",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "delegate-4",
+      "delegate-5"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 75
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "validated",
+      "checker": "default-creds",
+      "evidence": [
+        {
+          "kind": "auth-bypass",
+          "marker": "login:admin:id=1"
+        },
+        {
+          "kind": "auth-bypass",
+          "marker": "login:admin:id=1"
+        }
+      ],
+      "note": "documented default credential accepted for admin",
+      "checked_at": "2026-10-10T07:33:23.794980213Z"
+    },
+    "remediation": {
+      "config_change": "Remove or rotate the seeded default credential; force a password change on first login; enforce a minimum password policy and lock the account after repeated failures on GET /login.",
+      "virtual_patch": "SecRule ARGS:* \"@pmFromFile default-passwords.txt\" \"id:9100007,phase:2,deny,status:403,log,t:none,msg:'assay default-creds virtual patch f-5a39fbf6f16c4ec7',tag:'assay/default-creds'\"\n{\"class\":\"default-creds\",\"engine\":\"modsecurity\",\"finding\":\"f-5a39fbf6f16c4ec7\",\"id\":9100007,\"rule\":\"SecRule ARGS:* \\\"@pmFromFile default-passwords.txt\\\" \\\"id:9100007,phase:2,deny,status:403,log,t:none,msg:'assay default-creds virtual patch f-5a39fbf6f16c4ec7',tag:'assay/default-creds'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:27:44.16817414Z",
+    "last_seen": "2026-10-10T07:33:23.794980213Z"
+  },
+  {
+    "id": "f-bda6fb4c0225a71d",
+    "dedup_key": "bda6fb4c0225a71d1d6a376143ad184497863d5c0183a342d3715e51558c7c27",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "synthetic-ops",
+    "class": "sensitive-file",
+    "location": {
+      "method": "GET",
+      "path_template": "/health"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "Sensitive information exposed at /health endpoint",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "delegate-6"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 79
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "sensitive-file",
+      "note": "no marker configured for sensitive-file",
+      "checked_at": "2026-10-10T07:33:23.794987597Z"
+    },
+    "remediation": {
+      "config_change": "Remove the file served at /health from the web root; block dotfiles, backups and dumps at the server (deny .git, .env, *.sql, *.bak); store backups outside any served directory.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx (?i)\\.(?:sql|bak|env|git|old|zip|tar\\.gz)(?:$|\\?)\" \"id:9100018,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sensitive-file virtual patch f-bda6fb4c0225a71d',tag:'assay/sensitive-file'\"\n{\"class\":\"sensitive-file\",\"engine\":\"modsecurity\",\"finding\":\"f-bda6fb4c0225a71d\",\"id\":9100018,\"rule\":\"SecRule REQUEST_URI \\\"@rx (?i)\\\\.(?:sql|bak|env|git|old|zip|tar\\\\.gz)(?:$|\\\\?)\\\" \\\"id:9100018,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sensitive-file virtual patch f-bda6fb4c0225a71d',tag:'assay/sensitive-file'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:28:17.647689369Z",
+    "last_seen": "2026-10-10T07:33:23.794987597Z"
+  },
+  {
+    "id": "f-ed0f721cf3c5349e",
+    "dedup_key": "ed0f721cf3c5349edb1d7ae61b1e4554622cd8b021b8ae0fccfe572bd1030044",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "synthetic-ops",
+    "class": "sensitive-file",
+    "location": {
+      "method": "GET",
+      "path_template": "/login"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "Sensitive information exposed in login form",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "delegate-7"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 81
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "sensitive-file",
+      "note": "no marker configured for sensitive-file",
+      "checked_at": "2026-10-10T07:33:23.794993348Z"
+    },
+    "remediation": {
+      "config_change": "Remove the file served at /login from the web root; block dotfiles, backups and dumps at the server (deny .git, .env, *.sql, *.bak); store backups outside any served directory.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx (?i)\\.(?:sql|bak|env|git|old|zip|tar\\.gz)(?:$|\\?)\" \"id:9100018,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sensitive-file virtual patch f-ed0f721cf3c5349e',tag:'assay/sensitive-file'\"\n{\"class\":\"sensitive-file\",\"engine\":\"modsecurity\",\"finding\":\"f-ed0f721cf3c5349e\",\"id\":9100018,\"rule\":\"SecRule REQUEST_URI \\\"@rx (?i)\\\\.(?:sql|bak|env|git|old|zip|tar\\\\.gz)(?:$|\\\\?)\\\" \\\"id:9100018,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sensitive-file virtual patch f-ed0f721cf3c5349e',tag:'assay/sensitive-file'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:28:17.648272907Z",
+    "last_seen": "2026-10-10T07:33:23.794993348Z"
+  },
+  {
+    "id": "f-d4369cfd2b4af182",
+    "dedup_key": "d4369cfd2b4af1824e8399febd5f6cb17d52cd261f068883730499ea1fa45b08",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "dvwa",
+    "class": "sqli",
+    "location": {
+      "method": "POST",
+      "path_template": "/login.php",
+      "param": "username"
+    },
+    "severity": "high",
+    "state": "refuted",
+    "summary": "Login form vulnerable to SQL injection",
+    "model": {
+      "provider": "local-llama",
+      "model": "llama-3.2-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get",
+      "http_post"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 433
+      },
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 437
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "refuted",
+      "checker": "sqli",
+      "note": "tautology and contradiction return identical result counts for every form",
+      "checked_at": "2026-10-10T07:58:19.838668032Z"
+    },
+    "remediation": {
+      "config_change": "Replace string concatenation with a parameterized query (placeholders and bound arguments) for POST /login.php parameter username; reject input that fails a strict allowlist before it reaches the database; run the application's database role with SELECT-only grants where the endpoint only reads.",
+      "virtual_patch": "SecRule ARGS:username \"@detectSQLi\" \"id:9100001,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sqli virtual patch f-d4369cfd2b4af182',tag:'assay/sqli'\"\n{\"class\":\"sqli\",\"engine\":\"modsecurity\",\"finding\":\"f-d4369cfd2b4af182\",\"id\":9100001,\"rule\":\"SecRule ARGS:username \\\"@detectSQLi\\\" \\\"id:9100001,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sqli virtual patch f-d4369cfd2b4af182',tag:'assay/sqli'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:55:31.109992825Z",
+    "last_seen": "2026-10-10T07:58:19.838668032Z"
+  },
+  {
+    "id": "f-40e548f3453e2dab",
+    "dedup_key": "40e548f3453e2dab83e56730a27c1f9f1bf4d1eb8a951f56c9ae73d6d93404d7",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "dvwa",
+    "class": "auth-bypass",
+    "location": {
+      "method": "POST",
+      "path_template": "/login.php",
+      "param": "username"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "Login form vulnerable to authentication bypass",
+    "model": {
+      "provider": "local-llama",
+      "model": "llama-3.2-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get",
+      "http_post"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 447
+      },
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 451
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "auth-bypass",
+      "note": "resource answers 200 without credentials; that is auth-missing, not a bypass",
+      "checked_at": "2026-10-10T07:58:19.84198839Z"
+    },
+    "remediation": {
+      "config_change": "Trace the authentication decision for POST /login.php to a single server-side check that cannot be influenced by client input; invalidate sessions created through the bypass; add a regression test.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/login\\.php\" \"id:9100006,phase:2,pass,log,t:none,msg:'assay auth-bypass virtual patch f-40e548f3453e2dab',tag:'assay/auth-bypass'\"\n{\"class\":\"auth-bypass\",\"engine\":\"modsecurity\",\"finding\":\"f-40e548f3453e2dab\",\"id\":9100006,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/login\\\\.php\\\" \\\"id:9100006,phase:2,pass,log,t:none,msg:'assay auth-bypass virtual patch f-40e548f3453e2dab',tag:'assay/auth-bypass'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:57:16.903932561Z",
+    "last_seen": "2026-10-10T07:58:19.84198839Z"
+  },
+  {
+    "id": "f-fd046096c6ea825b",
+    "dedup_key": "fd046096c6ea825b172acd8a1dedca012d07bb6ef4222aca4325be2fa0d80c85",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "dvwa",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/login"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "Login page contains a reflected XSS vulnerability, which can be exploited by attackers to inject and execute arbitrary HTML/JS",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "inspect_headers-1",
+      "inspect_headers-2"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 268
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-10T07:58:19.841999901Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET /login (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-fd046096c6ea825b',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-fd046096c6ea825b\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-fd046096c6ea825b',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:46:45.142035111Z",
+    "last_seen": "2026-10-10T07:58:19.841999901Z"
+  },
+  {
+    "id": "f-2306158cfc281ac8",
+    "dedup_key": "2306158cfc281ac8b98ae1f632270f969f604a6dc985f3dab7773177098b9c50",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "dvwa",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "Login page shows reflected XSS vulnerability",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get-1",
+      "inspect_headers-1"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 307
+      },
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 341
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-10T07:58:19.842002656Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET / (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-2306158cfc281ac8',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-2306158cfc281ac8\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-2306158cfc281ac8',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:47:53.153716985Z",
+    "last_seen": "2026-10-10T07:58:19.842002656Z"
+  },
+  {
+    "id": "f-512b5c3ff499c187",
+    "dedup_key": "512b5c3ff499c18747d47ad6fe713734be6aa826349aea2e921b1324fffb38b0",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "dvwa",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/users/adduser.php"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "User input is not properly sanitized in adduser.php",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "6",
+      "7"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 395
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-10T07:58:19.84200499Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET /users/adduser.php (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-512b5c3ff499c187',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-512b5c3ff499c187\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-512b5c3ff499c187',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:51:55.759240162Z",
+    "last_seen": "2026-10-10T07:58:19.84200499Z"
+  },
+  {
+    "id": "f-790e5a26dcee003d",
+    "dedup_key": "790e5a26dcee003d00592046b16d246c2c80381b9023be4c4fc4e7cf4e25ed6e",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "dvwa",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/users/users.php"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "User input is not properly sanitized in users.php",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "8",
+      "9"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 397
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-10T07:58:19.842007205Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET /users/users.php (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-790e5a26dcee003d',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-790e5a26dcee003d\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-790e5a26dcee003d',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:51:55.759566911Z",
+    "last_seen": "2026-10-10T07:58:19.842007205Z"
+  },
+  {
+    "id": "f-ad8d82fd87d9c0cf",
+    "dedup_key": "ad8d82fd87d9c0cf16df76cf14555e9d9d09b55f76389f9cb4640d51fbff6269",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "dvwa",
+    "class": "xss-reflected",
+    "location": {
+      "method": "GET",
+      "path_template": "/users/edituser.php"
+    },
+    "severity": "low",
+    "state": "theorized",
+    "summary": "User input is not properly sanitized in edituser.php",
+    "model": {
+      "provider": "local-qwen",
+      "model": "qwen2.5-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "10",
+      "11"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 399
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "xss-reflected",
+      "note": "finding names no parameter",
+      "checked_at": "2026-10-10T07:58:19.842009489Z"
+    },
+    "remediation": {
+      "config_change": "HTML-escape \u003cparameter\u003e before writing it into the page for GET /users/edituser.php (html/template or the framework's auto-escaping renderer); send Content-Type: text/html; charset=utf-8 and a Content-Security-Policy without 'unsafe-inline'.",
+      "virtual_patch": "SecRule ARGS:* \"@detectXSS\" \"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-ad8d82fd87d9c0cf',tag:'assay/xss-reflected'\"\n{\"class\":\"xss-reflected\",\"engine\":\"modsecurity\",\"finding\":\"f-ad8d82fd87d9c0cf\",\"id\":9100002,\"rule\":\"SecRule ARGS:* \\\"@detectXSS\\\" \\\"id:9100002,phase:2,deny,status:403,log,t:urlDecodeUni,t:htmlEntityDecode,msg:'assay xss-reflected virtual patch f-ad8d82fd87d9c0cf',tag:'assay/xss-reflected'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:51:55.759928454Z",
+    "last_seen": "2026-10-10T07:58:19.842009489Z"
+  }
+]

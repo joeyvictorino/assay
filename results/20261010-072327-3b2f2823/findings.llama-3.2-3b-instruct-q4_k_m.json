@@ -1,0 +1,106 @@
+[
+  {
+    "id": "f-d4369cfd2b4af182",
+    "dedup_key": "d4369cfd2b4af1824e8399febd5f6cb17d52cd261f068883730499ea1fa45b08",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "dvwa",
+    "class": "sqli",
+    "location": {
+      "method": "POST",
+      "path_template": "/login.php",
+      "param": "username"
+    },
+    "severity": "high",
+    "state": "refuted",
+    "summary": "Login form vulnerable to SQL injection",
+    "model": {
+      "provider": "local-llama",
+      "model": "llama-3.2-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get",
+      "http_post"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 433
+      },
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 437
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "refuted",
+      "checker": "sqli",
+      "note": "tautology and contradiction return identical result counts for every form",
+      "checked_at": "2026-10-10T07:58:19.838668032Z"
+    },
+    "remediation": {
+      "config_change": "Replace string concatenation with a parameterized query (placeholders and bound arguments) for POST /login.php parameter username; reject input that fails a strict allowlist before it reaches the database; run the application's database role with SELECT-only grants where the endpoint only reads.",
+      "virtual_patch": "SecRule ARGS:username \"@detectSQLi\" \"id:9100001,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sqli virtual patch f-d4369cfd2b4af182',tag:'assay/sqli'\"\n{\"class\":\"sqli\",\"engine\":\"modsecurity\",\"finding\":\"f-d4369cfd2b4af182\",\"id\":9100001,\"rule\":\"SecRule ARGS:username \\\"@detectSQLi\\\" \\\"id:9100001,phase:2,deny,status:403,log,t:urlDecodeUni,t:lowercase,msg:'assay sqli virtual patch f-d4369cfd2b4af182',tag:'assay/sqli'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:55:31.109992825Z",
+    "last_seen": "2026-10-10T07:55:43.389015404Z"
+  },
+  {
+    "id": "f-40e548f3453e2dab",
+    "dedup_key": "40e548f3453e2dab83e56730a27c1f9f1bf4d1eb8a951f56c9ae73d6d93404d7",
+    "run_id": "20261010-072327-3b2f2823",
+    "lab": "dvwa",
+    "class": "auth-bypass",
+    "location": {
+      "method": "POST",
+      "path_template": "/login.php",
+      "param": "username"
+    },
+    "severity": "high",
+    "state": "theorized",
+    "summary": "Login form vulnerable to authentication bypass",
+    "model": {
+      "provider": "local-llama",
+      "model": "llama-3.2-3b-instruct-q4_k_m",
+      "agent": "probe"
+    },
+    "tool_call_ids": [
+      "http_get",
+      "http_post"
+    ],
+    "control_plane": [
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 447
+      },
+      {
+        "run_id": "20261010-072327-3b2f2823",
+        "seq": 451
+      }
+    ],
+    "reconcile": {
+      "checked": true,
+      "match": true
+    },
+    "validation": {
+      "state": "theorized",
+      "checker": "auth-bypass",
+      "note": "resource answers 200 without credentials; that is auth-missing, not a bypass",
+      "checked_at": "2026-10-10T07:58:19.84198839Z"
+    },
+    "remediation": {
+      "config_change": "Trace the authentication decision for POST /login.php to a single server-side check that cannot be influenced by client input; invalidate sessions created through the bypass; add a regression test.",
+      "virtual_patch": "SecRule REQUEST_URI \"@rx ^/login\\.php\" \"id:9100006,phase:2,pass,log,t:none,msg:'assay auth-bypass virtual patch f-40e548f3453e2dab',tag:'assay/auth-bypass'\"\n{\"class\":\"auth-bypass\",\"engine\":\"modsecurity\",\"finding\":\"f-40e548f3453e2dab\",\"id\":9100006,\"rule\":\"SecRule REQUEST_URI \\\"@rx ^/login\\\\.php\\\" \\\"id:9100006,phase:2,pass,log,t:none,msg:'assay auth-bypass virtual patch f-40e548f3453e2dab',tag:'assay/auth-bypass'\\\"\"}",
+      "verified": false,
+      "draft": false
+    },
+    "first_seen": "2026-10-10T07:57:16.903932561Z",
+    "last_seen": "2026-10-10T07:57:32.375346222Z"
+  }
+]

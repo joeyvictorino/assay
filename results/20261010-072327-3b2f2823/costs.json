@@ -1,0 +1,26 @@
+{
+  "granite-3.3-2b-instruct-q4_k_m": {
+    "cache_read_tokens": 3772,
+    "input_tokens": 2104,
+    "output_tokens": 256,
+    "p50_ms": 9542,
+    "p95_ms": 9542,
+    "usd": 0
+  },
+  "llama-3.2-3b-instruct-q4_k_m": {
+    "cache_read_tokens": 44365,
+    "input_tokens": 4745,
+    "output_tokens": 1258,
+    "p50_ms": 155580,
+    "p95_ms": 155580,
+    "usd": 0
+  },
+  "qwen2.5-3b-instruct-q4_k_m": {
+    "cache_read_tokens": 69229,
+    "input_tokens": 13428,
+    "output_tokens": 5488,
+    "p50_ms": 522770,
+    "p95_ms": 522770,
+    "usd": 0
+  }
+}

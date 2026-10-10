@@ -1,0 +1,11 @@
+flowchart LR
+    F_f_31dacfe2d01d5c0a["f-31dacfe2d01d5c0a: auth-missing GET /"]
+    F_f_5a39fbf6f16c4ec7["f-5a39fbf6f16c4ec7: default-creds GET /login"]
+    O_account_takeover(((account-takeover)))
+    O_data_access(((data-access)))
+    O_privilege_escalation(((privilege-escalation)))
+    X_admin_session([admin-session])
+    F_f_31dacfe2d01d5c0a --> O_data_access
+    F_f_5a39fbf6f16c4ec7 --> X_admin_session
+    X_admin_session --> O_account_takeover
+    X_admin_session --> O_privilege_escalation
