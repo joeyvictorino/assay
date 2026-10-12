@@ -7,7 +7,8 @@ Thank you for your interest.
 - Go 1.26
 - `gofmt -l .` must print nothing; `go vet ./...` must be clean
 - `go test ./... -count=1 -race` from the repository root
-- `sh scripts/name-audit.sh` before every push
+- `sh scripts/name-audit.sh` before every push (the owner keeps its pattern
+  outside the repository; see the script header)
 - Standard library plus `gopkg.in/yaml.v3` only in the root module; the
   Anthropic SDK is the one provider exception. The lab module under
   `labs/synthetic-ops` keeps its own dependencies and never leaks into the

@@ -22,7 +22,11 @@ jobs:
       - run: go test ./... -count=1 -race
       - run: go build ./cmd/assay
       - run: ./assay version
-      - run: sh scripts/name-audit.sh
+      - name: name audit
+        run: sh scripts/name-audit.sh
+        env:
+          NAME_AUDIT_PATTERN: ${{ secrets.NAME_AUDIT_PATTERN }}
+          NAME_AUDIT_ALLOW_MISSING: ${{ github.event.pull_request.head.repo.fork && '1' || '0' }}
       - name: calibration table script
         run: python3 -m unittest scripts.calibration_test
       - name: results commit gate

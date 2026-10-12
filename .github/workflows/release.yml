@@ -21,6 +21,8 @@ jobs:
           go-version: "1.26"
 
       - name: Run tests before release
+        env:
+          NAME_AUDIT_PATTERN: ${{ secrets.NAME_AUDIT_PATTERN }}
         run: |
           test -z "$(gofmt -l .)"
           go vet ./...
