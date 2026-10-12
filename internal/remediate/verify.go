@@ -57,7 +57,9 @@ func Verify(ctx context.Context, labDir, diff string, recheck Recheck) (bool, er
 		return false, err
 	}
 	bin := filepath.Join(tmp, ".assay-bin", "lab")
-	build := exec.CommandContext(ctx, goBin, "build", "-o", bin, pkg)
+	// -buildvcs=false: the copy is a throwaway build, and stamping VCS data
+	// fails (exit 128) wherever git cannot read a parent directory.
+	build := exec.CommandContext(ctx, goBin, "build", "-buildvcs=false", "-o", bin, pkg)
 	build.Dir = tmp
 	build.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "CGO_ENABLED=0")
 	if out, err := build.CombinedOutput(); err != nil {
