@@ -85,3 +85,47 @@ func TestShippedManifestsVerifyAgainstTheTrustStore(t *testing.T) {
 		}
 	}
 }
+
+// The policy and each signed manifest are independent allowlists. A tool that
+// appears in only one of them can never be used: Evaluate checks the policy
+// boundary first and the manifest's allowed_agents immediately after it.
+// Keep the two committed views exact so the default policy does not advertise
+// unreachable permissions or silently hide a signed tool from an agent.
+func TestDefaultPolicyAndShippedManifestsAgreeOnAgents(t *testing.T) {
+	p := defaultEngine(t).Policy()
+	ms, err := tools.Manifests()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	byName := make(map[string]model.ToolManifest, len(ms))
+	for _, m := range ms {
+		byName[m.Name] = m
+	}
+
+	for agent, boundary := range p.Agents {
+		for _, toolName := range boundary.AllowedTools {
+			m, ok := byName[toolName]
+			if !ok {
+				t.Errorf("policy allows %s to use unknown manifest %s", agent, toolName)
+				continue
+			}
+			if !contains(m.AllowedAgents, agent) {
+				t.Errorf("policy allows %s to use %s, but manifest allows %v", agent, toolName, m.AllowedAgents)
+			}
+		}
+	}
+
+	for _, m := range ms {
+		for _, agent := range m.AllowedAgents {
+			boundary, ok := p.Agents[agent]
+			if !ok {
+				t.Errorf("manifest %s names unknown policy agent %s", m.Name, agent)
+				continue
+			}
+			if !contains(boundary.AllowedTools, m.Name) {
+				t.Errorf("manifest %s allows %s, but policy allows %v", m.Name, agent, boundary.AllowedTools)
+			}
+		}
+	}
+}
