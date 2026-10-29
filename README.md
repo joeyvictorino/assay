@@ -2,27 +2,23 @@
 
 [![ci](https://github.com/joeyvictorino/assay/actions/workflows/ci.yml/badge.svg)](https://github.com/joeyvictorino/assay/actions/workflows/ci.yml)
 
-**In plain English.** Companies are starting to point AI models at their own
-systems to hunt for security weaknesses. Two problems follow: a model will
-sometimes report a weakness that is not there, and afterwards nobody can prove
-what the AI actually did. assay is a test harness for that. It lets several
-different AI models examine the same deliberately vulnerable practice system,
-but only through tools whose definitions are digitally signed and only inside a
-signed list of allowed targets. It does not believe what a model says: every
-claimed weakness is re-tested by ordinary code, and a claim is marked
-"validated" only if that code reproduces it. Every request and decision goes
-into a tamper-evident log, and the harness measures how much the models'
-findings overlap and how many of the planted weaknesses each one found.
+assay is a multi-model continuous security-validation harness, written in Go
+(Apache-2.0). Several AI models examine the same authorized target through
+Ed25519-signed tool manifests, inside a signed scope that fails closed. The
+harness does not believe a model: every claimed vulnerability starts as
+*theorized* and is marked *validated* only when a deterministic checker
+reproduces it against the live target, twice. It measures how little the
+models' findings overlap, chains validated findings into attack paths,
+generates remediations, and records every model call, tool call and decision
+in an AES-256-GCM, hash-chained audit log with zero transcript retention by
+default. Design decisions are recorded in 17 ADRs (`docs/adr`).
 
-**Technically.** A multi-model continuous security-validation harness, written in
-Go (Apache-2.0). It routes each task to the best model, runs several models over
-the same authorized targets, measures how little their findings overlap,
-validates exploitability in a sandbox, chains findings into attack paths,
-generates remediations, and records every model call, tool call and decision in
-an AES-256-GCM, hash-chained audit log, with zero transcript retention by
-default. Tool manifests are Ed25519-signed and checked against a trust store,
-the policy engine is deny-wins, the scope gate fails closed, validators are
-deterministic, and the design is recorded in 17 ADRs (`docs/adr`).
+Why it exists: organizations are pointing frontier models at their own
+systems, and two things follow. The models disagree with each other about
+what is there (in the small-model runs below, no finding was reported by more
+than one model), and afterwards nobody can prove what the AI actually did.
+assay is the evidence layer for that: validated findings, a verifiable audit
+chain, and numbers that are recomputable from committed files.
 
 ![Terminal recording of scripts/demo.sh](docs/demo.gif)
 
