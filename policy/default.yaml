@@ -19,7 +19,7 @@ dangerous_combinations:
 agents:
   orchestrator:
     max_tier: medium
-    allowed_tools: [delegate, report_finding, score_task]
+    allowed_tools: [delegate]
     max_delegation_depth: 0
     budget:
       max_usd: 5
@@ -47,7 +47,7 @@ agents:
       max_latency_ms: 600000
   remediate:
     max_tier: medium
-    allowed_tools: [http_get, report_finding]
+    allowed_tools: []
     max_delegation_depth: 3
     budget:
       max_usd: 3
@@ -91,7 +91,7 @@ rules:
   - id: allow-scoring
     effect: allow
     match:
-      agents: [score, orchestrator]
+      agents: [score]
       tools: [score_task]
       max_tier: low
     rationale: Self-reflection scoring is a terminal, read-only step
