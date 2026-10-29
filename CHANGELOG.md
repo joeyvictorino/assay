@@ -30,6 +30,12 @@ Fixed
   `trust/keys`, and tests evaluate the shipped manifests against the shipped
   policy. A side effect: probe and recon agents are no longer offered a tool
   they could never use.
+- The default policy advertised four permissions that the signed manifests
+  denied: `report_finding` and `score_task` for the orchestrator, plus
+  `http_get` and `report_finding` for the remediate agent. The pipeline does not
+  use those role/tool pairs. The unreachable entries are removed fail-closed,
+  and a committed-policy test now requires both allowlists to agree in both
+  directions without changing trust keys or signed manifests.
 - A push to `main` that touched `internal/`, `labs/`, `runs/` or `scope/`
   started a full run whose degraded result replaced the latest one. Push-triggered
   runs are now opt-in (repository variable `ASSAY_FULL_RUN_ON_PUSH`), a degraded
@@ -42,11 +48,6 @@ Known limitations
   tool is now authorized for the orchestrator by manifest and policy, which is
   tested, but multi-agent delegation does not run in the pipeline.
   `internal/orchestrate` has it as library code with tests.
-- Four more manifest and policy disagreements remain: the policy lists
-  `report_finding` and `score_task` for the orchestrator, and `http_get` and
-  `report_finding` for the remediate agent, but those manifests' `allowed_agents`
-  exclude those agents, so the requests are denied. The default pipeline does
-  not use either agent for those tools.
 
 ## 0.3.0 (2026-10-08)
 
