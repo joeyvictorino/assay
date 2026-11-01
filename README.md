@@ -158,10 +158,14 @@ said about its findings and its recall where a lab has complete ground truth.
   non-destructive and needs two consistent observations.
 - **Theorized only:** any finding whose class has no checker (`other`), and any
   finding a checker could not confirm.
-- **Self-reflection:** each model scores its own report and revises when the
-  score is below 7, at most twice (ADR 0017). The score gates revision only,
-  and a model grading itself is a biased judge; the scores are recorded so
-  that bias can be measured once runs with several real models exist.
+- **Self-reflection and peer review:** a reviewer scores each report and the
+  model revises when the score is below 7, at most twice, stopping early when a
+  revision adds nothing (ADR 0017, ADR 0019). The reviewer is the model itself
+  by default or, with `reflection: { reviewer: peer }` in the run config,
+  another model of the run (ADR 0018). The score gates revision only, and a
+  model grading itself is a biased judge; every score is recorded next to what
+  the checkers then said about the same findings, so the bias can be measured
+  once runs with several real models exist.
 - **Shown with small local models only:** a three-model overlap result and
   per-model precision and recall (`results/README.md`).
 - **Not yet shown:** an overlap result or precision and recall for frontier

@@ -3,6 +3,24 @@
 ## Unreleased
 
 Added
+- Peer review scoring (ADR 0018): `reflection: { reviewer: peer }` in a run
+  config has another model of the run score each report instead of the model
+  itself. The reviewer is the first other model in the `models` list, runs
+  under the `score` agent in its own conversation, and sees the same
+  finding list the self-reviewer sees. A single-model run falls back to self
+  and says so. Every reflection record now names its reviewer and kind.
+- Checker outcomes beside every score: reflection records and the report's
+  self-reflection table carry the validated, refuted and theorized counts of
+  the assessed model's findings on that lab after validation and
+  reconciliation (ADR 0017 amendment).
+- No-progress stop (ADR 0019): a revision that reports nothing new ends
+  reflection without scoring the identical report again. The attempt is
+  marked `no_progress` in the orchestrator and in the audit log, and the run
+  report notes "revision added nothing new; stopped".
+
+Changed
+- The `### Self-reflection` table in `report.md` has new columns: Reviewer,
+  Validated, Refuted and Theorized.
 - `scripts/demo.sh`: a 60-second offline demo (no API key, no model) that builds
   the harness and the synthetic lab, runs the scripted fake provider against it,
   prints a plain-English summary and shows the audit chain failing after an edit.
