@@ -377,19 +377,34 @@ type ModelResult struct {
 	Failovers int                  `json:"failovers"`
 }
 
-// ReflectionResult records one task's self-reflection: the model's own scores
-// for its report, in order, and how many revisions followed. Critique text is
-// never stored; only its hash reaches the audit log.
+// ReflectionResult records one task's reflection: the scores a reviewer gave
+// the report, in order, and how many revisions followed. The reviewer is the
+// model itself (ADR 0017) or a peer from the same run (ADR 0018). Critique
+// text is never stored; only its hash reaches the audit log. Validated,
+// Refuted and Theorized count the final states of the assessed model's
+// findings for this lab, so the score can be read beside what the
+// deterministic checkers then said.
 type ReflectionResult struct {
-	Lab       string `json:"lab"`
-	Model     string `json:"model"`
-	Scored    bool   `json:"scored"`
-	Scores    []int  `json:"scores,omitempty"`
-	Revisions int    `json:"revisions"`
-	Final     int    `json:"final_score,omitempty"`
-	Passed    bool   `json:"passed"`
-	Note      string `json:"note,omitempty"` // why reflection did not happen, when it did not
+	Lab          string `json:"lab"`
+	Model        string `json:"model"`
+	Reviewer     string `json:"reviewer,omitempty"`      // model id that scored the report
+	ReviewerKind string `json:"reviewer_kind,omitempty"` // self | peer
+	Scored       bool   `json:"scored"`
+	Scores       []int  `json:"scores,omitempty"`
+	Revisions    int    `json:"revisions"`
+	Final        int    `json:"final_score,omitempty"`
+	Passed       bool   `json:"passed"`
+	Validated    int    `json:"validated"`
+	Refuted      int    `json:"refuted"`
+	Theorized    int    `json:"theorized"`
+	Note         string `json:"note,omitempty"` // why reflection did not happen or stopped early
 }
+
+// Reviewer kinds recorded in ReflectionResult.ReviewerKind.
+const (
+	ReviewerSelf = "self" // the assessed model scores its own report (ADR 0017)
+	ReviewerPeer = "peer" // another model of the run scores it (ADR 0018)
+)
 
 // RunReport is the committed summary of a run.
 type RunReport struct {

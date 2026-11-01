@@ -226,9 +226,23 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 		for _, ref := range refs {
 			ref := ref
 			ref.Agent = "probe"
+			// The reviewer scores this model's report: the model itself, or
+			// with reflection.reviewer: peer the first other model of the run
+			// (ADR 0018). A run with one model falls back to self and says so.
+			reviewer, reviewerKind, reviewerNote := ref, model.ReviewerSelf, ""
+			if cfg.Reflection.ReviewerKind() == config.ReviewerPeer {
+				if peer, ok := cfg.PeerOf(ref); ok {
+					reviewer, reviewerKind = peer, model.ReviewerPeer
+				} else {
+					reviewerNote = NoteNoPeer
+				}
+			}
+			reviewer.Agent = "score"
 			overrides := map[string]model.Provider{}
-			if cfg.Providers[ref.Provider].Type == "fake" {
-				overrides[ref.Provider] = fakeProviderFn(ref.Provider, lab.BaseURL())
+			for _, r := range []model.ModelRef{ref, reviewer} {
+				if _, done := overrides[r.Provider]; !done && cfg.Providers[r.Provider].Type == "fake" {
+					overrides[r.Provider] = fakeProviderFn(r.Provider, lab.BaseURL())
+				}
 			}
 			pm := byModel[ref.Model]
 			// A router only sees its own spend, so give each one what is left
@@ -247,7 +261,7 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 				return ExitError, err
 			}
 			rc := cfg.RouterConfig(o.runID)
-			rc.Routes = map[string][]model.ModelRef{"probe": {ref}, "score": {ref}}
+			rc.Routes = map[string][]model.ModelRef{"probe": {ref}, "score": {reviewer}}
 			rc.MaxFailovers = -1 // one model per route: attribution over availability
 			rc.Budgets.PerRun.MaxUSD = runLeft
 			rc.Budgets.PerModel.MaxUSD = modelLeft
@@ -258,8 +272,12 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 				cfg: cfg, rt: rt, lab: lab, labName: name, ref: ref, client: client, gate: gate,
 				ts: ts, eng: eng, aw: aw, probeTools: probeTools, scoreTools: scoreTools,
 				runID: o.runID, stderr: stderr,
+				reviewer: reviewer, reviewerKind: reviewerKind, reviewerNote: reviewerNote,
 			})
 			pm.lat = append(pm.lat, time.Since(t0).Milliseconds())
+			// The task's whole spend, including a peer reviewer's scoring
+			// calls, counts against the assessed model (ADR 0018): the caps
+			// bind earlier, never later.
 			pm.spent += rt.Spent()
 			if res.Err != nil {
 				fmt.Fprintf(stderr, "run: %s on %s: %v\n", ref.Model, name, res.Err)
@@ -328,6 +346,30 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 	all = reconcile.Downgrade(all, rec)
 	for _, pm := range byModel {
 		pm.findings = reconcile.Downgrade(pm.findings, rec)
+	}
+	// Beside every score, what the checkers then said about the same report:
+	// the final state counts of that model's findings for that lab, after
+	// validation and reconciliation (ADR 0017 amendment, ADR 0018).
+	for i := range reflections {
+		r := &reflections[i]
+		r.Validated, r.Refuted, r.Theorized = 0, 0, 0
+		pm, ok := byModel[r.Model]
+		if !ok {
+			continue
+		}
+		for _, f := range pm.findings {
+			if f.Lab != r.Lab {
+				continue
+			}
+			switch f.State {
+			case model.StateValidated:
+				r.Validated++
+			case model.StateRefuted:
+				r.Refuted++
+			case model.StateTheorized:
+				r.Theorized++
+			}
+		}
 	}
 
 	// Overlap and the run report.

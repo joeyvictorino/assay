@@ -214,15 +214,18 @@ func rows2run() []model.RunReport { return []model.RunReport{sampleRun()} }
 func TestMarkdownSelfReflectionTable(t *testing.T) {
 	rr := sampleRun()
 	rr.Reflection = []model.ReflectionResult{
-		{Lab: "lab-a", Model: "m1", Scored: true, Scores: []int{4, 9}, Revisions: 1, Final: 9, Passed: true},
-		{Lab: "lab-b", Model: "m1", Scored: false, Note: "the model did not report a score"},
+		{Lab: "lab-a", Model: "m1", ReviewerKind: model.ReviewerSelf, Reviewer: "m1", Scored: true, Scores: []int{4, 9}, Revisions: 1, Final: 9, Passed: true, Validated: 1, Refuted: 1, Theorized: 2},
+		{Lab: "lab-b", Model: "m1", ReviewerKind: model.ReviewerPeer, Reviewer: "m2", Scored: false, Note: "the model did not report a score"},
+		{Lab: "lab-c", Model: "m1"}, // a record from before reviewers were named
 	}
 	md := Markdown(rr, nil, nil)
 	for _, want := range []string{
 		"### Self-reflection",
-		"| lab-a | m1 | 4, 9 | 1 | 9 | true |",
-		"| lab-b | m1 | - | 0 | - | false | the model did not report a score |",
+		"| lab-a | m1 | self | 4, 9 | 1 | 9 | true | 1 | 1 | 2 |",
+		"| lab-b | m1 | peer: m2 | - | 0 | - | false | 0 | 0 | 0 | the model did not report a score |",
+		"| lab-c | m1 | - | - | 0 | - | false | 0 | 0 | 0 |",
 		"The score gates revision only",
+		"what the checkers then said",
 	} {
 		if !strings.Contains(md, want) {
 			t.Errorf("report lacks %q:\n%s", want, md)
