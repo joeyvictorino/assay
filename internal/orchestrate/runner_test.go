@@ -211,6 +211,10 @@ func TestReflection(t *testing.T) {
 		{"low score without revise", []int{2}, 0, false, true, 1, []string{AttemptExec}, 2, 0, "v0", []bool{true}, 1},
 		{"score error ends reflection", []int{0}, 1, false, false, 1, []string{AttemptExec}, 0, 0, "v0", []bool{false}, 0},
 		{"revise error recorded", []int{4}, 0, true, false, 2, []string{AttemptExec, AttemptRevision}, 4, 1, "v0", []bool{true, false}, 1},
+		// The revision returns the output it was asked to improve: nothing is
+		// rescored, the attempt is marked NoProgress and reflection stops
+		// after one revision (ADR 0019).
+		{"identical revision stops", []int{4, 4}, 0, false, false, 2, []string{AttemptExec, AttemptRevision}, 4, 1, "v0", []bool{true, false}, 2},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -237,6 +241,9 @@ func TestReflection(t *testing.T) {
 					if !strings.HasPrefix(critique, "critique-") {
 						t.Errorf("critique = %q", critique)
 					}
+					if tc.name == "identical revision stops" {
+						return TaskResult{Output: "v0"}, nil
+					}
 					return TaskResult{Output: "v" + string(rune('0'+reviseCalls))}, nil
 				}
 			}
@@ -260,6 +267,17 @@ func TestReflection(t *testing.T) {
 			if res.Score != tc.wantFinal || reviseCalls != tc.wantRevisions || res.Output != tc.wantOutput {
 				t.Errorf("score=%d revisions=%d output=%q, want %d/%d/%q", res.Score, reviseCalls, res.Output, tc.wantFinal, tc.wantRevisions, tc.wantOutput)
 			}
+			if tc.name == "identical revision stops" {
+				if last := res.Attempts[len(res.Attempts)-1]; !last.NoProgress || last.Err != "" {
+					t.Errorf("last attempt = %+v, want NoProgress without error", last)
+				}
+			} else {
+				for _, a := range res.Attempts {
+					if a.NoProgress {
+						t.Errorf("attempt %+v marked NoProgress", a)
+					}
+				}
+			}
 			recs := aud.byKind("score")
 			if len(recs) != tc.wantAuditN {
 				t.Fatalf("score records = %d, want %d", len(recs), tc.wantAuditN)
@@ -267,6 +285,15 @@ func TestReflection(t *testing.T) {
 			for _, rec := range recs {
 				if rec.TaskID != "a" || rec.RunID != "r1" || rec.Agent != "probe" {
 					t.Errorf("record = %+v", rec)
+				}
+				if np, _ := rec.Meta["no_progress"].(bool); np {
+					if _, has := rec.Meta["score"]; has {
+						t.Errorf("no-progress record carries a score: %#v", rec.Meta)
+					}
+					if len(rec.Hashes) != 0 {
+						t.Errorf("no-progress record carries hashes: %#v", rec.Hashes)
+					}
+					continue
 				}
 				if h := rec.Hashes["critique"]; len(h) != 64 || strings.Contains(h, "critique") {
 					t.Errorf("critique hash = %q", h)

@@ -45,6 +45,9 @@ type Attempt struct {
 	Scored   bool   `json:"scored"`
 	Score    int    `json:"score,omitempty"`
 	Critique string `json:"critique,omitempty"`
+	// NoProgress marks a revision whose output was identical to the output
+	// it was meant to improve. Reflection stops there (ADR 0019).
+	NoProgress bool `json:"no_progress,omitempty"`
 }
 
 // TaskResult is the outcome of one task. Output is opaque to the runner;
@@ -198,7 +201,9 @@ func (r *Runner) runTask(ctx context.Context, task model.Task, exec Exec) TaskRe
 // reflect scores the result and revises it while the score is below
 // PassScore, at most MaxRevisions times. A scoring or revision error ends
 // reflection and is recorded on the attempt; the task stays succeeded with
-// the last good output.
+// the last good output. A revision whose output is identical to the one it
+// was asked to improve is recorded with NoProgress and ends reflection
+// without scoring the same output again (ADR 0019).
 func (r *Runner) reflect(ctx context.Context, task model.Task, res *TaskResult) {
 	if r.Score == nil {
 		return
@@ -225,9 +230,35 @@ func (r *Runner) reflect(ctx context.Context, task model.Task, res *TaskResult) 
 			res.Attempts = append(res.Attempts, a)
 			return
 		}
+		if revised.Output == res.Output {
+			a.NoProgress = true
+			res.Attempts = append(res.Attempts, a)
+			r.auditNoProgress(ctx, task, a, revision+1)
+			return
+		}
 		res.Attempts = append(res.Attempts, a)
 		res.Output = revised.Output
 	}
+}
+
+// auditNoProgress records that a revision changed nothing and reflection
+// stopped, as a score record with no score: the output was not rescored.
+func (r *Runner) auditNoProgress(ctx context.Context, task model.Task, a Attempt, revision int) {
+	if r.Auditor == nil {
+		return
+	}
+	_, _ = r.Auditor.Record(ctx, model.AuditRecord{
+		Time: r.now().UTC(), RunID: r.RunID, TaskID: task.ID, Agent: task.Agent, Kind: "score",
+		Meta: map[string]any{
+			"attempt":     a.N,
+			"kind":        a.Kind,
+			"revision":    revision,
+			"no_progress": true,
+			"threshold":   PassScore,
+			"task_kind":   task.Kind,
+			"wave":        task.Wave,
+		},
+	})
 }
 
 func (r *Runner) auditScore(ctx context.Context, task model.Task, a Attempt, revision int, passed bool) {
