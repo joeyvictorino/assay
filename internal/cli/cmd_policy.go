@@ -562,12 +562,10 @@ func policyMerge(args []string, stdout, stderr io.Writer) int {
 	var err error
 	switch *format {
 	case "json":
-		enc := json.NewEncoder(&bytes.Buffer{})
-		enc.SetIndent("", "  ")
 		var buf bytes.Buffer
-		enc2 := json.NewEncoder(&buf)
-		enc2.SetIndent("", "  ")
-		if err := enc2.Encode(merged); err != nil {
+		enc := json.NewEncoder(&buf)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(merged); err != nil {
 			fmt.Fprintf(stderr, "assay policy merge: %v\n", err)
 			return ExitError
 		}
@@ -608,11 +606,5 @@ func marshalPolicyYAML(p model.Policy) ([]byte, error) {
 	if err := json.Unmarshal(js, &m); err != nil {
 		return nil, err
 	}
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(m); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return yaml.Marshal(m)
 }
