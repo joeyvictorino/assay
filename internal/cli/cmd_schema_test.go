@@ -67,6 +67,47 @@ func TestSchemaContainsDefs(t *testing.T) {
 	}
 }
 
+func TestSchemaFindings(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := runSchema([]string{"--type", "findings"}, &stdout, &stderr)
+	if code != ExitPass {
+		t.Fatalf("expected ExitPass, got %d; stderr: %s", code, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, `"Assay Findings"`) {
+		t.Error("output should contain Assay Findings title")
+	}
+	if !strings.Contains(out, `"dedup_key"`) {
+		t.Error("output should contain dedup_key")
+	}
+}
+
+func TestSchemaFindingsIsValidJSON(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := runSchema([]string{"--type", "findings"}, &stdout, &stderr)
+	if code != ExitPass {
+		t.Fatal("expected ExitPass")
+	}
+	var parsed interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &parsed); err != nil {
+		t.Fatalf("findings schema is not valid JSON: %v", err)
+	}
+}
+
+func TestSchemaFindingsContainsDefs(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	runSchema([]string{"--type", "findings"}, &stdout, &stderr)
+	out := stdout.String()
+	for _, def := range []string{
+		"finding", "location", "model_ref", "audit_ref",
+		"evidence", "reconcile_status", "validation_result", "remediation",
+	} {
+		if !strings.Contains(out, `"`+def+`"`) {
+			t.Errorf("findings schema should contain $def %q", def)
+		}
+	}
+}
+
 func TestSchemaUnknownType(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := runSchema([]string{"--type", "bogus"}, &stdout, &stderr)
