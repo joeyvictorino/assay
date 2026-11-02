@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate", runPolicy)
+	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff", runPolicy)
 }
 
 func runPolicy(args []string, stdout, stderr io.Writer) int {
@@ -35,6 +35,8 @@ func runPolicy(args []string, stdout, stderr io.Writer) int {
 		return policyCoverage(args[1:], stdout, stderr)
 	case "simulate":
 		return policySimulate(args[1:], stdout, stderr)
+	case "diff":
+		return policyDiff(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		policyUsage(stdout)
 		return ExitPass
@@ -62,6 +64,9 @@ func policyUsage(w io.Writer) {
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "  assay policy simulate --policy FILE --manifests DIR")
 	fmt.Fprintln(w, "  [--agent A] [--tool T]  evaluate every agent×tool pair and print the decision matrix")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  assay policy diff --before FILE --after FILE [--format json|text]")
+	fmt.Fprintln(w, "  compares two policy files; exit 0 identical, 1 different, 2 error")
 }
 
 func policyEval(args []string, stdout, stderr io.Writer) int {
@@ -462,4 +467,51 @@ func policySimulate(args []string, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stderr, "assay policy simulate: %d pairs evaluated (%d allowed, %d denied)\n",
 		total, allowed, denied)
 	return ExitPass
+}
+
+func policyDiff(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay policy diff", stderr)
+	beforePath := fs.String("before", "", "earlier policy YAML file (required)")
+	afterPath := fs.String("after", "", "later policy YAML file (required)")
+	format := fs.String("format", "text", "output format: text (default) or json")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *beforePath == "" || *afterPath == "" {
+		fmt.Fprintln(stderr, "assay policy diff: --before and --after are required")
+		return ExitError
+	}
+	before, err := policy.Load(*beforePath)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy diff: %v\n", err)
+		return ExitError
+	}
+	after, err := policy.Load(*afterPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy diff: %v\n", err)
+		return ExitError
+	}
+	report := policy.Diff(before, after)
+
+	switch *format {
+	case "json":
+		enc := json.NewEncoder(stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(report); err != nil {
+			fmt.Fprintf(stderr, "assay policy diff: %v\n", err)
+			return ExitError
+		}
+	case "text":
+		fmt.Fprint(stdout, policy.FormatDiffText(report))
+	default:
+		fmt.Fprintf(stderr, "assay policy diff: unknown format %q\n", *format)
+		return ExitError
+	}
+
+	if report.Identical {
+		fmt.Fprintln(stderr, "assay policy diff: identical")
+		return ExitPass
+	}
+	fmt.Fprintln(stderr, "assay policy diff: differences found")
+	return ExitBlocked
 }
