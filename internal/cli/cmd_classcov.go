@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	Register("class-coverage", "analyze vulnerability class coverage across models", runClassCov)
+	Register("class-coverage", "analyze vulnerability class coverage across findings", runClassCov)
 }
 
 func runClassCov(args []string, stdout, stderr io.Writer) int {

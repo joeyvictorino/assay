@@ -7,10 +7,12 @@ import (
 	"github.com/joeyvictorino/assay/internal/model"
 )
 
-func f(mdl string, sev model.Severity) model.Finding {
+func finding(sev model.Severity, mdl string) model.Finding {
 	return model.Finding{
-		Model:    model.ModelRef{Model: mdl},
+		ID:       "f1",
 		Severity: sev,
+		Class:    model.ClassSQLi,
+		Model:    model.ModelRef{Model: mdl},
 	}
 }
 
@@ -25,120 +27,96 @@ func TestEmpty(t *testing.T) {
 }
 
 func TestSingleFinding(t *testing.T) {
-	r := Analyze([]model.Finding{f("gpt-4", model.SevMedium)})
+	r := Analyze([]model.Finding{finding(model.SevHigh, "gpt-4")})
 	if r.TotalFindings != 1 {
 		t.Fatalf("want 1, got %d", r.TotalFindings)
 	}
-	if len(r.Overall) != 1 {
-		t.Fatalf("want 1 severity bucket, got %d", len(r.Overall))
+	if r.MedianSeverity != "high" {
+		t.Fatalf("want median high, got %s", r.MedianSeverity)
 	}
-	if r.Overall[0].Severity != "medium" {
-		t.Fatalf("want medium, got %s", r.Overall[0].Severity)
-	}
-	if r.Overall[0].Pct != 100.0 {
-		t.Fatalf("want 100%%, got %.1f%%", r.Overall[0].Pct)
+	if r.MeanRank != 3.0 {
+		t.Fatalf("want mean 3.0, got %.2f", r.MeanRank)
 	}
 }
 
-func TestMultipleSeverities(t *testing.T) {
-	r := Analyze([]model.Finding{
-		f("gpt-4", model.SevLow),
-		f("gpt-4", model.SevMedium),
-		f("gpt-4", model.SevHigh),
-		f("gpt-4", model.SevCritical),
-	})
-	if len(r.Overall) != 4 {
-		t.Fatalf("want 4 buckets, got %d", len(r.Overall))
-	}
-}
-
-func TestMedianSev(t *testing.T) {
-	r := Analyze([]model.Finding{
-		f("gpt-4", model.SevLow),
-		f("gpt-4", model.SevMedium),
-		f("gpt-4", model.SevHigh),
-	})
-	if r.MedianSev != "medium" {
-		t.Fatalf("want median medium, got %s", r.MedianSev)
-	}
-}
-
-func TestP90Sev(t *testing.T) {
-	ff := make([]model.Finding, 0, 10)
-	for i := 0; i < 5; i++ {
-		ff = append(ff, f("gpt-4", model.SevLow))
-	}
-	for i := 0; i < 5; i++ {
-		ff = append(ff, f("gpt-4", model.SevCritical))
+func TestDistribution(t *testing.T) {
+	ff := []model.Finding{
+		finding(model.SevLow, "gpt-4"),
+		finding(model.SevLow, "gpt-4"),
+		finding(model.SevHigh, "gpt-4"),
+		finding(model.SevCritical, "gpt-4"),
 	}
 	r := Analyze(ff)
-	if r.P90Sev != "critical" {
-		t.Fatalf("want P90 critical, got %s", r.P90Sev)
+	if len(r.Overall) != 3 {
+		t.Fatalf("want 3 severity buckets, got %d", len(r.Overall))
+	}
+	for _, sb := range r.Overall {
+		if sb.Severity == "low" && sb.Count != 2 {
+			t.Fatalf("want 2 low, got %d", sb.Count)
+		}
 	}
 }
 
 func TestByModel(t *testing.T) {
-	r := Analyze([]model.Finding{
-		f("gpt-4", model.SevLow),
-		f("claude-3", model.SevHigh),
-	})
+	ff := []model.Finding{
+		finding(model.SevCritical, "gpt-4"),
+		finding(model.SevLow, "claude-3"),
+	}
+	r := Analyze(ff)
 	if len(r.ByModel) != 2 {
 		t.Fatalf("want 2 models, got %d", len(r.ByModel))
 	}
-}
-
-func TestMeanRank(t *testing.T) {
-	r := Analyze([]model.Finding{
-		f("gpt-4", model.SevLow),
-		f("gpt-4", model.SevHigh),
-	})
-	expected := 2.0 // (1+3)/2
-	if r.MeanRank != expected {
-		t.Fatalf("want mean rank %.2f, got %.2f", expected, r.MeanRank)
+	if r.ByModel[0].Mean < r.ByModel[1].Mean {
+		t.Fatal("models should be sorted by mean rank descending")
 	}
 }
 
-func TestPercentile(t *testing.T) {
-	ranks := []float64{1, 2, 3, 4, 5}
-	p50 := percentile(ranks, 50)
-	if p50 != 3.0 {
-		t.Fatalf("want p50=3.0, got %.1f", p50)
+func TestMedianSeverity(t *testing.T) {
+	ff := []model.Finding{
+		finding(model.SevLow, "gpt-4"),
+		finding(model.SevMedium, "gpt-4"),
+		finding(model.SevHigh, "gpt-4"),
 	}
-	p0 := percentile(ranks, 0)
-	if p0 != 1.0 {
-		t.Fatalf("want p0=1.0, got %.1f", p0)
+	r := Analyze(ff)
+	if r.MedianSeverity != "medium" {
+		t.Fatalf("want median medium, got %s", r.MedianSeverity)
 	}
 }
 
-func TestPercentileEmpty(t *testing.T) {
-	p := percentile(nil, 50)
-	if p != 0 {
-		t.Fatalf("want 0 for empty, got %.1f", p)
+func TestHighSeverityRecommendation(t *testing.T) {
+	ff := []model.Finding{
+		finding(model.SevCritical, "gpt-4"),
+		finding(model.SevCritical, "gpt-4"),
+		finding(model.SevHigh, "gpt-4"),
+	}
+	r := Analyze(ff)
+	if !strings.Contains(r.Recommendation, "prioritize") {
+		t.Fatalf("should recommend prioritization, got %q", r.Recommendation)
+	}
+}
+
+func TestUnknownModel(t *testing.T) {
+	r := Analyze([]model.Finding{{Severity: model.SevLow}})
+	if len(r.ByModel) != 1 {
+		t.Fatalf("want 1 model, got %d", len(r.ByModel))
+	}
+	if r.ByModel[0].Model != "unknown" {
+		t.Fatalf("want 'unknown' model, got %q", r.ByModel[0].Model)
 	}
 }
 
 func TestFormatText(t *testing.T) {
-	r := Analyze([]model.Finding{f("gpt-4", model.SevMedium)})
+	r := Analyze([]model.Finding{finding(model.SevHigh, "gpt-4")})
 	text := FormatText(r)
 	if !strings.Contains(text, "Severity Distribution") {
 		t.Fatal("should contain header")
 	}
-	if !strings.Contains(text, "medium") {
-		t.Fatal("should contain severity name")
-	}
 }
 
 func TestFormatJSON(t *testing.T) {
-	r := Analyze([]model.Finding{f("gpt-4", model.SevMedium)})
+	r := Analyze([]model.Finding{finding(model.SevHigh, "gpt-4")})
 	j := FormatJSON(r)
 	if !strings.Contains(j, "median_severity") {
 		t.Fatal("should contain median_severity field")
-	}
-}
-
-func TestRecommendation(t *testing.T) {
-	r := Analyze([]model.Finding{f("gpt-4", model.SevHigh)})
-	if !strings.Contains(r.Recommendation, "high") {
-		t.Fatalf("recommendation should mention median severity, got %q", r.Recommendation)
 	}
 }

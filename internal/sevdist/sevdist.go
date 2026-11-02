@@ -10,103 +10,65 @@ import (
 	"github.com/joeyvictorino/assay/internal/model"
 )
 
-type SevCount struct {
+type SeverityBucket struct {
 	Severity string  `json:"severity"`
 	Count    int     `json:"count"`
 	Pct      float64 `json:"pct"`
 }
 
 type ModelDist struct {
-	Model      string     `json:"model"`
-	Total      int        `json:"total"`
-	Counts     []SevCount `json:"counts"`
-	MeanRank   float64    `json:"mean_rank"`
-	MedianSev  string     `json:"median_severity"`
-	P90Sev     string     `json:"p90_severity"`
+	Model   string           `json:"model"`
+	Total   int              `json:"total"`
+	Buckets []SeverityBucket `json:"buckets"`
+	Median  string           `json:"median_severity"`
+	Mean    float64          `json:"mean_rank"`
 }
 
 type Report struct {
-	TotalFindings int        `json:"total_findings"`
-	Overall       []SevCount `json:"overall"`
-	ByModel       []ModelDist `json:"by_model"`
-	MeanRank      float64    `json:"mean_rank"`
-	MedianSev     string     `json:"median_severity"`
-	P90Sev        string     `json:"p90_severity"`
-	Recommendation string   `json:"recommendation"`
+	TotalFindings  int              `json:"total_findings"`
+	Overall        []SeverityBucket `json:"overall"`
+	ByModel        []ModelDist      `json:"by_model"`
+	MedianSeverity string           `json:"median_severity"`
+	MeanRank       float64          `json:"mean_rank"`
+	Recommendation string           `json:"recommendation"`
 }
 
 var sevOrder = []model.Severity{
 	model.SevInfo, model.SevLow, model.SevMedium, model.SevHigh, model.SevCritical,
 }
 
-func sevLabel(s model.Severity) string {
-	return string(s)
-}
-
-func rankFromSev(s model.Severity) float64 {
-	return float64(s.Rank())
-}
-
-func sevFromRank(r int) string {
+func medianSeverity(ranks []int) string {
+	if len(ranks) == 0 {
+		return "none"
+	}
+	sort.Ints(ranks)
+	mid := ranks[len(ranks)/2]
 	for _, s := range sevOrder {
-		if s.Rank() == r {
+		if s.Rank() == mid {
 			return string(s)
 		}
 	}
 	return "unknown"
 }
 
-func percentile(ranks []float64, p float64) float64 {
-	if len(ranks) == 0 {
-		return 0
-	}
-	sort.Float64s(ranks)
-	idx := p / 100.0 * float64(len(ranks)-1)
-	lo := int(math.Floor(idx))
-	hi := int(math.Ceil(idx))
-	if lo == hi || hi >= len(ranks) {
-		return ranks[lo]
-	}
-	frac := idx - float64(lo)
-	return ranks[lo]*(1-frac) + ranks[hi]*frac
-}
-
-func computeDist(findings []model.Finding) ([]SevCount, float64, string, string) {
-	counts := make(map[string]int)
-	var ranks []float64
-	for _, f := range findings {
-		counts[string(f.Severity)]++
-		ranks = append(ranks, rankFromSev(f.Severity))
-	}
-
-	var dist []SevCount
-	total := len(findings)
+func buildBuckets(counts map[model.Severity]int, total int) []SeverityBucket {
+	var buckets []SeverityBucket
 	for _, s := range sevOrder {
-		c := counts[string(s)]
+		c := counts[s]
 		if c == 0 {
 			continue
 		}
-		pct := math.Round(float64(c)/float64(total)*1000) / 10
-		dist = append(dist, SevCount{
+		pct := 0.0
+		if total > 0 {
+			pct = math.Round(float64(c)/float64(total)*1000) / 1000
+		}
+		buckets = append(buckets, SeverityBucket{
 			Severity: string(s),
 			Count:    c,
 			Pct:      pct,
 		})
 	}
-
-	meanRank := 0.0
-	if len(ranks) > 0 {
-		sum := 0.0
-		for _, r := range ranks {
-			sum += r
-		}
-		meanRank = math.Round(sum/float64(len(ranks))*100) / 100
-	}
-
-	medianRank := int(math.Round(percentile(ranks, 50)))
-	p90Rank := int(math.Round(percentile(ranks, 90)))
-
-	return dist, meanRank, sevFromRank(medianRank), sevFromRank(p90Rank)
+	return buckets
 }
 
 func Analyze(findings []model.Finding) Report {
@@ -114,39 +76,73 @@ func Analyze(findings []model.Finding) Report {
 		return Report{Recommendation: "No findings to analyze"}
 	}
 
-	overall, meanRank, medianSev, p90Sev := computeDist(findings)
+	overallCounts := make(map[model.Severity]int)
+	modelCounts := make(map[string]map[model.Severity]int)
+	var allRanks []int
 
-	modelFindings := make(map[string][]model.Finding)
 	for _, f := range findings {
+		overallCounts[f.Severity]++
+		allRanks = append(allRanks, f.Severity.Rank())
+
 		mdl := f.Model.Model
-		modelFindings[mdl] = append(modelFindings[mdl], f)
+		if mdl == "" {
+			mdl = "unknown"
+		}
+		if modelCounts[mdl] == nil {
+			modelCounts[mdl] = make(map[model.Severity]int)
+		}
+		modelCounts[mdl][f.Severity]++
 	}
 
+	total := len(findings)
+	overall := buildBuckets(overallCounts, total)
+
+	meanRank := 0.0
+	for _, r := range allRanks {
+		meanRank += float64(r)
+	}
+	meanRank = math.Round(meanRank/float64(total)*100) / 100
+
 	var byModel []ModelDist
-	for mdl, ff := range modelFindings {
-		dist, mr, med, p90 := computeDist(ff)
+	for mdl, counts := range modelCounts {
+		mTotal := 0
+		var mRanks []int
+		for sev, c := range counts {
+			mTotal += c
+			for i := 0; i < c; i++ {
+				mRanks = append(mRanks, sev.Rank())
+			}
+		}
+		mMean := 0.0
+		for _, r := range mRanks {
+			mMean += float64(r)
+		}
+		mMean = math.Round(mMean/float64(mTotal)*100) / 100
+
 		byModel = append(byModel, ModelDist{
-			Model:     mdl,
-			Total:     len(ff),
-			Counts:    dist,
-			MeanRank:  mr,
-			MedianSev: med,
-			P90Sev:    p90,
+			Model:   mdl,
+			Total:   mTotal,
+			Buckets: buildBuckets(counts, mTotal),
+			Median:  medianSeverity(mRanks),
+			Mean:    mMean,
 		})
 	}
 	sort.Slice(byModel, func(i, j int) bool {
-		return byModel[i].Model < byModel[j].Model
+		return byModel[i].Mean > byModel[j].Mean
 	})
 
-	rec := fmt.Sprintf("Median severity: %s, P90: %s, mean rank: %.2f", medianSev, p90Sev, meanRank)
+	median := medianSeverity(allRanks)
+	rec := fmt.Sprintf("Median severity: %s, mean rank: %.2f/4", median, meanRank)
+	if meanRank >= 3.0 {
+		rec += "; high severity concentration — prioritize triage"
+	}
 
 	return Report{
-		TotalFindings:  len(findings),
+		TotalFindings:  total,
 		Overall:        overall,
 		ByModel:        byModel,
+		MedianSeverity: median,
 		MeanRank:       meanRank,
-		MedianSev:      medianSev,
-		P90Sev:         p90Sev,
 		Recommendation: rec,
 	}
 }
@@ -156,18 +152,17 @@ func FormatText(r Report) string {
 	b.WriteString("Severity Distribution Analysis\n")
 	b.WriteString(strings.Repeat("=", 62) + "\n\n")
 
-	fmt.Fprintf(&b, "  Total findings:    %d\n", r.TotalFindings)
-	fmt.Fprintf(&b, "  Mean severity:     %.2f\n", r.MeanRank)
-	fmt.Fprintf(&b, "  Median severity:   %s\n", r.MedianSev)
-	fmt.Fprintf(&b, "  P90 severity:      %s\n", r.P90Sev)
+	fmt.Fprintf(&b, "  Total findings:     %d\n", r.TotalFindings)
+	fmt.Fprintf(&b, "  Median severity:    %s\n", r.MedianSeverity)
+	fmt.Fprintf(&b, "  Mean severity rank: %.2f / 4\n", r.MeanRank)
 	fmt.Fprintf(&b, "  %s\n\n", r.Recommendation)
 
 	if len(r.Overall) > 0 {
 		b.WriteString("  Overall Distribution:\n")
 		b.WriteString("  " + strings.Repeat("-", 60) + "\n")
-		for _, sc := range r.Overall {
-			bar := strings.Repeat("#", int(sc.Pct/2))
-			fmt.Fprintf(&b, "    %-10s %4d (%5.1f%%) %s\n", sc.Severity, sc.Count, sc.Pct, bar)
+		for _, sb := range r.Overall {
+			bar := strings.Repeat("#", int(sb.Pct*40))
+			fmt.Fprintf(&b, "    %-10s %3d (%5.1f%%) %s\n", sb.Severity, sb.Count, sb.Pct*100, bar)
 		}
 		b.WriteString("\n")
 	}
@@ -176,8 +171,8 @@ func FormatText(r Report) string {
 		b.WriteString("  By Model:\n")
 		b.WriteString("  " + strings.Repeat("-", 60) + "\n")
 		for _, md := range r.ByModel {
-			fmt.Fprintf(&b, "    %s (%d findings, median=%s, P90=%s)\n",
-				md.Model, md.Total, md.MedianSev, md.P90Sev)
+			fmt.Fprintf(&b, "    %s: %d findings, median=%s, mean=%.2f\n",
+				md.Model, md.Total, md.Median, md.Mean)
 		}
 		b.WriteString("\n")
 	}

@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	Register("severity-dist", "analyze severity distribution across findings", runSevDist)
+	Register("severity-dist", "analyze finding severity distribution across models", runSevDist)
 }
 
 func runSevDist(args []string, stdout, stderr io.Writer) int {

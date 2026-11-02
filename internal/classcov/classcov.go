@@ -3,144 +3,140 @@ package classcov
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
 	"github.com/joeyvictorino/assay/internal/model"
 )
 
-type ClassInfo struct {
-	Class      string   `json:"class"`
-	Models     []string `json:"models"`
-	ModelCount int      `json:"model_count"`
-	Total      int      `json:"total"`
-	CoverageBy float64  `json:"coverage_by_pct"`
+type ClassEntry struct {
+	Class        string   `json:"class"`
+	FindingCount int      `json:"finding_count"`
+	Models       []string `json:"models"`
+	MaxSeverity  string   `json:"max_severity"`
 }
 
 type ModelCoverage struct {
-	Model        string   `json:"model"`
-	Classes      []string `json:"classes"`
-	ClassCount   int      `json:"class_count"`
-	TotalClasses int      `json:"total_classes"`
-	CoveragePct  float64  `json:"coverage_pct"`
+	Model       string   `json:"model"`
+	Covered     int      `json:"covered"`
+	Total       int      `json:"total"`
+	CoveragePct float64  `json:"coverage_pct"`
+	Classes     []string `json:"classes"`
 }
 
 type Report struct {
-	TotalFindings  int             `json:"total_findings"`
-	TotalModels    int             `json:"total_models"`
-	TotalClasses   int             `json:"total_classes"`
-	ByClass        []ClassInfo     `json:"by_class"`
-	ByModel        []ModelCoverage `json:"by_model"`
-	UndetectedClasses []string     `json:"undetected_classes"`
-	Recommendation string          `json:"recommendation"`
+	TotalClasses    int             `json:"total_classes"`
+	CoveredClasses  int             `json:"covered_classes"`
+	MissingClasses  []string        `json:"missing_classes"`
+	CoveragePct     float64         `json:"coverage_pct"`
+	ByClass         []ClassEntry    `json:"by_class"`
+	ByModel         []ModelCoverage `json:"by_model"`
+	Recommendation  string          `json:"recommendation"`
 }
 
 func Analyze(findings []model.Finding) Report {
+	totalClasses := len(model.AllClasses)
 	if len(findings) == 0 {
-		return Report{Recommendation: "No findings to analyze"}
+		missing := make([]string, len(model.AllClasses))
+		for i, c := range model.AllClasses {
+			missing[i] = string(c)
+		}
+		return Report{
+			TotalClasses:   totalClasses,
+			MissingClasses: missing,
+			Recommendation: "No findings to analyze",
+		}
 	}
 
-	classModels := make(map[string]map[string]bool)
-	classCounts := make(map[string]int)
-	modelClasses := make(map[string]map[string]bool)
-	allModels := make(map[string]bool)
+	classFindings := make(map[model.Class][]model.Finding)
+	classModels := make(map[model.Class]map[string]bool)
+	modelClasses := make(map[string]map[model.Class]bool)
 
 	for _, f := range findings {
-		cls := string(f.Class)
+		classFindings[f.Class] = append(classFindings[f.Class], f)
+		if classModels[f.Class] == nil {
+			classModels[f.Class] = make(map[string]bool)
+		}
 		mdl := f.Model.Model
-		allModels[mdl] = true
-
-		if classModels[cls] == nil {
-			classModels[cls] = make(map[string]bool)
+		if mdl == "" {
+			mdl = "unknown"
 		}
-		classModels[cls][mdl] = true
-		classCounts[cls]++
-
+		classModels[f.Class][mdl] = true
 		if modelClasses[mdl] == nil {
-			modelClasses[mdl] = make(map[string]bool)
+			modelClasses[mdl] = make(map[model.Class]bool)
 		}
-		modelClasses[mdl][cls] = true
+		modelClasses[mdl][f.Class] = true
 	}
 
-	totalModels := len(allModels)
-	allClassCount := len(model.AllClasses)
-
-	var byClass []ClassInfo
-	detectedClasses := make(map[string]bool)
-	for cls, models := range classModels {
-		detectedClasses[cls] = true
-		var modelList []string
-		for m := range models {
-			modelList = append(modelList, m)
+	var covered []ClassEntry
+	var missing []string
+	for _, cls := range model.AllClasses {
+		ff, ok := classFindings[cls]
+		if !ok || len(ff) == 0 {
+			missing = append(missing, string(cls))
+			continue
 		}
-		sort.Strings(modelList)
-		covBy := 0.0
-		if totalModels > 0 {
-			covBy = float64(len(models)) / float64(totalModels) * 100
+		maxSev := model.Severity("")
+		for _, f := range ff {
+			if f.Severity.Rank() > maxSev.Rank() {
+				maxSev = f.Severity
+			}
 		}
-		byClass = append(byClass, ClassInfo{
-			Class:      cls,
-			Models:     modelList,
-			ModelCount: len(models),
-			Total:      classCounts[cls],
-			CoverageBy: float64(int(covBy*10)) / 10,
+		models := make([]string, 0, len(classModels[cls]))
+		for m := range classModels[cls] {
+			models = append(models, m)
+		}
+		sort.Strings(models)
+		covered = append(covered, ClassEntry{
+			Class:        string(cls),
+			FindingCount: len(ff),
+			Models:       models,
+			MaxSeverity:  string(maxSev),
 		})
 	}
-	sort.Slice(byClass, func(i, j int) bool {
-		if byClass[i].ModelCount != byClass[j].ModelCount {
-			return byClass[i].ModelCount > byClass[j].ModelCount
-		}
-		return byClass[i].Class < byClass[j].Class
-	})
+
+	covPct := 0.0
+	if totalClasses > 0 {
+		covPct = math.Round(float64(len(covered))/float64(totalClasses)*1000) / 1000
+	}
 
 	var byModel []ModelCoverage
 	for mdl, classes := range modelClasses {
-		var classList []string
+		cls := make([]string, 0, len(classes))
 		for c := range classes {
-			classList = append(classList, c)
+			cls = append(cls, string(c))
 		}
-		sort.Strings(classList)
-		covPct := 0.0
-		if allClassCount > 0 {
-			covPct = float64(len(classes)) / float64(allClassCount) * 100
+		sort.Strings(cls)
+		mPct := 0.0
+		if totalClasses > 0 {
+			mPct = math.Round(float64(len(cls))/float64(totalClasses)*1000) / 1000
 		}
 		byModel = append(byModel, ModelCoverage{
-			Model:        mdl,
-			Classes:      classList,
-			ClassCount:   len(classes),
-			TotalClasses: allClassCount,
-			CoveragePct:  float64(int(covPct*10)) / 10,
+			Model:       mdl,
+			Covered:     len(cls),
+			Total:       totalClasses,
+			CoveragePct: mPct,
+			Classes:     cls,
 		})
 	}
 	sort.Slice(byModel, func(i, j int) bool {
-		if byModel[i].CoveragePct != byModel[j].CoveragePct {
-			return byModel[i].CoveragePct > byModel[j].CoveragePct
-		}
-		return byModel[i].Model < byModel[j].Model
+		return byModel[i].CoveragePct > byModel[j].CoveragePct
 	})
 
-	var undetected []string
-	for _, c := range model.AllClasses {
-		if !detectedClasses[string(c)] {
-			undetected = append(undetected, string(c))
-		}
-	}
-
-	detectedCount := len(detectedClasses)
-	rec := fmt.Sprintf("%d/%d classes detected (%.0f%% coverage)", detectedCount, allClassCount,
-		float64(detectedCount)/float64(allClassCount)*100)
-	if len(undetected) > 0 && len(undetected) <= 5 {
-		rec += fmt.Sprintf("; missing: %s", strings.Join(undetected, ", "))
+	rec := fmt.Sprintf("%d/%d classes covered (%.1f%%)", len(covered), totalClasses, covPct*100)
+	if covPct < 0.5 {
+		rec += "; low coverage — expand scanning scope"
 	}
 
 	return Report{
-		TotalFindings:     len(findings),
-		TotalModels:       totalModels,
-		TotalClasses:      detectedCount,
-		ByClass:           byClass,
-		ByModel:           byModel,
-		UndetectedClasses: undetected,
-		Recommendation:    rec,
+		TotalClasses:   totalClasses,
+		CoveredClasses: len(covered),
+		MissingClasses: missing,
+		CoveragePct:    covPct,
+		ByClass:        covered,
+		ByModel:        byModel,
+		Recommendation: rec,
 	}
 }
 
@@ -149,36 +145,37 @@ func FormatText(r Report) string {
 	b.WriteString("Vulnerability Class Coverage\n")
 	b.WriteString(strings.Repeat("=", 62) + "\n\n")
 
-	fmt.Fprintf(&b, "  Total findings:    %d\n", r.TotalFindings)
-	fmt.Fprintf(&b, "  Total models:      %d\n", r.TotalModels)
-	fmt.Fprintf(&b, "  Classes detected:  %d\n", r.TotalClasses)
+	fmt.Fprintf(&b, "  Total classes:   %d\n", r.TotalClasses)
+	fmt.Fprintf(&b, "  Covered:         %d\n", r.CoveredClasses)
+	fmt.Fprintf(&b, "  Missing:         %d\n", len(r.MissingClasses))
+	fmt.Fprintf(&b, "  Coverage:        %.1f%%\n", r.CoveragePct*100)
 	fmt.Fprintf(&b, "  %s\n\n", r.Recommendation)
 
 	if len(r.ByClass) > 0 {
-		b.WriteString("  Class Coverage:\n")
+		b.WriteString("  Covered Classes:\n")
 		b.WriteString("  " + strings.Repeat("-", 60) + "\n")
-		for _, ci := range r.ByClass {
-			fmt.Fprintf(&b, "    %-20s %d findings, %d models (%.1f%%)\n",
-				ci.Class, ci.Total, ci.ModelCount, ci.CoverageBy)
+		for _, ce := range r.ByClass {
+			fmt.Fprintf(&b, "    %-22s %3d findings  max=%s  models=%s\n",
+				ce.Class, ce.FindingCount, ce.MaxSeverity, strings.Join(ce.Models, ","))
+		}
+		b.WriteString("\n")
+	}
+
+	if len(r.MissingClasses) > 0 {
+		b.WriteString("  Missing Classes:\n")
+		b.WriteString("  " + strings.Repeat("-", 60) + "\n")
+		for _, mc := range r.MissingClasses {
+			fmt.Fprintf(&b, "    %s\n", mc)
 		}
 		b.WriteString("\n")
 	}
 
 	if len(r.ByModel) > 0 {
-		b.WriteString("  Model Coverage:\n")
+		b.WriteString("  By Model:\n")
 		b.WriteString("  " + strings.Repeat("-", 60) + "\n")
 		for _, mc := range r.ByModel {
-			fmt.Fprintf(&b, "    %-20s %d/%d classes (%.1f%%)\n",
-				mc.Model, mc.ClassCount, mc.TotalClasses, mc.CoveragePct)
-		}
-		b.WriteString("\n")
-	}
-
-	if len(r.UndetectedClasses) > 0 {
-		b.WriteString("  Undetected Classes:\n")
-		b.WriteString("  " + strings.Repeat("-", 60) + "\n")
-		for _, c := range r.UndetectedClasses {
-			fmt.Fprintf(&b, "    - %s\n", c)
+			fmt.Fprintf(&b, "    %-20s %d/%d (%.1f%%)\n",
+				mc.Model, mc.Covered, mc.Total, mc.CoveragePct*100)
 		}
 		b.WriteString("\n")
 	}
