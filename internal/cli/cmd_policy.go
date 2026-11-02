@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate | export | template | stats | history | import | graph | search", runPolicy)
+	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate | export | template | stats | history | import | graph | search | benchmark", runPolicy)
 }
 
 func runPolicy(args []string, stdout, stderr io.Writer) int {
@@ -57,6 +57,8 @@ func runPolicy(args []string, stdout, stderr io.Writer) int {
 		return policyHistory(args[1:], stdout, stderr)
 	case "import":
 		return policyImport(args[1:], stdout, stderr)
+	case "benchmark":
+		return policyBenchmark(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		policyUsage(stdout)
 		return ExitPass
@@ -115,6 +117,9 @@ func policyUsage(w io.Writer) {
 	fmt.Fprintln(w, "  assay policy search --policy FILE [--keyword K] [--effect allow|deny]")
 	fmt.Fprintln(w, "  [--agent A] [--tool T] [--capability C] [--format text|json]")
 	fmt.Fprintln(w, "  searches policy rules by keyword, effect, agent, tool, or capability")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  assay policy benchmark --policy FILE --manifests DIR [--iterations N] [--format text|json]")
+	fmt.Fprintln(w, "  measures policy evaluation throughput")
 }
 
 func policyEval(args []string, stdout, stderr io.Writer) int {
@@ -998,6 +1003,54 @@ func policySearch(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "assay policy search: unknown format %q\n", *format)
 		return ExitError
 	}
+	return ExitPass
+}
+
+func policyBenchmark(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay policy benchmark", stderr)
+	policyPath := fs.String("policy", "", "policy YAML file (required)")
+	manifests := fs.String("manifests", "", "directory of *.json tool manifests (required)")
+	iterations := fs.Int("iterations", 100, "number of evaluation rounds")
+	format := fs.String("format", "text", "output format: text (default) or json")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *policyPath == "" || *manifests == "" {
+		fmt.Fprintln(stderr, "assay policy benchmark: --policy and --manifests are required")
+		return ExitError
+	}
+	eng, err := policy.Load(*policyPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy benchmark: %v\n", err)
+		return ExitError
+	}
+	files, err := loadManifestDir(*manifests)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy benchmark: %v\n", err)
+		return ExitError
+	}
+	var ms []model.ToolManifest
+	for _, f := range files {
+		ms = append(ms, f.M)
+	}
+	r := policy.Benchmark(eng, ms, *iterations)
+
+	switch *format {
+	case "json":
+		enc := json.NewEncoder(stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(r); err != nil {
+			fmt.Fprintf(stderr, "assay policy benchmark: %v\n", err)
+			return ExitError
+		}
+	case "text":
+		fmt.Fprint(stdout, policy.FormatBenchmarkText(r))
+	default:
+		fmt.Fprintf(stderr, "assay policy benchmark: unknown format %q\n", *format)
+		return ExitError
+	}
+	fmt.Fprintf(stderr, "assay policy benchmark: %d evaluations in %d ms (%.2f eval/s)\n",
+		r.TotalEvaluations, r.TotalDurationMS, r.EvalPerSecond)
 	return ExitPass
 }
 
