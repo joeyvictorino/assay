@@ -47,10 +47,18 @@ var pricing = map[string]modelPricing{
 
 func lookupPricing(modelName string) modelPricing {
 	lower := strings.ToLower(modelName)
+	best := ""
+	var bestP modelPricing
 	for prefix, p := range pricing {
 		if strings.HasPrefix(lower, prefix) || strings.Contains(lower, prefix) {
-			return p
+			if len(prefix) > len(best) {
+				best = prefix
+				bestP = p
+			}
 		}
+	}
+	if best != "" {
+		return bestP
 	}
 	return modelPricing{5.00, 15.00}
 }
