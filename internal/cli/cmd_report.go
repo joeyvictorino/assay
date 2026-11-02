@@ -12,6 +12,7 @@ import (
 	"github.com/joeyvictorino/assay/internal/model"
 	"github.com/joeyvictorino/assay/internal/reconcile"
 	"github.com/joeyvictorino/assay/internal/report"
+	"github.com/joeyvictorino/assay/internal/version"
 )
 
 // Results-directory file names (the lead's `run` command writes them).
@@ -29,17 +30,19 @@ func init() {
 
 // runReport implements:
 //
-//	assay report --run DIR [--format md|dashboard] [--runs-root results/] [--out FILE]
+//	assay report --run DIR [--format md|sarif|dashboard] [--runs-root results/] [--out FILE]
 //
 // md (default) reads DIR/run.json, DIR/findings.redacted.json and
 // DIR/reconcile.json (the last two optional) and writes DIR/report.md.
+// sarif reads DIR/findings.redacted.json and writes SARIF v2.1.0 JSON
+// for upload to GitHub Code Scanning (via github/codeql-action/upload-sarif).
 // dashboard reads every <runs-root>/*/run.json and writes
 // docs/dashboard/data/index.json. --out overrides the output path; "-"
 // writes to stdout.
 func runReport(args []string, stdout, stderr io.Writer) int {
 	fs := newFlagSet("assay report", stderr)
 	runDir := fs.String("run", "", "results directory for one run (required)")
-	format := fs.String("format", "md", "md | dashboard")
+	format := fs.String("format", "md", "md | sarif | dashboard")
 	runsRoot := fs.String("runs-root", "results", "directory holding one sub-directory per run (dashboard format)")
 	out := fs.String("out", "", "output path (default DIR/report.md or docs/dashboard/data/index.json; \"-\" for stdout)")
 	if err := fs.Parse(args); err != nil {
@@ -53,10 +56,12 @@ func runReport(args []string, stdout, stderr io.Writer) int {
 	switch *format {
 	case "md":
 		return reportMarkdownCmd(*runDir, *out, stdout, stderr)
+	case "sarif":
+		return reportSARIFCmd(*runDir, *out, stdout, stderr)
 	case "dashboard":
 		return reportDashboard(*runsRoot, *out, stdout, stderr)
 	}
-	fmt.Fprintf(stderr, "assay report: unknown --format %q (md | dashboard)\n", *format)
+	fmt.Fprintf(stderr, "assay report: unknown --format %q (md | sarif | dashboard)\n", *format)
 	return ExitError
 }
 
@@ -93,6 +98,32 @@ func reportMarkdownCmd(runDir, out string, stdout, stderr io.Writer) int {
 	}
 	if out != "-" {
 		fmt.Fprintf(stdout, "report: wrote %s (%d bytes)\n", out, len(md))
+	}
+	return ExitPass
+}
+
+func reportSARIFCmd(runDir, out string, stdout, stderr io.Writer) int {
+	var findings []model.Finding
+	p := filepath.Join(runDir, findingsJSON)
+	if fileExists(p) {
+		var err error
+		findings, err = readFindings(p, nil)
+		if err != nil {
+			return fail(stderr, "report", err)
+		}
+	}
+	sarif, err := report.FindingsToSARIF(findings, version.Version)
+	if err != nil {
+		return fail(stderr, "report", err)
+	}
+	if out == "" {
+		out = filepath.Join(runDir, "findings.sarif.json")
+	}
+	if err := writeText(out, sarif, stdout); err != nil {
+		return fail(stderr, "report", err)
+	}
+	if out != "-" {
+		fmt.Fprintf(stdout, "report: wrote SARIF to %s (%d bytes)\n", out, len(sarif))
 	}
 	return ExitPass
 }
