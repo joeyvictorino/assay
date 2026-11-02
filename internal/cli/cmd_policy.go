@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge", runPolicy)
+	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate", runPolicy)
 }
 
 func runPolicy(args []string, stdout, stderr io.Writer) int {
@@ -41,6 +41,8 @@ func runPolicy(args []string, stdout, stderr io.Writer) int {
 		return policyDiff(args[1:], stdout, stderr)
 	case "merge":
 		return policyMerge(args[1:], stdout, stderr)
+	case "validate":
+		return policyValidate(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		policyUsage(stdout)
 		return ExitPass
@@ -74,6 +76,9 @@ func policyUsage(w io.Writer) {
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "  assay policy merge --policies FILE[,FILE,...] [--out FILE] [--format yaml|json]")
 	fmt.Fprintln(w, "  merges multiple policy files; later files override earlier ones")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  assay policy validate --policy FILE")
+	fmt.Fprintln(w, "  validates policy structure without needing manifests; exit 0 valid, 1 issues, 2 error")
 }
 
 func policyEval(args []string, stdout, stderr io.Writer) int {
@@ -595,6 +600,44 @@ func policyMerge(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "assay policy merge: wrote %s\n", *outPath)
 	}
 	return ExitPass
+}
+
+func policyValidate(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay policy validate", stderr)
+	polPath := fs.String("policy", "", "policy YAML file (required)")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *polPath == "" {
+		fmt.Fprintln(stderr, "assay policy validate: --policy is required")
+		return ExitError
+	}
+	p, err := policy.ParseLenient(*polPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy validate: %v\n", err)
+		return ExitError
+	}
+	issues := policy.Validate(p)
+
+	enc := json.NewEncoder(stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(issues); err != nil {
+		fmt.Fprintf(stderr, "assay policy validate: %v\n", err)
+		return ExitError
+	}
+
+	if len(issues) == 0 {
+		fmt.Fprintln(stderr, "assay policy validate: valid")
+		return ExitPass
+	}
+	errors := 0
+	for _, i := range issues {
+		if i.Severity == "error" {
+			errors++
+		}
+	}
+	fmt.Fprintf(stderr, "assay policy validate: %d issue(s) (%d errors)\n", len(issues), errors)
+	return ExitBlocked
 }
 
 func marshalPolicyYAML(p model.Policy) ([]byte, error) {

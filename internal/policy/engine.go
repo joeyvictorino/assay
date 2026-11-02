@@ -98,6 +98,7 @@ func Parse(raw []byte) (*Engine, error) {
 	return &Engine{p: p, hash: hex.EncodeToString(sum[:])}, nil
 }
 
+
 func validEffect(e model.Effect) bool { return e == model.EffectAllow || e == model.EffectDeny }
 
 func validTier(t model.RiskTier) bool { return t.Rank() > 0 }
