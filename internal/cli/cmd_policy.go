@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	Register("policy", "evaluate the policy for one tool request: eval | lint | test", runPolicy)
+	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage", runPolicy)
 }
 
 func runPolicy(args []string, stdout, stderr io.Writer) int {
@@ -30,6 +30,8 @@ func runPolicy(args []string, stdout, stderr io.Writer) int {
 		return policyLint(args[1:], stdout, stderr)
 	case "test":
 		return policyTest(args[1:], stdout, stderr)
+	case "coverage":
+		return policyCoverage(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		policyUsage(stdout)
 		return ExitPass
@@ -51,6 +53,9 @@ func policyUsage(w io.Writer) {
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "  assay policy test --policy FILE --manifests DIR --scenarios FILE")
 	fmt.Fprintln(w, "  batch-tests scenarios against the policy; exit 0 all pass, 1 failures, 2 error")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  assay policy coverage --policy FILE --manifests DIR")
+	fmt.Fprintln(w, "  reports rule coverage over the agent×tool matrix; exit 0 full, 1 gaps, 2 error")
 }
 
 func policyEval(args []string, stdout, stderr io.Writer) int {
@@ -289,5 +294,47 @@ func policyTest(args []string, stdout, stderr io.Writer) int {
 		return ExitBlocked
 	}
 	fmt.Fprintf(stderr, "assay policy test: %d/%d scenario(s) passed\n", len(sc), len(sc))
+	return ExitPass
+}
+
+func policyCoverage(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay policy coverage", stderr)
+	policyPath := fs.String("policy", "", "policy YAML file (required)")
+	manifests := fs.String("manifests", "", "directory of *.json tool manifests (required)")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *policyPath == "" || *manifests == "" {
+		fmt.Fprintln(stderr, "assay policy coverage: --policy and --manifests are required")
+		return ExitError
+	}
+	eng, err := policy.Load(*policyPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy coverage: %v\n", err)
+		return ExitError
+	}
+	files, err := loadManifestDir(*manifests)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy coverage: %v\n", err)
+		return ExitError
+	}
+	var ms []model.ToolManifest
+	for _, f := range files {
+		ms = append(ms, f.M)
+	}
+	report := policy.Coverage(eng, ms)
+	enc := json.NewEncoder(stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(report); err != nil {
+		fmt.Fprintf(stderr, "assay policy coverage: %v\n", err)
+		return ExitError
+	}
+	if len(report.Uncovered) > 0 {
+		fmt.Fprintf(stderr, "assay policy coverage: %.1f%% (%d/%d pairs covered, %d uncovered)\n",
+			report.Percentage, report.CoveredPairs, report.TotalPairs, len(report.Uncovered))
+		return ExitBlocked
+	}
+	fmt.Fprintf(stderr, "assay policy coverage: 100%% (%d/%d pairs covered)\n",
+		report.CoveredPairs, report.TotalPairs)
 	return ExitPass
 }

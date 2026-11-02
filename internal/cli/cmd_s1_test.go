@@ -387,6 +387,105 @@ rules:
 	}
 }
 
+func TestPolicyCoverage(t *testing.T) {
+	manifests := t.TempDir()
+	writeManifest(t, manifests, "http_get", manifest("http_get", model.TierLow, "http.read"))
+	writeManifest(t, manifests, "http_post", manifest("http_post", model.TierHigh, "http.read", "http.write"))
+	writeManifest(t, manifests, "score_task", manifest("score_task", model.TierLow, "report"))
+
+	// Full coverage: every agent×tool pair has an explicit rule.
+	fullPol := filepath.Join(t.TempDir(), "full.yaml")
+	fullYAML := `
+version: "1"
+default_effect: deny
+agents:
+  recon:
+    max_tier: medium
+    allowed_tools: [http_get]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+  scorer:
+    max_tier: low
+    allowed_tools: [score_task]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+rules:
+  - id: allow-read
+    effect: allow
+    match:
+      capabilities: [http.read]
+      max_tier: medium
+  - id: allow-score
+    effect: allow
+    match:
+      agents: [scorer]
+      tools: [score_task]
+`
+	if err := os.WriteFile(fullPol, []byte(fullYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr := run(t, "policy", "coverage", "--policy", fullPol, "--manifests", manifests)
+	if code != ExitPass {
+		t.Fatalf("full coverage: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	var report map[string]any
+	if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+		t.Fatalf("not JSON: %v", err)
+	}
+	if report["coverage_pct"] != 100.0 {
+		t.Fatalf("expected 100%%, got %v", report["coverage_pct"])
+	}
+
+	// Partial coverage: agent has a tool with no matching rule.
+	partialPol := filepath.Join(t.TempDir(), "partial.yaml")
+	partialYAML := `
+version: "1"
+default_effect: deny
+agents:
+  probe:
+    max_tier: high
+    allowed_tools: [http_get, http_post]
+    max_delegation_depth: 0
+    budget: {max_usd: 2}
+rules:
+  - id: allow-read
+    effect: allow
+    match:
+      capabilities: [http.read]
+      max_tier: medium
+`
+	if err := os.WriteFile(partialPol, []byte(partialYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, _ = run(t, "policy", "coverage", "--policy", partialPol, "--manifests", manifests)
+	if code != ExitBlocked {
+		t.Fatalf("partial coverage should exit blocked: code=%d", code)
+	}
+	if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+		t.Fatal(err)
+	}
+	uncovered, ok := report["uncovered"].([]any)
+	if !ok || len(uncovered) == 0 {
+		t.Fatal("expected uncovered pairs")
+	}
+	first := uncovered[0].(map[string]any)
+	if first["tool"] != "http_post" {
+		t.Fatalf("expected http_post uncovered, got %v", first["tool"])
+	}
+
+	// Error cases.
+	for _, args := range [][]string{
+		{"policy", "coverage"},
+		{"policy", "coverage", "--policy", fullPol},
+		{"policy", "coverage", "--manifests", manifests},
+		{"policy", "coverage", "--policy", filepath.Join(t.TempDir(), "nope.yaml"), "--manifests", manifests},
+	} {
+		if code, _, _ := run(t, args...); code != ExitError {
+			t.Fatalf("%v should exit %d, got %d", args, ExitError, code)
+		}
+	}
+}
+
 func TestAuditCommands(t *testing.T) {
 	code, out, _ := run(t, "audit", "keygen")
 	if code != ExitPass {
