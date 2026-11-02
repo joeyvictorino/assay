@@ -180,12 +180,105 @@ rules: []
 	}
 }
 
+func TestLintAgentHasDangerousCombo(t *testing.T) {
+	eng := policyYAML(`
+version: "1"
+default_effect: deny
+agents:
+  probe:
+    max_tier: high
+    allowed_tools: [http_get, shell_exec]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+  safe:
+    max_tier: low
+    allowed_tools: [http_get]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+rules: []
+dangerous_combinations:
+  - [http.read, code.exec]
+`)
+	manifests := []model.ToolManifest{
+		{Name: "http_get", RiskTier: model.TierLow, Capabilities: []string{"http.read"}},
+		{Name: "shell_exec", RiskTier: model.TierHigh, Capabilities: []string{"code.exec"}},
+	}
+	issues := Lint(eng, manifests)
+	var found []LintIssue
+	for _, iss := range issues {
+		if iss.Kind == "agent_has_dangerous_combo" {
+			found = append(found, iss)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("expected 1 agent_has_dangerous_combo issue (probe only), got %d: %v", len(found), found)
+	}
+	if found[0].Agent != "probe" {
+		t.Fatalf("expected agent=probe, got %q", found[0].Agent)
+	}
+}
+
+func TestLintDangerousComboSafe(t *testing.T) {
+	eng := policyYAML(`
+version: "1"
+default_effect: deny
+agents:
+  safe:
+    max_tier: low
+    allowed_tools: [http_get]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+rules: []
+dangerous_combinations:
+  - [http.read, code.exec]
+`)
+	manifests := []model.ToolManifest{
+		{Name: "http_get", RiskTier: model.TierLow, Capabilities: []string{"http.read"}},
+	}
+	issues := Lint(eng, manifests)
+	for _, iss := range issues {
+		if iss.Kind == "agent_has_dangerous_combo" {
+			t.Fatalf("safe agent should not trigger: %v", iss)
+		}
+	}
+}
+
+func TestLintDangerousComboWildcard(t *testing.T) {
+	eng := policyYAML(`
+version: "1"
+default_effect: deny
+agents:
+  god:
+    max_tier: high
+    allowed_tools: ["*"]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+rules: []
+dangerous_combinations:
+  - [http.read, code.exec]
+`)
+	manifests := []model.ToolManifest{
+		{Name: "http_get", RiskTier: model.TierLow, Capabilities: []string{"http.read"}},
+		{Name: "shell_exec", RiskTier: model.TierHigh, Capabilities: []string{"code.exec"}},
+	}
+	issues := Lint(eng, manifests)
+	found := false
+	for _, iss := range issues {
+		if iss.Kind == "agent_has_dangerous_combo" && iss.Agent == "god" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("wildcard agent should flag dangerous combo when manifests provide the capabilities: %v", issues)
+	}
+}
+
 func TestSubsumes(t *testing.T) {
 	cases := []struct {
-		name string
-		deny model.RuleMatch
+		name  string
+		deny  model.RuleMatch
 		allow model.RuleMatch
-		want bool
+		want  bool
 	}{
 		{"empty deny subsumes anything", model.RuleMatch{}, model.RuleMatch{Tools: []string{"x"}}, true},
 		{"non-empty deny cannot subsume empty allow", model.RuleMatch{Tools: []string{"x"}}, model.RuleMatch{}, false},

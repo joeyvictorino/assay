@@ -77,6 +77,55 @@ func Lint(eng *Engine, manifests []model.ToolManifest) []LintIssue {
 		}
 	}
 
+	// Build a map of tool name -> capabilities from manifests.
+	toolCaps := map[string][]string{}
+	for _, m := range manifests {
+		toolCaps[m.Name] = m.Capabilities
+	}
+
+	// Check dangerous_combinations: for each agent, gather the union of
+	// capabilities reachable through its allowed tools, then flag if any
+	// forbidden combination is a subset.
+	for name, boundary := range p.Agents {
+		caps := map[string]bool{}
+		wildcard := false
+		for _, t := range boundary.AllowedTools {
+			if t == Wildcard {
+				wildcard = true
+				break
+			}
+			for _, c := range toolCaps[t] {
+				caps[c] = true
+			}
+		}
+		if wildcard {
+			for _, m := range manifests {
+				for _, c := range m.Capabilities {
+					caps[c] = true
+				}
+			}
+		}
+		for ci, combo := range p.DangerousCombos {
+			allPresent := true
+			for _, cap := range combo {
+				if !caps[cap] {
+					allPresent = false
+					break
+				}
+			}
+			if allPresent {
+				sorted := append([]string(nil), combo...)
+				sort.Strings(sorted)
+				issues = append(issues, LintIssue{
+					Agent:    name,
+					Kind:     "agent_has_dangerous_combo",
+					Message:  fmt.Sprintf("agent %q can reach all capabilities in dangerous_combinations[%d]: %s", name, ci, strings.Join(sorted, ", ")),
+					Severity: "warning",
+				})
+			}
+		}
+	}
+
 	// Detect shadowed allow rules: an allow that is preceded by a deny
 	// with the same or broader match (superset selectors).
 	for i, allow := range p.Rules {
