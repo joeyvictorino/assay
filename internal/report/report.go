@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joeyvictorino/assay/internal/chain"
 	"github.com/joeyvictorino/assay/internal/model"
 	"github.com/joeyvictorino/assay/internal/reconcile"
 )
@@ -27,9 +28,9 @@ var states = []model.FindingState{model.StateValidated, model.StateTheorized, mo
 
 // Markdown renders the run report. rec may be nil, in which case the
 // Reconciliation section falls back to the reason counts in rr. Sections
-// appear in this fixed order: Scope statement, Corpus, Findings, Overlap,
-// Evaluation, Reconciliation, Policy decisions, Evidence model, Limitations,
-// Runtime.
+// appear in this fixed order: Scope statement, Corpus, Findings,
+// Attack paths, Overlap, Evaluation, Reconciliation, Policy decisions,
+// Evidence model, Limitations, Runtime.
 func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Report) string {
 	var b strings.Builder
 	w := func(format string, args ...any) { fmt.Fprintf(&b, format, args...) }
@@ -84,7 +85,22 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 		}
 	}
 
-	// 4. Overlap.
+	// 4. Attack paths.
+	paths := chain.Build(findings)
+	w("## Attack paths\n\n")
+	if len(paths) == 0 {
+		w("No attack paths derived (no chainable validated or theorized findings).\n\n")
+	} else {
+		w("%d path(s) derived from %d finding(s).\n\n", len(paths), len(findings))
+		w("| Path | Lab | Objective | Confidence | Steps |\n")
+		w("| --- | --- | --- | --- | ---: |\n")
+		for _, p := range paths {
+			w("| `%s` | %s | %s | %s | %d |\n", p.ID, p.Lab, p.Objective, p.Confidence, len(p.Path))
+		}
+		w("\n```mermaid\n%s```\n\n", chain.Mermaid(paths))
+	}
+
+	// 5. Overlap.
 	w("## Overlap\n\n")
 	if rr.Overlap == nil || len(rr.Overlap.Models) == 0 {
 		w("No overlap matrix (fewer than one model with findings).\n\n")
@@ -111,7 +127,7 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 		w("\n")
 	}
 
-	// 5. Evaluation.
+	// 6. Evaluation.
 	w("## Evaluation\n\n")
 	if len(rr.Precision) == 0 {
 		w("%s\n\n", NoGroundTruth)
@@ -155,7 +171,7 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 		w("\n")
 	}
 
-	// 6. Reconciliation.
+	// 7. Reconciliation.
 	w("## Reconciliation\n\n")
 	switch {
 	case rec != nil:
@@ -189,7 +205,7 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 		w("No reconciliation mismatches recorded.\n\n")
 	}
 
-	// 7. Policy decisions.
+	// 8. Policy decisions.
 	w("## Policy decisions\n\n")
 	if len(rr.PolicyDenies) == 0 {
 		w("No policy denials recorded.\n\n")
@@ -201,7 +217,7 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 		w("\n")
 	}
 
-	// 8. Evidence model.
+	// 9. Evidence model.
 	w("## Evidence model\n\n")
 	w("`model call -> claimed tool call -> policy decision -> executed tool call -> gate decision -> HTTP exchange digest -> finding -> checker evidence`\n\n")
 	w("- Audit head hash: `%s`\n", orDash(rr.AuditHead))
@@ -212,14 +228,14 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 	w("- Audit key id: see the audit log header (not carried in run.json)\n")
 	w("- Transcript retention: none (zero data retention sink)\n\n")
 
-	// 9. Limitations.
+	// 10. Limitations.
 	w("## Limitations\n\n")
 	for _, l := range limitations(rr) {
 		w("- %s\n", l)
 	}
 	w("\n")
 
-	// 10. Runtime.
+	// 11. Runtime.
 	w("## Runtime\n\n")
 	w("- Started: %s\n", stamp(rr.Started))
 	w("- Finished: %s\n", stamp(rr.Finished))

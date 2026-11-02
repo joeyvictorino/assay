@@ -15,6 +15,7 @@ var sectionOrder = []string{
 	"## Scope statement",
 	"## Corpus",
 	"## Findings",
+	"## Attack paths",
 	"## Overlap",
 	"## Evaluation",
 	"## Reconciliation",
@@ -240,6 +241,41 @@ func TestMarkdownSelfReflectionTable(t *testing.T) {
 	rr.Reflection = nil
 	if strings.Contains(Markdown(rr, nil, nil), "### Self-reflection") {
 		t.Error("table printed for a run with no reflection")
+	}
+}
+
+func TestMarkdownAttackPathsEmpty(t *testing.T) {
+	rr := sampleRun()
+	md := Markdown(rr, nil, nil)
+	if !strings.Contains(md, "No attack paths derived") {
+		t.Fatal("empty attack-path section should show fallback text")
+	}
+	if strings.Contains(md, "```mermaid") {
+		t.Fatal("mermaid block should not appear with no paths")
+	}
+}
+
+func TestMarkdownAttackPathsPresent(t *testing.T) {
+	rr := sampleRun()
+	findings := []model.Finding{
+		{ID: "f1", Class: "default-creds", State: model.StateValidated, Lab: "lab-a", Model: model.ModelRef{Model: "m-a"}, Location: model.Location{Method: "POST", PathTemplate: "/login"}},
+		{ID: "f2", Class: "idor", State: model.StateTheorized, Lab: "lab-a", Model: model.ModelRef{Model: "m-a"}, Location: model.Location{Method: "GET", PathTemplate: "/api/users/{id}"}},
+	}
+	md := Markdown(rr, findings, nil)
+	for _, want := range []string{
+		"## Attack paths",
+		"path(s) derived from",
+		"| Path | Lab | Objective | Confidence | Steps |",
+		"account-takeover",
+		"```mermaid",
+		"flowchart LR",
+	} {
+		if !strings.Contains(md, want) {
+			t.Fatalf("missing %q in attack paths section", want)
+		}
+	}
+	if strings.Contains(md, "No attack paths derived") {
+		t.Fatal("fallback text should not appear when paths exist")
 	}
 }
 
