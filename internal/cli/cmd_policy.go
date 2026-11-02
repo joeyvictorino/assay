@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate", runPolicy)
+	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate | export", runPolicy)
 }
 
 func runPolicy(args []string, stdout, stderr io.Writer) int {
@@ -43,6 +43,8 @@ func runPolicy(args []string, stdout, stderr io.Writer) int {
 		return policyMerge(args[1:], stdout, stderr)
 	case "validate":
 		return policyValidate(args[1:], stdout, stderr)
+	case "export":
+		return policyExport(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		policyUsage(stdout)
 		return ExitPass
@@ -79,6 +81,9 @@ func policyUsage(w io.Writer) {
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "  assay policy validate --policy FILE")
 	fmt.Fprintln(w, "  validates policy structure without needing manifests; exit 0 valid, 1 issues, 2 error")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  assay policy export --policy FILE [--format markdown|yaml|json]")
+	fmt.Fprintln(w, "  exports the policy as a human-readable document")
 }
 
 func policyEval(args []string, stdout, stderr io.Writer) int {
@@ -638,6 +643,48 @@ func policyValidate(args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stderr, "assay policy validate: %d issue(s) (%d errors)\n", len(issues), errors)
 	return ExitBlocked
+}
+
+func policyExport(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay policy export", stderr)
+	policyPath := fs.String("policy", "", "policy YAML file (required)")
+	format := fs.String("format", "markdown", "output format: markdown (default), yaml, or json")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *policyPath == "" {
+		fmt.Fprintln(stderr, "assay policy export: --policy is required")
+		return ExitError
+	}
+	eng, err := policy.Load(*policyPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy export: %v\n", err)
+		return ExitError
+	}
+	p := eng.Policy()
+
+	switch *format {
+	case "markdown", "md":
+		fmt.Fprint(stdout, policy.ExportMarkdown(p))
+	case "json":
+		enc := json.NewEncoder(stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(p); err != nil {
+			fmt.Fprintf(stderr, "assay policy export: %v\n", err)
+			return ExitError
+		}
+	case "yaml":
+		out, err := marshalPolicyYAML(p)
+		if err != nil {
+			fmt.Fprintf(stderr, "assay policy export: %v\n", err)
+			return ExitError
+		}
+		stdout.Write(out)
+	default:
+		fmt.Fprintf(stderr, "assay policy export: unknown format %q\n", *format)
+		return ExitError
+	}
+	return ExitPass
 }
 
 func marshalPolicyYAML(p model.Policy) ([]byte, error) {

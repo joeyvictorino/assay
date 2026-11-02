@@ -1053,3 +1053,80 @@ dangerous_combinations:
 		}
 	}
 }
+
+func TestPolicyExport(t *testing.T) {
+	polYAML := `
+version: "2.1"
+default_effect: deny
+agents:
+  recon:
+    max_tier: medium
+    allowed_tools: [http_get]
+    max_delegation_depth: 1
+    budget: {max_usd: 0.5}
+  probe:
+    max_tier: high
+    allowed_tools: [http_get, http_post]
+    max_delegation_depth: 0
+    budget: {max_usd: 2}
+rules:
+  - id: allow-read
+    effect: allow
+    match:
+      tools: [http_get]
+    rationale: "Read access for discovery"
+dangerous_combinations:
+  - [http_post, exec_shell]
+`
+	polPath := filepath.Join(t.TempDir(), "policy.yaml")
+	if err := os.WriteFile(polPath, []byte(polYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	code, stdout, stderr := run(t, "policy", "export", "--policy", polPath)
+	if code != ExitPass {
+		t.Fatalf("markdown export: code=%d stderr=%q", code, stderr)
+	}
+	if !strings.Contains(stdout, "# Policy: 2.1") {
+		t.Error("markdown should contain policy version heading")
+	}
+	if !strings.Contains(stdout, "| probe |") {
+		t.Error("markdown should contain agent table rows")
+	}
+	if !strings.Contains(stdout, "### `allow-read` (allow)") {
+		t.Error("markdown should contain rule heading")
+	}
+	if !strings.Contains(stdout, "http_post + exec_shell") {
+		t.Error("markdown should contain dangerous combos")
+	}
+
+	code, stdout, _ = run(t, "policy", "export", "--policy", polPath, "--format", "json")
+	if code != ExitPass {
+		t.Fatalf("json export failed: code=%d", code)
+	}
+	var p map[string]any
+	if err := json.Unmarshal([]byte(stdout), &p); err != nil {
+		t.Fatalf("json export not valid JSON: %v", err)
+	}
+	if p["version"] != "2.1" {
+		t.Errorf("json version = %v, want 2.1", p["version"])
+	}
+
+	code, stdout, _ = run(t, "policy", "export", "--policy", polPath, "--format", "yaml")
+	if code != ExitPass {
+		t.Fatalf("yaml export failed: code=%d", code)
+	}
+	if !strings.Contains(stdout, "default_effect: deny") {
+		t.Error("yaml should contain default_effect")
+	}
+
+	for _, args := range [][]string{
+		{"policy", "export"},
+		{"policy", "export", "--policy", filepath.Join(t.TempDir(), "nope.yaml")},
+		{"policy", "export", "--policy", polPath, "--format", "xml"},
+	} {
+		if code, _, _ := run(t, args...); code != ExitError {
+			t.Fatalf("export %v should exit %d, got %d", args, ExitError, code)
+		}
+	}
+}
