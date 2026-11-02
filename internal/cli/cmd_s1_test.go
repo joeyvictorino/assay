@@ -881,3 +881,94 @@ rules: []
 		t.Fatalf("bad agent filter: code=%d stderr=%q", code, stderr)
 	}
 }
+
+func TestPolicyMerge(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, "base.yaml")
+	baseYAML := `
+version: "1"
+default_effect: deny
+agents:
+  recon:
+    max_tier: low
+    allowed_tools: [http_get]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+rules:
+  - id: allow-get
+    effect: allow
+    match:
+      tools: [http_get]
+`
+	if err := os.WriteFile(base, []byte(baseYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	overlay := filepath.Join(dir, "overlay.yaml")
+	overlayYAML := `
+version: "2"
+default_effect: allow
+agents:
+  probe:
+    max_tier: high
+    allowed_tools: [http_get, http_post]
+    max_delegation_depth: 1
+    budget: {max_usd: 5}
+rules:
+  - id: allow-get
+    effect: allow
+    match:
+      agents: [probe]
+  - id: deny-post
+    effect: deny
+    match:
+      tools: [http_post]
+`
+	if err := os.WriteFile(overlay, []byte(overlayYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// JSON output to stdout.
+	code, stdout, stderr := run(t, "policy", "merge", "--policies", base+","+overlay, "--format", "json")
+	if code != ExitPass {
+		t.Fatalf("merge json: code=%d stderr=%q", code, stderr)
+	}
+	var merged map[string]any
+	if err := json.Unmarshal([]byte(stdout), &merged); err != nil {
+		t.Fatalf("not JSON: %v\nstdout: %s", err, stdout)
+	}
+	if merged["version"] != "2" {
+		t.Fatalf("expected version 2, got %v", merged["version"])
+	}
+	if merged["default_effect"] != "allow" {
+		t.Fatalf("expected default_effect allow, got %v", merged["default_effect"])
+	}
+	agents := merged["agents"].(map[string]any)
+	if len(agents) != 2 {
+		t.Fatalf("expected 2 agents, got %d", len(agents))
+	}
+	rules := merged["rules"].([]any)
+	if len(rules) != 2 {
+		t.Fatalf("expected 2 rules (allow-get overridden + deny-post), got %d", len(rules))
+	}
+
+	// YAML output to file.
+	outFile := filepath.Join(dir, "merged.yaml")
+	code, _, stderr = run(t, "policy", "merge", "--policies", base+","+overlay, "--format", "yaml", "--out", outFile)
+	if code != ExitPass {
+		t.Fatalf("merge yaml: code=%d stderr=%q", code, stderr)
+	}
+	if _, err := os.Stat(outFile); err != nil {
+		t.Fatalf("expected output file: %v", err)
+	}
+
+	// Error cases.
+	for _, args := range [][]string{
+		{"policy", "merge"},
+		{"policy", "merge", "--policies", filepath.Join(t.TempDir(), "nope.yaml")},
+	} {
+		if code, _, _ := run(t, args...); code != ExitError {
+			t.Fatalf("%v should exit %d, got %d", args, ExitError, code)
+		}
+	}
+}
