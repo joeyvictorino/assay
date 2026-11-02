@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate | export | template | stats | history | import", runPolicy)
+	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate | export | template | stats | history | import | graph | search", runPolicy)
 }
 
 func runPolicy(args []string, stdout, stderr io.Writer) int {
@@ -49,6 +49,10 @@ func runPolicy(args []string, stdout, stderr io.Writer) int {
 		return policyTemplate(args[1:], stdout, stderr)
 	case "stats":
 		return policyStats(args[1:], stdout, stderr)
+	case "graph":
+		return policyGraph(args[1:], stdout, stderr)
+	case "search":
+		return policySearch(args[1:], stdout, stderr)
 	case "history":
 		return policyHistory(args[1:], stdout, stderr)
 	case "import":
@@ -104,6 +108,13 @@ func policyUsage(w io.Writer) {
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "  assay policy import --input FILE --from json|csv [--out FILE] [--format yaml|json]")
 	fmt.Fprintln(w, "  imports a policy from another format")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  assay policy graph --policy FILE [--format dot|mermaid]")
+	fmt.Fprintln(w, "  visualizes agent-tool-rule relationships as a graph")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  assay policy search --policy FILE [--keyword K] [--effect allow|deny]")
+	fmt.Fprintln(w, "  [--agent A] [--tool T] [--capability C] [--format text|json]")
+	fmt.Fprintln(w, "  searches policy rules by keyword, effect, agent, tool, or capability")
 }
 
 func policyEval(args []string, stdout, stderr io.Writer) int {
@@ -909,6 +920,83 @@ func policyImport(args []string, stdout, stderr io.Writer) int {
 			return ExitError
 		}
 		fmt.Fprintf(stderr, "assay policy import: wrote %s\n", *outPath)
+	}
+	return ExitPass
+}
+
+func policyGraph(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay policy graph", stderr)
+	policyPath := fs.String("policy", "", "policy YAML file (required)")
+	format := fs.String("format", "dot", "output format: dot (default) or mermaid")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *policyPath == "" {
+		fmt.Fprintln(stderr, "assay policy graph: --policy is required")
+		return ExitError
+	}
+	eng, err := policy.Load(*policyPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy graph: %v\n", err)
+		return ExitError
+	}
+	p := eng.Policy()
+
+	switch *format {
+	case "dot":
+		fmt.Fprint(stdout, policy.GraphDOT(p))
+	case "mermaid":
+		fmt.Fprint(stdout, policy.GraphMermaid(p))
+	default:
+		fmt.Fprintf(stderr, "assay policy graph: unknown format %q\n", *format)
+		return ExitError
+	}
+	return ExitPass
+}
+
+func policySearch(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay policy search", stderr)
+	policyPath := fs.String("policy", "", "policy YAML file (required)")
+	keyword := fs.String("keyword", "", "search keyword (matches rule ID, rationale, agents, tools, capabilities)")
+	effect := fs.String("effect", "", "filter by effect: allow or deny")
+	agent := fs.String("agent", "", "filter by agent name")
+	tool := fs.String("tool", "", "filter by tool name")
+	capability := fs.String("capability", "", "filter by capability")
+	format := fs.String("format", "text", "output format: text (default) or json")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *policyPath == "" {
+		fmt.Fprintln(stderr, "assay policy search: --policy is required")
+		return ExitError
+	}
+	eng, err := policy.Load(*policyPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy search: %v\n", err)
+		return ExitError
+	}
+	q := policy.SearchQuery{
+		Keyword:    *keyword,
+		Effect:     *effect,
+		Agent:      *agent,
+		Tool:       *tool,
+		Capability: *capability,
+	}
+	results := policy.Search(eng.Policy(), q)
+
+	switch *format {
+	case "json":
+		enc := json.NewEncoder(stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(results); err != nil {
+			fmt.Fprintf(stderr, "assay policy search: %v\n", err)
+			return ExitError
+		}
+	case "text":
+		fmt.Fprint(stdout, policy.FormatSearchText(results))
+	default:
+		fmt.Fprintf(stderr, "assay policy search: unknown format %q\n", *format)
+		return ExitError
 	}
 	return ExitPass
 }
