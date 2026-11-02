@@ -11,87 +11,94 @@ import (
 
 func TestFindingsTrendBasic(t *testing.T) {
 	dir := t.TempDir()
-	f1 := []map[string]any{
-		{"severity": "high", "checker": "c1"},
-		{"severity": "medium", "checker": "c1"},
-	}
-	f2 := []map[string]any{
-		{"severity": "high", "checker": "c1"},
-		{"severity": "high", "checker": "c2"},
-		{"severity": "critical", "checker": "c2"},
-	}
-	d1, _ := json.Marshal(f1)
-	d2, _ := json.Marshal(f2)
-	os.WriteFile(filepath.Join(dir, "run1.json"), d1, 0644)
-	os.WriteFile(filepath.Join(dir, "run2.json"), d2, 0644)
+	os.WriteFile(filepath.Join(dir, "run1.json"), []byte(`[
+		{"checker":"sqli","severity":"high"},
+		{"checker":"xss","severity":"medium"}
+	]`), 0o644)
+	os.WriteFile(filepath.Join(dir, "run2.json"), []byte(`[
+		{"checker":"sqli","severity":"high"},
+		{"checker":"sqli","severity":"high"},
+		{"checker":"xss","severity":"low"}
+	]`), 0o644)
 
-	var out, errBuf bytes.Buffer
-	code := runFindingsTrend([]string{"--dir", dir, "--format", "text"}, &out, &errBuf)
+	var stdout, stderr bytes.Buffer
+	code := runFindingsTrend([]string{"--dir", dir, "--format", "json"}, &stdout, &stderr)
 	if code != ExitPass {
-		t.Fatalf("exit %d: %s", code, errBuf.String())
+		t.Fatalf("expected ExitPass, got %d; stderr: %s", code, stderr.String())
 	}
-	if !strings.Contains(out.String(), "Runs analyzed: 2") {
-		t.Fatalf("expected 2 runs: %s", out.String())
-	}
-	if !strings.Contains(out.String(), "run1.json") {
-		t.Fatalf("should mention run1.json: %s", out.String())
-	}
-}
 
-func TestFindingsTrendJSON(t *testing.T) {
-	dir := t.TempDir()
-	f1 := []map[string]any{{"severity": "high", "checker": "c1"}}
-	d1, _ := json.Marshal(f1)
-	os.WriteFile(filepath.Join(dir, "run1.json"), d1, 0644)
-
-	var out, errBuf bytes.Buffer
-	code := runFindingsTrend([]string{"--dir", dir, "--format", "json"}, &out, &errBuf)
-	if code != ExitPass {
-		t.Fatalf("exit %d", code)
-	}
 	var result trendResult
-	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, stdout.String())
 	}
-	if result.TotalRuns != 1 {
-		t.Fatalf("expected 1 run: %+v", result)
+	if result.TotalRuns != 2 {
+		t.Errorf("TotalRuns = %d, want 2", result.TotalRuns)
+	}
+	if result.Points[0].Total != 2 {
+		t.Errorf("run1 total = %d, want 2", result.Points[0].Total)
+	}
+	if result.Points[1].Total != 3 {
+		t.Errorf("run2 total = %d, want 3", result.Points[1].Total)
 	}
 }
 
-func TestFindingsTrendEmpty(t *testing.T) {
+func TestFindingsTrendText(t *testing.T) {
 	dir := t.TempDir()
-	var out, errBuf bytes.Buffer
-	code := runFindingsTrend([]string{"--dir", dir}, &out, &errBuf)
-	if code != ExitError {
-		t.Fatalf("expected error for empty dir")
+	os.WriteFile(filepath.Join(dir, "a.json"), []byte(`[{"checker":"c","severity":"low"}]`), 0o644)
+
+	var stdout, stderr bytes.Buffer
+	code := runFindingsTrend([]string{"--dir", dir, "--format", "text"}, &stdout, &stderr)
+	if code != ExitPass {
+		t.Fatalf("expected ExitPass, got %d", code)
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "Findings Trend Analysis") {
+		t.Errorf("expected header in output, got: %s", out)
+	}
+	if !strings.Contains(out, "Runs analyzed: 1") {
+		t.Errorf("expected 'Runs analyzed: 1', got: %s", out)
 	}
 }
 
 func TestFindingsTrendMissingDir(t *testing.T) {
-	var out, errBuf bytes.Buffer
-	code := runFindingsTrend([]string{}, &out, &errBuf)
+	var stdout, stderr bytes.Buffer
+	code := runFindingsTrend([]string{}, &stdout, &stderr)
 	if code != ExitError {
-		t.Fatalf("expected error for missing dir")
+		t.Errorf("expected ExitError, got %d", code)
 	}
 }
 
-func TestFindingsTrendSortsFiles(t *testing.T) {
+func TestFindingsTrendEmptyDir(t *testing.T) {
 	dir := t.TempDir()
-	f1 := []map[string]any{{"severity": "low"}}
-	f2 := []map[string]any{{"severity": "high"}, {"severity": "high"}}
-	d1, _ := json.Marshal(f1)
-	d2, _ := json.Marshal(f2)
-	os.WriteFile(filepath.Join(dir, "b_run.json"), d2, 0644)
-	os.WriteFile(filepath.Join(dir, "a_run.json"), d1, 0644)
-
-	var out, errBuf bytes.Buffer
-	code := runFindingsTrend([]string{"--dir", dir, "--format", "json"}, &out, &errBuf)
-	if code != ExitPass {
-		t.Fatalf("exit %d", code)
+	var stdout, stderr bytes.Buffer
+	code := runFindingsTrend([]string{"--dir", dir}, &stdout, &stderr)
+	if code != ExitError {
+		t.Errorf("expected ExitError for empty dir, got %d", code)
 	}
+}
+
+func TestFindingsTrendSkipsBadFiles(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "bad.json"), []byte("not json"), 0o644)
+	os.WriteFile(filepath.Join(dir, "good.json"), []byte(`[{"checker":"a","severity":"high"}]`), 0o644)
+
+	var stdout, stderr bytes.Buffer
+	code := runFindingsTrend([]string{"--dir", dir, "--format", "json"}, &stdout, &stderr)
+	if code != ExitPass {
+		t.Fatalf("expected ExitPass, got %d; stderr: %s", code, stderr.String())
+	}
+
 	var result trendResult
-	json.Unmarshal(out.Bytes(), &result)
-	if result.Points[0].Source != "a_run.json" {
-		t.Fatalf("expected a_run.json first, got %s", result.Points[0].Source)
+	json.Unmarshal(stdout.Bytes(), &result)
+	if result.TotalRuns != 1 {
+		t.Errorf("TotalRuns = %d, want 1 (bad file skipped)", result.TotalRuns)
+	}
+}
+
+func TestFormatSevMap(t *testing.T) {
+	m := map[string]int{"high": 3, "low": 1}
+	s := formatSevMap(m)
+	if !strings.Contains(s, "high=3") || !strings.Contains(s, "low=1") {
+		t.Errorf("formatSevMap = %q, expected high=3 and low=1", s)
 	}
 }
