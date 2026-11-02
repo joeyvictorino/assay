@@ -42,7 +42,7 @@ func init() {
 func runReport(args []string, stdout, stderr io.Writer) int {
 	fs := newFlagSet("assay report", stderr)
 	runDir := fs.String("run", "", "results directory for one run (required)")
-	format := fs.String("format", "md", "md | html | sarif | dashboard")
+	format := fs.String("format", "md", "md | html | sarif | csv | dashboard")
 	runsRoot := fs.String("runs-root", "results", "directory holding one sub-directory per run (dashboard format)")
 	out := fs.String("out", "", "output path (default DIR/report.md or docs/dashboard/data/index.json; \"-\" for stdout)")
 	if err := fs.Parse(args); err != nil {
@@ -60,10 +60,12 @@ func runReport(args []string, stdout, stderr io.Writer) int {
 		return reportHTMLCmd(*runDir, *out, stdout, stderr)
 	case "sarif":
 		return reportSARIFCmd(*runDir, *out, stdout, stderr)
+	case "csv":
+		return reportCSVCmd(*runDir, *out, stdout, stderr)
 	case "dashboard":
 		return reportDashboard(*runsRoot, *out, stdout, stderr)
 	}
-	fmt.Fprintf(stderr, "assay report: unknown --format %q (md | html | sarif | dashboard)\n", *format)
+	fmt.Fprintf(stderr, "assay report: unknown --format %q (md | html | sarif | csv | dashboard)\n", *format)
 	return ExitError
 }
 
@@ -163,6 +165,29 @@ func reportSARIFCmd(runDir, out string, stdout, stderr io.Writer) int {
 	}
 	if out != "-" {
 		fmt.Fprintf(stdout, "report: wrote SARIF to %s (%d bytes)\n", out, len(sarif))
+	}
+	return ExitPass
+}
+
+func reportCSVCmd(runDir, out string, stdout, stderr io.Writer) int {
+	var findings []model.Finding
+	p := filepath.Join(runDir, findingsJSON)
+	if fileExists(p) {
+		var err error
+		findings, err = readFindings(p, nil)
+		if err != nil {
+			return fail(stderr, "report", err)
+		}
+	}
+	csv := report.FindingsCSV(findings)
+	if out == "" {
+		out = filepath.Join(runDir, "findings.csv")
+	}
+	if err := writeText(out, csv, stdout); err != nil {
+		return fail(stderr, "report", err)
+	}
+	if out != "-" {
+		fmt.Fprintf(stdout, "report: wrote CSV to %s (%d findings)\n", out, len(findings))
 	}
 	return ExitPass
 }
