@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
 
 	"github.com/joeyvictorino/assay/internal/audit"
 )
@@ -35,7 +36,7 @@ func runAudit(args []string, stdout, stderr io.Writer) int {
 
 func auditUsage(w io.Writer) {
 	fmt.Fprintln(w, "usage:")
-	fmt.Fprintln(w, "  assay audit verify --log FILE [--key-env NAME]   check the chain; with a key also decrypt and count")
+	fmt.Fprintln(w, "  assay audit verify --log FILE [--key-env NAME] [--run DIR]   check the chain; with --run also cross-check against run.json")
 	fmt.Fprintln(w, "  assay audit export --log FILE --key-env NAME     write decrypted records as JSON lines to stdout")
 	fmt.Fprintln(w, "  assay audit keygen                               print a new base64 32-byte master key")
 	fmt.Fprintln(w, "  the master key is read from the named environment variable, never from a flag")
@@ -45,6 +46,7 @@ func auditVerify(args []string, stdout, stderr io.Writer) int {
 	fs := newFlagSet("assay audit verify", stderr)
 	logPath := fs.String("log", "", "audit log file")
 	keyEnv := fs.String("key-env", "", "environment variable holding the master key (optional)")
+	runDir := fs.String("run", "", "results directory to cross-check head hash and record count against run.json")
 	if err := fs.Parse(args); err != nil {
 		return ExitError
 	}
@@ -66,6 +68,29 @@ func auditVerify(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "assay audit verify: FAIL: %v\n", err)
 		return ExitError
 	}
+
+	if *runDir != "" {
+		rr, err := readRunReport(filepath.Join(*runDir, runJSON))
+		if err != nil {
+			fmt.Fprintf(stderr, "assay audit verify: %v\n", err)
+			return ExitError
+		}
+		var mismatches []string
+		if rr.AuditHead != sum.HeadHash {
+			mismatches = append(mismatches, fmt.Sprintf("head_hash: run.json=%s log=%s", rr.AuditHead, sum.HeadHash))
+		}
+		if rr.AuditCount != sum.Records {
+			mismatches = append(mismatches, fmt.Sprintf("record_count: run.json=%d log=%d", rr.AuditCount, sum.Records))
+		}
+		if len(mismatches) > 0 {
+			for _, m := range mismatches {
+				fmt.Fprintf(stderr, "assay audit verify: MISMATCH: %s\n", m)
+			}
+			return ExitBlocked
+		}
+		sum.CrossChecked = true
+	}
+
 	enc := json.NewEncoder(stdout)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(sum); err != nil {

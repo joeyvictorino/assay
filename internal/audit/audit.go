@@ -385,14 +385,15 @@ func (w *Writer) Close() error {
 
 // Summary is the result of a successful verification.
 type Summary struct {
-	RunID    string         `json:"run_id"`
-	KeyID    string         `json:"key_id"`
-	Started  string         `json:"started"`
-	Records  uint64         `json:"records"`
-	HeadSeq  uint64         `json:"head_seq"`
-	HeadHash string         `json:"head_hash"`
-	Keyed    bool           `json:"keyed"`
-	ByKind   map[string]int `json:"by_kind,omitempty"`
+	RunID        string         `json:"run_id"`
+	KeyID        string         `json:"key_id"`
+	Started      string         `json:"started"`
+	Records      uint64         `json:"records"`
+	HeadSeq      uint64         `json:"head_seq"`
+	HeadHash     string         `json:"head_hash"`
+	Keyed        bool           `json:"keyed"`
+	CrossChecked bool           `json:"cross_checked,omitempty"`
+	ByKind       map[string]int `json:"by_kind,omitempty"`
 }
 
 // Verify checks the log at path. With master nil only the header and the
