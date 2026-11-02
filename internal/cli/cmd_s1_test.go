@@ -1170,3 +1170,49 @@ func TestPolicyTemplate(t *testing.T) {
 		t.Fatal("template with bad preset should error")
 	}
 }
+
+func TestPolicyStats(t *testing.T) {
+	dir := t.TempDir()
+	polPath := filepath.Join(dir, "policy.yaml")
+	_, tmpl, _ := run(t, "policy", "template", "--preset", "strict")
+	os.WriteFile(polPath, []byte(tmpl), 0o644)
+
+	code, stdout, _ := run(t, "policy", "stats", "--policy", polPath)
+	if code != ExitPass {
+		t.Fatalf("stats text: code=%d", code)
+	}
+	if !strings.Contains(stdout, "Rules:") {
+		t.Error("text output should contain Rules:")
+	}
+	if !strings.Contains(stdout, "Agents:") {
+		t.Error("text output should contain Agents:")
+	}
+	if !strings.Contains(stdout, "Budget:") {
+		t.Error("text output should contain Budget:")
+	}
+
+	code, stdout, _ = run(t, "policy", "stats", "--policy", polPath, "--format", "json")
+	if code != ExitPass {
+		t.Fatalf("stats json: code=%d", code)
+	}
+	var s map[string]any
+	if err := json.Unmarshal([]byte(stdout), &s); err != nil {
+		t.Fatalf("stats json not valid: %v", err)
+	}
+	if s["rule_count"] == nil {
+		t.Error("json should contain rule_count")
+	}
+	if s["agent_count"] == nil {
+		t.Error("json should contain agent_count")
+	}
+
+	code, _, _ = run(t, "policy", "stats")
+	if code != ExitError {
+		t.Fatal("stats without --policy should error")
+	}
+
+	code, _, _ = run(t, "policy", "stats", "--policy", filepath.Join(dir, "nope.yaml"))
+	if code != ExitError {
+		t.Fatal("stats with missing file should error")
+	}
+}

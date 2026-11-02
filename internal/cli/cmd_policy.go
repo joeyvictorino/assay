@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate | export | template", runPolicy)
+	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate | export | template | stats", runPolicy)
 }
 
 func runPolicy(args []string, stdout, stderr io.Writer) int {
@@ -47,6 +47,8 @@ func runPolicy(args []string, stdout, stderr io.Writer) int {
 		return policyExport(args[1:], stdout, stderr)
 	case "template":
 		return policyTemplate(args[1:], stdout, stderr)
+	case "stats":
+		return policyStats(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		policyUsage(stdout)
 		return ExitPass
@@ -89,6 +91,9 @@ func policyUsage(w io.Writer) {
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "  assay policy template --preset minimal|standard|strict [--out FILE]")
 	fmt.Fprintln(w, "  generates a starter policy YAML from a preset")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  assay policy stats --policy FILE [--format text|json]")
+	fmt.Fprintln(w, "  prints summary statistics about the policy")
 }
 
 func policyEval(args []string, stdout, stderr io.Writer) int {
@@ -721,6 +726,55 @@ func policyTemplate(args []string, stdout, stderr io.Writer) int {
 			return ExitError
 		}
 		fmt.Fprintf(stderr, "assay policy template: wrote %s\n", *outPath)
+	}
+	return ExitPass
+}
+
+func policyStats(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay policy stats", stderr)
+	policyPath := fs.String("policy", "", "policy YAML file (required)")
+	format := fs.String("format", "text", "output format: text (default) or json")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *policyPath == "" {
+		fmt.Fprintln(stderr, "assay policy stats: --policy is required")
+		return ExitError
+	}
+	eng, err := policy.Load(*policyPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy stats: %v\n", err)
+		return ExitError
+	}
+	s := policy.Stats(eng.Policy())
+
+	switch *format {
+	case "json":
+		enc := json.NewEncoder(stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(s); err != nil {
+			fmt.Fprintf(stderr, "assay policy stats: %v\n", err)
+			return ExitError
+		}
+	case "text":
+		allowN := s.RulesByEffect["allow"]
+		denyN := s.RulesByEffect["deny"]
+		fmt.Fprintf(stdout, "Rules:        %d (%d allow, %d deny)\n", s.RuleCount, allowN, denyN)
+		fmt.Fprintf(stdout, "Agents:       %d (%s)\n", s.AgentCount, strings.Join(s.AgentNames, ", "))
+		fmt.Fprintf(stdout, "Budget:       $%.2f – $%.2f USD, %d – %d ms\n",
+			s.BudgetRange.MinUSD, s.BudgetRange.MaxUSD,
+			s.BudgetRange.MinLatencyMS, s.BudgetRange.MaxLatencyMS)
+		fmt.Fprintf(stdout, "Dangerous:    %d combinations\n", s.DangerousComboCount)
+		fmt.Fprintf(stdout, "Weights:      %d classes\n", s.WeightCount)
+		if len(s.Capabilities) > 0 {
+			fmt.Fprintf(stdout, "Capabilities: %s\n", strings.Join(s.Capabilities, ", "))
+		}
+		if len(s.Tools) > 0 {
+			fmt.Fprintf(stdout, "Tools:        %s\n", strings.Join(s.Tools, ", "))
+		}
+	default:
+		fmt.Fprintf(stderr, "assay policy stats: unknown format %q\n", *format)
+		return ExitError
 	}
 	return ExitPass
 }
