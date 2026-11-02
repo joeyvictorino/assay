@@ -752,6 +752,105 @@ rules: []
 	}
 }
 
+func TestPolicyDiff(t *testing.T) {
+	beforePol := filepath.Join(t.TempDir(), "before.yaml")
+	beforeYAML := `
+version: "1"
+default_effect: deny
+agents:
+  probe:
+    max_tier: high
+    allowed_tools: [http_get, http_post]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+rules:
+  - id: allow-get
+    effect: allow
+    match:
+      tools: [http_get]
+  - id: deny-post
+    effect: deny
+    match:
+      tools: [http_post]
+`
+	if err := os.WriteFile(beforePol, []byte(beforeYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	afterPol := filepath.Join(t.TempDir(), "after.yaml")
+	afterYAML := `
+version: "2"
+default_effect: allow
+agents:
+  probe:
+    max_tier: critical
+    allowed_tools: [http_get]
+    max_delegation_depth: 2
+    budget: {max_usd: 5}
+rules:
+  - id: allow-get
+    effect: allow
+    match:
+      tools: [http_get]
+  - id: deny-all
+    effect: deny
+    match:
+      agents: [probe]
+`
+	if err := os.WriteFile(afterPol, []byte(afterYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Identical policies should exit pass.
+	code, stdout, stderr := run(t, "policy", "diff", "--before", beforePol, "--after", beforePol)
+	if code != ExitPass {
+		t.Fatalf("identical diff: code=%d stderr=%q", code, stderr)
+	}
+	if !strings.Contains(stdout, "identical") {
+		t.Fatalf("expected 'identical' in output, got %q", stdout)
+	}
+
+	// Different policies should exit blocked with text output.
+	code, stdout, stderr = run(t, "policy", "diff", "--before", beforePol, "--after", afterPol)
+	if code != ExitBlocked {
+		t.Fatalf("diff with changes: code=%d stderr=%q", code, stderr)
+	}
+	for _, want := range []string{"version:", "default_effect:", "Rules added:", "Rules removed:", "Agents changed:"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("expected %q in text output, got %q", want, stdout)
+		}
+	}
+
+	// JSON format.
+	code, stdout, _ = run(t, "policy", "diff", "--before", beforePol, "--after", afterPol, "--format", "json")
+	if code != ExitBlocked {
+		t.Fatalf("json diff: code=%d", code)
+	}
+	var report map[string]any
+	if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+		t.Fatalf("not JSON: %v\nstdout: %s", err, stdout)
+	}
+	if report["identical"] != false {
+		t.Fatal("expected identical=false")
+	}
+	if report["version_changed"] == nil {
+		t.Fatal("expected version_changed in JSON")
+	}
+
+	// Error cases.
+	for _, args := range [][]string{
+		{"policy", "diff"},
+		{"policy", "diff", "--before", beforePol},
+		{"policy", "diff", "--after", afterPol},
+		{"policy", "diff", "--before", filepath.Join(t.TempDir(), "nope.yaml"), "--after", afterPol},
+		{"policy", "diff", "--before", beforePol, "--after", filepath.Join(t.TempDir(), "nope.yaml")},
+	} {
+		if code, _, _ := run(t, args...); code != ExitError {
+			t.Fatalf("%v should exit %d, got %d", args, ExitError, code)
+		}
+	}
+}
+
 func TestPolicySimulateErrors(t *testing.T) {
 	// Missing required flags
 	code, _, stderr := run(t, "policy", "simulate")

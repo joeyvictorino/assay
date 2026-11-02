@@ -7,16 +7,18 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/joeyvictorino/assay/internal/model"
 	"github.com/joeyvictorino/assay/internal/policy"
 	"github.com/joeyvictorino/assay/internal/toolsig"
+	"gopkg.in/yaml.v3"
 )
 
 func init() {
-	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff", runPolicy)
+	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge", runPolicy)
 }
 
 func runPolicy(args []string, stdout, stderr io.Writer) int {
@@ -37,6 +39,8 @@ func runPolicy(args []string, stdout, stderr io.Writer) int {
 		return policySimulate(args[1:], stdout, stderr)
 	case "diff":
 		return policyDiff(args[1:], stdout, stderr)
+	case "merge":
+		return policyMerge(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		policyUsage(stdout)
 		return ExitPass
@@ -67,6 +71,9 @@ func policyUsage(w io.Writer) {
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "  assay policy diff --before FILE --after FILE [--format json|text]")
 	fmt.Fprintln(w, "  compares two policy files; exit 0 identical, 1 different, 2 error")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  assay policy merge --policies FILE[,FILE,...] [--out FILE] [--format yaml|json]")
+	fmt.Fprintln(w, "  merges multiple policy files; later files override earlier ones")
 }
 
 func policyEval(args []string, stdout, stderr io.Writer) int {
@@ -514,4 +521,98 @@ func policyDiff(args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintln(stderr, "assay policy diff: differences found")
 	return ExitBlocked
+}
+
+func policyMerge(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay policy merge", stderr)
+	policiesFlag := fs.String("policies", "", "comma-separated list of policy YAML files (required)")
+	outPath := fs.String("out", "-", "output path (default stdout)")
+	format := fs.String("format", "yaml", "output format: yaml (default) or json")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *policiesFlag == "" {
+		fmt.Fprintln(stderr, "assay policy merge: --policies is required")
+		return ExitError
+	}
+
+	paths := strings.Split(*policiesFlag, ",")
+	var policies []model.Policy
+	for _, p := range paths {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		eng, err := policy.Load(p)
+		if err != nil {
+			fmt.Fprintf(stderr, "assay policy merge: %v\n", err)
+			return ExitError
+		}
+		policies = append(policies, eng.Policy())
+	}
+
+	if len(policies) == 0 {
+		fmt.Fprintln(stderr, "assay policy merge: no valid policy files provided")
+		return ExitError
+	}
+
+	merged := policy.Merge(policies)
+
+	var output []byte
+	var err error
+	switch *format {
+	case "json":
+		enc := json.NewEncoder(&bytes.Buffer{})
+		enc.SetIndent("", "  ")
+		var buf bytes.Buffer
+		enc2 := json.NewEncoder(&buf)
+		enc2.SetIndent("", "  ")
+		if err := enc2.Encode(merged); err != nil {
+			fmt.Fprintf(stderr, "assay policy merge: %v\n", err)
+			return ExitError
+		}
+		output = buf.Bytes()
+	case "yaml":
+		output, err = marshalPolicyYAML(merged)
+		if err != nil {
+			fmt.Fprintf(stderr, "assay policy merge: %v\n", err)
+			return ExitError
+		}
+	default:
+		fmt.Fprintf(stderr, "assay policy merge: unknown format %q\n", *format)
+		return ExitError
+	}
+
+	if *outPath == "-" {
+		stdout.Write(output)
+	} else {
+		if err := os.MkdirAll(filepath.Dir(*outPath), 0o755); err != nil {
+			fmt.Fprintf(stderr, "assay policy merge: %v\n", err)
+			return ExitError
+		}
+		if err := os.WriteFile(*outPath, output, 0o644); err != nil {
+			fmt.Fprintf(stderr, "assay policy merge: %v\n", err)
+			return ExitError
+		}
+		fmt.Fprintf(stderr, "assay policy merge: wrote %s\n", *outPath)
+	}
+	return ExitPass
+}
+
+func marshalPolicyYAML(p model.Policy) ([]byte, error) {
+	js, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]any
+	if err := json.Unmarshal(js, &m); err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(m); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
