@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate | export | template | stats | history | import | graph | search | benchmark", runPolicy)
+	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate | export | template | stats | history | import | graph | search | benchmark | score", runPolicy)
 }
 
 func runPolicy(args []string, stdout, stderr io.Writer) int {
@@ -59,6 +59,8 @@ func runPolicy(args []string, stdout, stderr io.Writer) int {
 		return policyImport(args[1:], stdout, stderr)
 	case "benchmark":
 		return policyBenchmark(args[1:], stdout, stderr)
+	case "score":
+		return policyScore(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		policyUsage(stdout)
 		return ExitPass
