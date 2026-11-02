@@ -42,7 +42,7 @@ func init() {
 func runReport(args []string, stdout, stderr io.Writer) int {
 	fs := newFlagSet("assay report", stderr)
 	runDir := fs.String("run", "", "results directory for one run (required)")
-	format := fs.String("format", "md", "md | html | sarif | csv | summary | dashboard | dashboard-html")
+	format := fs.String("format", "md", "md | html | sarif | csv | summary | trend | dashboard | dashboard-html")
 	runsRoot := fs.String("runs-root", "results", "directory holding one sub-directory per run (dashboard format)")
 	out := fs.String("out", "", "output path (default DIR/report.md or docs/dashboard/data/index.json; \"-\" for stdout)")
 	if err := fs.Parse(args); err != nil {
@@ -64,12 +64,14 @@ func runReport(args []string, stdout, stderr io.Writer) int {
 		return reportCSVCmd(*runDir, *out, stdout, stderr)
 	case "summary":
 		return reportSummaryCmd(*runDir, *out, stdout, stderr)
+	case "trend":
+		return reportTrendCmd(*runsRoot, *out, stdout, stderr)
 	case "dashboard":
 		return reportDashboard(*runsRoot, *out, stdout, stderr)
 	case "dashboard-html":
 		return reportDashboardHTML(*runsRoot, *out, stdout, stderr)
 	}
-	fmt.Fprintf(stderr, "assay report: unknown --format %q (md | html | sarif | csv | summary | dashboard | dashboard-html)\n", *format)
+	fmt.Fprintf(stderr, "assay report: unknown --format %q (md | html | sarif | csv | summary | trend | dashboard | dashboard-html)\n", *format)
 	return ExitError
 }
 
@@ -233,6 +235,47 @@ func reportSummaryCmd(runDir, out string, stdout, stderr io.Writer) int {
 	}
 	if out != "-" {
 		fmt.Fprintf(stdout, "report: wrote summary to %s\n", out)
+	}
+	return ExitPass
+}
+
+func reportTrendCmd(runsRoot, out string, stdout, stderr io.Writer) int {
+	entries, err := os.ReadDir(runsRoot)
+	if err != nil {
+		return fail(stderr, "report", err)
+	}
+	var runs []model.RunReport
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			names = append(names, e.Name())
+		}
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		p := filepath.Join(runsRoot, name, runJSON)
+		if !fileExists(p) {
+			continue
+		}
+		rr, err := readRunReport(p)
+		if err != nil {
+			return fail(stderr, "report", err)
+		}
+		runs = append(runs, rr)
+	}
+	tr := report.BuildTrend(runs)
+	js, err := report.TrendJSON(tr)
+	if err != nil {
+		return fail(stderr, "report", err)
+	}
+	if out == "" {
+		out = "trend.json"
+	}
+	if err := writeText(out, js, stdout); err != nil {
+		return fail(stderr, "report", err)
+	}
+	if out != "-" {
+		fmt.Fprintf(stdout, "report: trend runs=%d direction=%s out=%s\n", tr.RunCount, tr.Direction, out)
 	}
 	return ExitPass
 }
