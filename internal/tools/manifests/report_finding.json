@@ -94,9 +94,11 @@
   "allowed_agents": [
     "recon",
     "probe",
-    "validate"
+    "validate",
+    "orchestrator",
+    "remediate"
   ],
-  "signer": "2b27f3ae1608dce4",
-  "signed_at": "2026-10-07T18:46:34Z",
-  "signature": "9B54TW5cTelf8jDwxmXG5wYEHVOmYbb6VDAd1QxIIa3Ynjue6AT6qL3PVQBbZfzFqS4dJX2bICB11XQHkrreAA=="
+  "signer": "3a8894f1c7879ea2",
+  "signed_at": "2026-11-02T10:06:18Z",
+  "signature": "R6LJE77CgMSaErCy7pmFh+po6l0SNUOLqcef6+CeuzHMllh/Qcd+mnXtyqh0GwE3lHxdmwg4oFpr9+/bZYBfDw=="
 }

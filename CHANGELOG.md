@@ -37,6 +37,12 @@ Changed
 - `scripts/ci/results-gate.py`: decides what the full-run workflow may commit.
 
 Fixed
+- Four manifest/policy disagreements resolved: `report_finding` and
+  `score_task` manifests now include `orchestrator` in `allowed_agents`, and
+  `http_get` and `report_finding` now include `remediate`. The policy rules
+  that allow these agents were unreachable because the manifest check ran
+  first and refused the agent. Tests evaluate all four against the shipped
+  policy. (Closes the known limitation from the previous release.)
 - The per-run and per-model USD caps applied to each (lab, model) assessment
   separately, because every assessment builds its own router. They now hold
   across the whole run, and a run that reaches one is BLOCKED (ADR 0006
@@ -65,11 +71,6 @@ Known limitations
   tool is now authorized for the orchestrator by manifest and policy, which is
   tested, but multi-agent delegation does not run in the pipeline.
   `internal/orchestrate` has it as library code with tests.
-- Four more manifest and policy disagreements remain: the policy lists
-  `report_finding` and `score_task` for the orchestrator, and `http_get` and
-  `report_finding` for the remediate agent, but those manifests' `allowed_agents`
-  exclude those agents, so the requests are denied. The default pipeline does
-  not use either agent for those tools.
 
 ## 0.3.0 (2026-10-08)
 
