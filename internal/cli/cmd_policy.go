@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate | export | template | stats", runPolicy)
+	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate | export | template | stats | history | import", runPolicy)
 }
 
 func runPolicy(args []string, stdout, stderr io.Writer) int {
@@ -49,6 +49,10 @@ func runPolicy(args []string, stdout, stderr io.Writer) int {
 		return policyTemplate(args[1:], stdout, stderr)
 	case "stats":
 		return policyStats(args[1:], stdout, stderr)
+	case "history":
+		return policyHistory(args[1:], stdout, stderr)
+	case "import":
+		return policyImport(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		policyUsage(stdout)
 		return ExitPass
@@ -94,6 +98,12 @@ func policyUsage(w io.Writer) {
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "  assay policy stats --policy FILE [--format text|json]")
 	fmt.Fprintln(w, "  prints summary statistics about the policy")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  assay policy history --policies FILE[,FILE,...] [--format text|json]")
+	fmt.Fprintln(w, "  shows a changelog across sequential policy versions (earliest first)")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  assay policy import --input FILE --from json|csv [--out FILE] [--format yaml|json]")
+	fmt.Fprintln(w, "  imports a policy from another format")
 }
 
 func policyEval(args []string, stdout, stderr io.Writer) int {
@@ -775,6 +785,130 @@ func policyStats(args []string, stdout, stderr io.Writer) int {
 	default:
 		fmt.Fprintf(stderr, "assay policy stats: unknown format %q\n", *format)
 		return ExitError
+	}
+	return ExitPass
+}
+
+func policyHistory(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay policy history", stderr)
+	policiesFlag := fs.String("policies", "", "comma-separated list of policy YAML files, earliest first (required)")
+	format := fs.String("format", "text", "output format: text (default) or json")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *policiesFlag == "" {
+		fmt.Fprintln(stderr, "assay policy history: --policies is required")
+		return ExitError
+	}
+
+	paths := strings.Split(*policiesFlag, ",")
+	var engines []*policy.Engine
+	for _, p := range paths {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		eng, err := policy.Load(p)
+		if err != nil {
+			fmt.Fprintf(stderr, "assay policy history: %v\n", err)
+			return ExitError
+		}
+		engines = append(engines, eng)
+	}
+
+	if len(engines) == 0 {
+		fmt.Fprintln(stderr, "assay policy history: no valid policy files provided")
+		return ExitError
+	}
+
+	entries := policy.BuildHistory(engines)
+
+	switch *format {
+	case "json":
+		enc := json.NewEncoder(stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(entries); err != nil {
+			fmt.Fprintf(stderr, "assay policy history: %v\n", err)
+			return ExitError
+		}
+	case "text":
+		fmt.Fprint(stdout, policy.FormatHistoryText(entries))
+	default:
+		fmt.Fprintf(stderr, "assay policy history: unknown format %q\n", *format)
+		return ExitError
+	}
+	return ExitPass
+}
+
+func policyImport(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay policy import", stderr)
+	inputPath := fs.String("input", "", "input file path (required)")
+	fromFmt := fs.String("from", "", "input format: json or csv (required)")
+	outPath := fs.String("out", "-", "output path (default stdout)")
+	format := fs.String("format", "yaml", "output format: yaml (default) or json")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *inputPath == "" || *fromFmt == "" {
+		fmt.Fprintln(stderr, "assay policy import: --input and --from are required")
+		return ExitError
+	}
+
+	data, err := os.ReadFile(*inputPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy import: %v\n", err)
+		return ExitError
+	}
+
+	var p model.Policy
+	switch *fromFmt {
+	case "json":
+		p, err = policy.ImportJSON(data)
+	case "csv":
+		p, err = policy.ImportCSV(data)
+	default:
+		fmt.Fprintf(stderr, "assay policy import: unknown source format %q (use json or csv)\n", *fromFmt)
+		return ExitError
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy import: %v\n", err)
+		return ExitError
+	}
+
+	var output []byte
+	switch *format {
+	case "json":
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(p); err != nil {
+			fmt.Fprintf(stderr, "assay policy import: %v\n", err)
+			return ExitError
+		}
+		output = buf.Bytes()
+	case "yaml":
+		output, err = marshalPolicyYAML(p)
+		if err != nil {
+			fmt.Fprintf(stderr, "assay policy import: %v\n", err)
+			return ExitError
+		}
+	default:
+		fmt.Fprintf(stderr, "assay policy import: unknown output format %q\n", *format)
+		return ExitError
+	}
+
+	if *outPath == "-" {
+		stdout.Write(output)
+	} else {
+		if err := os.MkdirAll(filepath.Dir(*outPath), 0o755); err != nil {
+			fmt.Fprintf(stderr, "assay policy import: %v\n", err)
+			return ExitError
+		}
+		if err := os.WriteFile(*outPath, output, 0o644); err != nil {
+			fmt.Fprintf(stderr, "assay policy import: %v\n", err)
+			return ExitError
+		}
+		fmt.Fprintf(stderr, "assay policy import: wrote %s\n", *outPath)
 	}
 	return ExitPass
 }
