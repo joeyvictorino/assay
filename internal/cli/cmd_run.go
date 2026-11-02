@@ -423,6 +423,7 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 		Models: results, Labs: labsRun, Overlap: &om, Precision: precision, Chains: chains,
 		Reflection: reflections, Reconcile: rec.ReasonCounts, AuditHead: head, AuditCount: count,
 		BudgetCapUSD: cfg.Budgets.PerRun.MaxUSD, SpentUSD: spent, Truncated: truncated,
+		WeightedScore: report.WeightedScore(all, eng.Weights()),
 		Verdict: verdict, ExitCode: code,
 	}
 	dir := filepath.Join(o.out, o.runID)
