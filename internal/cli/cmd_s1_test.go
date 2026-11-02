@@ -291,6 +291,102 @@ rules:
 	}
 }
 
+func TestPolicyTest(t *testing.T) {
+	manifests := t.TempDir()
+	writeManifest(t, manifests, "http_get", manifest("http_get", model.TierLow, "http.read"))
+	writeManifest(t, manifests, "http_post", manifest("http_post", model.TierHigh, "http.read", "http.write"))
+
+	pol := filepath.Join(t.TempDir(), "pol.yaml")
+	polYAML := `
+version: "1"
+default_effect: deny
+agents:
+  recon:
+    max_tier: medium
+    allowed_tools: [http_get]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+  probe:
+    max_tier: high
+    allowed_tools: [http_get, http_post]
+    max_delegation_depth: 0
+    budget: {max_usd: 2}
+rules:
+  - id: allow-read
+    effect: allow
+    match:
+      capabilities: [http.read]
+      max_tier: medium
+  - id: allow-probe-write
+    effect: allow
+    match:
+      agents: [probe]
+      tools: [http_post]
+`
+	if err := os.WriteFile(pol, []byte(polYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// All-pass scenarios.
+	passFile := filepath.Join(t.TempDir(), "pass.json")
+	passJSON := `[
+  {"agent":"recon","tool":"http_get","expect":"allow","label":"recon reads"},
+  {"agent":"recon","tool":"http_post","expect":"deny","label":"recon cannot write"},
+  {"agent":"probe","tool":"http_post","expect":"allow","label":"probe writes"}
+]`
+	if err := os.WriteFile(passFile, []byte(passJSON), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr := run(t, "policy", "test", "--policy", pol, "--manifests", manifests, "--scenarios", passFile)
+	if code != ExitPass {
+		t.Fatalf("all-pass: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	var results []map[string]any
+	if err := json.Unmarshal([]byte(stdout), &results); err != nil {
+		t.Fatalf("output not JSON: %v", err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("expected 3 results, got %d", len(results))
+	}
+	for i, r := range results {
+		if r["pass"] != true {
+			t.Fatalf("result %d should pass: %v", i, r)
+		}
+	}
+
+	// One failing scenario.
+	failFile := filepath.Join(t.TempDir(), "fail.json")
+	failJSON := `[
+  {"agent":"recon","tool":"http_get","expect":"deny","label":"wrong expectation"}
+]`
+	if err := os.WriteFile(failFile, []byte(failJSON), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, _ = run(t, "policy", "test", "--policy", pol, "--manifests", manifests, "--scenarios", failFile)
+	if code != ExitBlocked {
+		t.Fatalf("should fail: code=%d", code)
+	}
+	if err := json.Unmarshal([]byte(stdout), &results); err != nil {
+		t.Fatal(err)
+	}
+	if results[0]["pass"] != false {
+		t.Fatalf("expected fail: %v", results[0])
+	}
+
+	// Error cases.
+	for _, args := range [][]string{
+		{"policy", "test"},
+		{"policy", "test", "--policy", pol, "--manifests", manifests},
+		{"policy", "test", "--policy", pol, "--scenarios", passFile},
+		{"policy", "test", "--manifests", manifests, "--scenarios", passFile},
+		{"policy", "test", "--policy", filepath.Join(t.TempDir(), "nope.yaml"), "--manifests", manifests, "--scenarios", passFile},
+	} {
+		if code, _, _ := run(t, args...); code != ExitError {
+			t.Fatalf("%v should exit %d, got %d", args, ExitError, code)
+		}
+	}
+}
+
 func TestAuditCommands(t *testing.T) {
 	code, out, _ := run(t, "audit", "keygen")
 	if code != ExitPass {
