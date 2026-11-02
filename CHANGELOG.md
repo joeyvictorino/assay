@@ -3,6 +3,12 @@
 ## Unreleased
 
 Added
+- Delegation wiring in `assay run`: `tools.Env.Delegate` is now set on every
+  probe agent with an `orchestrate.Runner`-backed closure that creates a child
+  task, validates depth/cycle limits, runs the delegated agent, merges its
+  findings, and audits the decision. The shipped policy restricts delegation to
+  the orchestrator agent; probe and other leaf agents are denied by the
+  `no-delegation-from-leaf-agents` rule. Closes the sole known limitation.
 - Diversity by prompt (ADR 0020): run configs can declare named prompt
   variants under `prompts:` and assign one to each model via a `prompt:`
   field. Each model in the ensemble uses its assigned system prompt,
@@ -66,11 +72,7 @@ Fixed
   is uploaded as an artifact instead of being lost.
 
 Known limitations
-- `assay run` does not wire delegation: `tools.Env.Delegate` is never set, so a
-  `delegate` call would return "delegation not available in this context". The
-  tool is now authorized for the orchestrator by manifest and policy, which is
-  tested, but multi-agent delegation does not run in the pipeline.
-  `internal/orchestrate` has it as library code with tests.
+- (none remaining — delegation is wired into the pipeline)
 
 ## 0.3.0 (2026-10-08)
 

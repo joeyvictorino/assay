@@ -59,6 +59,7 @@ type probeInputs struct {
 	aw         model.Auditor
 	probeTools []model.ToolManifest
 	scoreTools []model.ToolManifest
+	manifests  []model.ToolManifest
 	runID      string
 	stderr     io.Writer
 	// reviewer is the model that scores the report and reviewerKind says
@@ -139,15 +140,56 @@ func runProbeTask(ctx context.Context, in probeInputs) probeOutcome {
 			out.Refusals++
 		}
 	}
+	var runner *orchestrate.Runner
+	delegateTools := func(agentName string) []model.ToolManifest {
+		var ts []model.ToolManifest
+		for _, m := range in.manifests {
+			if allowsAgent(m, agentName) {
+				ts = append(ts, m)
+			}
+		}
+		return ts
+	}
 	runAgent := func(ctx context.Context, objective string) error {
 		var reported []model.Finding
+		tid := taskID("probe")
+		parentTask := model.Task{ID: tid, Kind: "probe", Agent: "probe", Lab: in.labName}
+		delegateFn := func(ctx context.Context, agentName, obj string) (string, error) {
+			child, err := runner.DelegateContext(ctx, parentTask, agentName, obj)
+			if err != nil {
+				return "", err
+			}
+			var delegated []model.Finding
+			dres, derr := agent.Run(ctx, agent.Params{
+				Router: in.rt, TaskKind: child.Kind, TaskID: child.ID, Agent: agentName,
+				Lab: in.labName, RunID: in.runID, Objective: obj, System: systemPrompt,
+				Tools:    delegateTools(agentName),
+				Verifier: in.ts, Policy: in.eng, Auditor: in.aw,
+				Executor: tools.NewExecutor(),
+				Env: tools.Env{HTTP: in.client.Do, Gate: in.gate, Lab: in.labName, RunID: in.runID, Model: in.ref,
+					Report: func(f model.Finding) { delegated = append(delegated, f) }, Sanitize: redact.Sanitize},
+				MaxTurns: in.cfg.Agent.MaxTurns, MaxTokens: in.cfg.Agent.MaxTokens, Sink: zdr.NullSink{},
+				Depth: child.Depth, Ancestors: runner.Ancestry(child),
+			})
+			account(dres)
+			fs := dres.Findings
+			if len(fs) == 0 {
+				fs = delegated
+			}
+			merge(fs)
+			if derr != nil {
+				return fmt.Sprintf("delegation to %s failed: %v", agentName, derr), nil
+			}
+			return fmt.Sprintf("delegation to %s completed: %d findings reported", agentName, len(fs)), nil
+		}
 		res, err := agent.Run(ctx, agent.Params{
-			Router: in.rt, TaskKind: "probe", TaskID: taskID("probe"), Agent: "probe",
+			Router: in.rt, TaskKind: "probe", TaskID: tid, Agent: "probe",
 			Lab: in.labName, RunID: in.runID, Objective: objective, System: probeSystem,
 			Tools: in.probeTools, Verifier: in.ts, Policy: in.eng, Auditor: in.aw,
 			Executor: tools.NewExecutor(),
 			Env: tools.Env{HTTP: in.client.Do, Gate: in.gate, Lab: in.labName, RunID: in.runID, Model: in.ref,
-				Report: func(f model.Finding) { reported = append(reported, f) }, Sanitize: redact.Sanitize},
+				Report: func(f model.Finding) { reported = append(reported, f) }, Sanitize: redact.Sanitize,
+				Delegate: delegateFn},
 			MaxTurns: in.cfg.Agent.MaxTurns, MaxTokens: in.cfg.Agent.MaxTokens, Sink: zdr.NullSink{},
 		})
 		account(res)
@@ -215,7 +257,7 @@ func runProbeTask(ctx context.Context, in probeInputs) probeOutcome {
 		return orchestrate.TaskResult{Output: summary()}, err
 	}
 
-	runner := &orchestrate.Runner{Score: score, Revise: revise, Auditor: in.aw, RunID: in.runID}
+	runner = &orchestrate.Runner{Score: score, Revise: revise, Auditor: in.aw, RunID: in.runID}
 	task := model.Task{ID: base, Kind: "probe", Agent: "probe", Lab: in.labName}
 	pr := runner.Run(ctx, orchestrate.Plan{Tasks: []model.Task{task}}, exec)
 	if pr.Err != "" {

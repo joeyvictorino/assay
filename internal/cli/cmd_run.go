@@ -289,7 +289,7 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 			t0 := time.Now()
 			res := runProbeTask(ctx, probeInputs{
 				cfg: cfg, rt: rt, lab: lab, labName: name, ref: ref, client: client, gate: gate,
-				ts: ts, eng: eng, aw: aw, probeTools: probeTools, scoreTools: scoreTools,
+				ts: ts, eng: eng, aw: aw, probeTools: probeTools, scoreTools: scoreTools, manifests: manifests,
 				runID: o.runID, stderr: stderr,
 				reviewer: reviewer, reviewerKind: reviewerKind, reviewerNote: reviewerNote,
 				promptVariant: promptVariant, promptText: promptText,
