@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"fmt"
+	"io"
+
 	"github.com/joeyvictorino/assay/internal/boundarytest"
 )
 
@@ -8,26 +11,48 @@ func init() {
 	Register("boundary-test", "test system prompt boundary adherence across models", runBoundaryTest)
 }
 
-func runBoundaryTest(args []string) int {
-	fs := newFlagSet("boundary-test")
-	format := fs.String("format", "text", "output format: text or json")
+func runBoundaryTest(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay boundary-test", stderr)
+	findings := fs.String("findings", "", "findings JSON file (required)")
+	format := fs.String("format", "text", "text | json")
+	out := fs.String("out", "", "write output to file (default stdout)")
 	if err := fs.Parse(args); err != nil {
 		return ExitError
 	}
-
-	findings, err := readFindings(fs.Args())
-	if err != nil {
-		writeText("Error: %v\n", err)
+	switch *format {
+	case "text", "json":
+	default:
+		fmt.Fprintf(stderr, "assay boundary-test: unknown --format %q (text | json)\n", *format)
 		return ExitError
 	}
 
-	report := boundarytest.Analyze(findings)
+	if *findings == "" {
+		fmt.Fprintln(stderr, "assay boundary-test: --findings is required")
+		return ExitError
+	}
 
+	data, err := readFindings(*findings, nil)
+	if err != nil {
+		return fail(stderr, "boundary-test", err)
+	}
+
+	report := boundarytest.Analyze(data)
+
+	var output string
 	switch *format {
 	case "json":
-		writeText("%s\n", boundarytest.FormatJSON(report))
+		output = boundarytest.FormatJSON(report)
 	default:
-		writeText("%s", boundarytest.FormatText(report))
+		output = boundarytest.FormatText(report)
 	}
+
+	dest := *out
+	if dest == "" {
+		dest = "-"
+	}
+	if err := writeText(dest, output, stdout); err != nil {
+		return fail(stderr, "boundary-test", err)
+	}
+
 	return ExitPass
 }

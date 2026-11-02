@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"fmt"
+	"io"
+
 	"github.com/joeyvictorino/assay/internal/instrhierarchy"
 )
 
@@ -8,26 +11,48 @@ func init() {
 	Register("instr-hierarchy", "score instruction priority compliance across models", runInstrHierarchy)
 }
 
-func runInstrHierarchy(args []string) int {
-	fs := newFlagSet("instr-hierarchy")
-	format := fs.String("format", "text", "output format: text or json")
+func runInstrHierarchy(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay instr-hierarchy", stderr)
+	findings := fs.String("findings", "", "findings JSON file (required)")
+	format := fs.String("format", "text", "text | json")
+	out := fs.String("out", "", "write output to file (default stdout)")
 	if err := fs.Parse(args); err != nil {
 		return ExitError
 	}
-
-	findings, err := readFindings(fs.Args())
-	if err != nil {
-		writeText("Error: %v\n", err)
+	switch *format {
+	case "text", "json":
+	default:
+		fmt.Fprintf(stderr, "assay instr-hierarchy: unknown --format %q (text | json)\n", *format)
 		return ExitError
 	}
 
-	report := instrhierarchy.Analyze(findings)
+	if *findings == "" {
+		fmt.Fprintln(stderr, "assay instr-hierarchy: --findings is required")
+		return ExitError
+	}
 
+	data, err := readFindings(*findings, nil)
+	if err != nil {
+		return fail(stderr, "instr-hierarchy", err)
+	}
+
+	report := instrhierarchy.Analyze(data)
+
+	var output string
 	switch *format {
 	case "json":
-		writeText("%s\n", instrhierarchy.FormatJSON(report))
+		output = instrhierarchy.FormatJSON(report)
 	default:
-		writeText("%s", instrhierarchy.FormatText(report))
+		output = instrhierarchy.FormatText(report)
 	}
+
+	dest := *out
+	if dest == "" {
+		dest = "-"
+	}
+	if err := writeText(dest, output, stdout); err != nil {
+		return fail(stderr, "instr-hierarchy", err)
+	}
+
 	return ExitPass
 }
