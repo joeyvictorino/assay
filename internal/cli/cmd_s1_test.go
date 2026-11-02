@@ -972,3 +972,84 @@ rules:
 		}
 	}
 }
+
+func TestPolicyValidate(t *testing.T) {
+	validPol := filepath.Join(t.TempDir(), "valid.yaml")
+	validYAML := `
+version: "1"
+default_effect: deny
+agents:
+  probe:
+    max_tier: high
+    allowed_tools: [http_get]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+rules:
+  - id: allow-get
+    effect: allow
+    match:
+      tools: [http_get]
+`
+	if err := os.WriteFile(validPol, []byte(validYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr := run(t, "policy", "validate", "--policy", validPol)
+	if code != ExitPass {
+		t.Fatalf("valid policy: code=%d stderr=%q", code, stderr)
+	}
+	if !strings.Contains(stderr, "valid") {
+		t.Fatalf("expected 'valid' in stderr, got %q", stderr)
+	}
+	var issues []map[string]any
+	if err := json.Unmarshal([]byte(stdout), &issues); err != nil {
+		t.Fatalf("not JSON: %v", err)
+	}
+	if len(issues) != 0 {
+		t.Fatalf("expected 0 issues, got %d", len(issues))
+	}
+
+	badPol := filepath.Join(t.TempDir(), "bad.yaml")
+	badYAML := `
+version: ""
+default_effect: maybe
+agents:
+  probe:
+    max_tier: ultra
+    allowed_tools: [http_get]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+rules:
+  - id: r1
+    effect: allow
+    match:
+      tools: [http_get]
+  - id: r1
+    effect: permit
+    match:
+      tools: [http_get]
+dangerous_combinations:
+  - [only_one]
+`
+	if err := os.WriteFile(badPol, []byte(badYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr = run(t, "policy", "validate", "--policy", badPol)
+	if code != ExitBlocked {
+		t.Fatalf("bad policy: code=%d stderr=%q", code, stderr)
+	}
+	if err := json.Unmarshal([]byte(stdout), &issues); err != nil {
+		t.Fatalf("not JSON: %v\nstdout: %s", err, stdout)
+	}
+	if len(issues) < 4 {
+		t.Fatalf("expected at least 4 issues, got %d", len(issues))
+	}
+
+	for _, args := range [][]string{
+		{"policy", "validate"},
+		{"policy", "validate", "--policy", filepath.Join(t.TempDir(), "nope.yaml")},
+	} {
+		if code, _, _ := run(t, args...); code != ExitError {
+			t.Fatalf("validate %v should exit %d, got %d", args, ExitError, code)
+		}
+	}
+}
