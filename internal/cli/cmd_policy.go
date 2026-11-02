@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/joeyvictorino/assay/internal/model"
@@ -15,7 +16,7 @@ import (
 )
 
 func init() {
-	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage", runPolicy)
+	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate", runPolicy)
 }
 
 func runPolicy(args []string, stdout, stderr io.Writer) int {
@@ -32,6 +33,8 @@ func runPolicy(args []string, stdout, stderr io.Writer) int {
 		return policyTest(args[1:], stdout, stderr)
 	case "coverage":
 		return policyCoverage(args[1:], stdout, stderr)
+	case "simulate":
+		return policySimulate(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		policyUsage(stdout)
 		return ExitPass
@@ -56,6 +59,9 @@ func policyUsage(w io.Writer) {
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "  assay policy coverage --policy FILE --manifests DIR")
 	fmt.Fprintln(w, "  reports rule coverage over the agent×tool matrix; exit 0 full, 1 gaps, 2 error")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  assay policy simulate --policy FILE --manifests DIR")
+	fmt.Fprintln(w, "  [--agent A] [--tool T]  evaluate every agent×tool pair and print the decision matrix")
 }
 
 func policyEval(args []string, stdout, stderr io.Writer) int {
@@ -336,5 +342,124 @@ func policyCoverage(args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stderr, "assay policy coverage: 100%% (%d/%d pairs covered)\n",
 		report.CoveredPairs, report.TotalPairs)
+	return ExitPass
+}
+
+type simCell struct {
+	Agent     string `json:"agent"`
+	Tool      string `json:"tool"`
+	Effect    string `json:"effect"`
+	Reason    string `json:"reason"`
+	Rationale string `json:"rationale"`
+}
+
+type simReport struct {
+	Agents  []string  `json:"agents"`
+	Tools   []string  `json:"tools"`
+	Allowed int       `json:"allowed"`
+	Denied  int       `json:"denied"`
+	Cells   []simCell `json:"cells"`
+}
+
+func policySimulate(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay policy simulate", stderr)
+	policyPath := fs.String("policy", "", "policy YAML file (required)")
+	manifests := fs.String("manifests", "", "directory of *.json tool manifests (required)")
+	agentFilter := fs.String("agent", "", "filter to a specific agent (optional)")
+	toolFilter := fs.String("tool", "", "filter to a specific tool (optional)")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *policyPath == "" || *manifests == "" {
+		fmt.Fprintln(stderr, "assay policy simulate: --policy and --manifests are required")
+		return ExitError
+	}
+	eng, err := policy.Load(*policyPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy simulate: %v\n", err)
+		return ExitError
+	}
+	files, err := loadManifestDir(*manifests)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy simulate: %v\n", err)
+		return ExitError
+	}
+
+	p := eng.Policy()
+
+	agents := make([]string, 0, len(p.Agents))
+	for name := range p.Agents {
+		if *agentFilter != "" && name != *agentFilter {
+			continue
+		}
+		agents = append(agents, name)
+	}
+	sort.Strings(agents)
+
+	var tools []model.ToolManifest
+	for _, f := range files {
+		if *toolFilter != "" && f.M.Name != *toolFilter {
+			continue
+		}
+		tools = append(tools, f.M)
+	}
+	sort.Slice(tools, func(i, j int) bool { return tools[i].Name < tools[j].Name })
+
+	if len(agents) == 0 {
+		fmt.Fprintln(stderr, "assay policy simulate: no agents match the filter")
+		return ExitError
+	}
+	if len(tools) == 0 {
+		fmt.Fprintln(stderr, "assay policy simulate: no tools match the filter")
+		return ExitError
+	}
+
+	toolNames := make([]string, len(tools))
+	for i, t := range tools {
+		toolNames[i] = t.Name
+	}
+
+	var cells []simCell
+	allowed, denied := 0, 0
+	for _, agent := range agents {
+		for _, tool := range tools {
+			req := model.PolicyRequest{
+				Agent:           agent,
+				Tool:            tool,
+				SignatureOK:     true,
+				SignatureReason: "SIMULATION",
+			}
+			d := eng.Evaluate(context.Background(), req)
+			cells = append(cells, simCell{
+				Agent:     agent,
+				Tool:      tool.Name,
+				Effect:    string(d.Effect),
+				Reason:    d.Reason,
+				Rationale: d.Rationale,
+			})
+			if d.Effect == model.EffectAllow {
+				allowed++
+			} else {
+				denied++
+			}
+		}
+	}
+
+	report := simReport{
+		Agents:  agents,
+		Tools:   toolNames,
+		Allowed: allowed,
+		Denied:  denied,
+		Cells:   cells,
+	}
+	enc := json.NewEncoder(stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(report); err != nil {
+		fmt.Fprintf(stderr, "assay policy simulate: %v\n", err)
+		return ExitError
+	}
+	total := allowed + denied
+	fmt.Fprintf(stderr, "assay policy simulate: %d pairs evaluated (%d allowed, %d denied)\n",
+		total, allowed, denied)
 	return ExitPass
 }

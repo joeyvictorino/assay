@@ -617,3 +617,168 @@ func TestAuditVerifyCrossCheck(t *testing.T) {
 		t.Fatalf("hash mismatch: code=%d stderr=%q", code, errs)
 	}
 }
+
+func TestPolicySimulate(t *testing.T) {
+	manifests := t.TempDir()
+	writeManifest(t, manifests, "http_get", manifest("http_get", model.TierLow, "http.read"))
+	writeManifest(t, manifests, "http_post", manifest("http_post", model.TierHigh, "http.read", "http.write"))
+
+	pol := filepath.Join(t.TempDir(), "policy.yaml")
+	yaml := `
+version: "1"
+default_effect: deny
+agents:
+  recon:
+    max_tier: low
+    allowed_tools: [http_get]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+  probe:
+    max_tier: high
+    allowed_tools: [http_get, http_post]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+rules:
+  - id: allow-read
+    effect: allow
+    match:
+      capabilities: [http.read]
+      max_tier: low
+  - id: allow-probe-write
+    effect: allow
+    match:
+      agents: [probe]
+      tools: [http_post]
+`
+	if err := os.WriteFile(pol, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	code, stdout, stderr := run(t, "policy", "simulate", "--policy", pol, "--manifests", manifests)
+	if code != ExitPass {
+		t.Fatalf("simulate: code=%d stderr=%q", code, stderr)
+	}
+
+	var report simReport
+	if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+		t.Fatalf("not JSON: %v\nstdout: %s", err, stdout)
+	}
+	if len(report.Agents) != 2 {
+		t.Fatalf("expected 2 agents, got %d", len(report.Agents))
+	}
+	if len(report.Tools) != 2 {
+		t.Fatalf("expected 2 tools, got %d", len(report.Tools))
+	}
+	// 2 agents × 2 tools = 4 cells
+	if len(report.Cells) != 4 {
+		t.Fatalf("expected 4 cells, got %d", len(report.Cells))
+	}
+	total := report.Allowed + report.Denied
+	if total != 4 {
+		t.Fatalf("expected 4 total, got %d", total)
+	}
+
+	// recon+http_get = allow (allow-read matches), recon+http_post = deny (tier exceeds)
+	// probe+http_get = allow (allow-read matches), probe+http_post = allow (allow-probe-write)
+	if report.Allowed != 3 || report.Denied != 1 {
+		t.Fatalf("expected 3 allowed 1 denied, got %d allowed %d denied", report.Allowed, report.Denied)
+	}
+
+	// Check the denied cell
+	for _, c := range report.Cells {
+		if c.Agent == "recon" && c.Tool == "http_post" {
+			if c.Effect != "deny" {
+				t.Fatalf("recon+http_post should be deny, got %s (%s)", c.Effect, c.Reason)
+			}
+		}
+	}
+}
+
+func TestPolicySimulateFiltered(t *testing.T) {
+	manifests := t.TempDir()
+	writeManifest(t, manifests, "http_get", manifest("http_get", model.TierLow, "http.read"))
+	writeManifest(t, manifests, "http_post", manifest("http_post", model.TierHigh, "http.write"))
+
+	pol := filepath.Join(t.TempDir(), "policy.yaml")
+	yaml := `
+version: "1"
+default_effect: allow
+agents:
+  recon:
+    max_tier: high
+    allowed_tools: [http_get, http_post]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+  probe:
+    max_tier: high
+    allowed_tools: [http_get, http_post]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+rules: []
+`
+	if err := os.WriteFile(pol, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Filter to one agent
+	code, stdout, _ := run(t, "policy", "simulate", "--policy", pol, "--manifests", manifests, "--agent", "recon")
+	if code != ExitPass {
+		t.Fatalf("filtered simulate: code=%d", code)
+	}
+	var report simReport
+	if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Agents) != 1 || report.Agents[0] != "recon" {
+		t.Fatalf("expected [recon], got %v", report.Agents)
+	}
+	if len(report.Cells) != 2 {
+		t.Fatalf("expected 2 cells (1 agent × 2 tools), got %d", len(report.Cells))
+	}
+
+	// Filter to one tool
+	code, stdout, _ = run(t, "policy", "simulate", "--policy", pol, "--manifests", manifests, "--tool", "http_get")
+	if code != ExitPass {
+		t.Fatalf("tool-filtered simulate: code=%d", code)
+	}
+	if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Tools) != 1 || report.Tools[0] != "http_get" {
+		t.Fatalf("expected [http_get], got %v", report.Tools)
+	}
+	if len(report.Cells) != 2 {
+		t.Fatalf("expected 2 cells (2 agents × 1 tool), got %d", len(report.Cells))
+	}
+}
+
+func TestPolicySimulateErrors(t *testing.T) {
+	// Missing required flags
+	code, _, stderr := run(t, "policy", "simulate")
+	if code != ExitError || !strings.Contains(stderr, "required") {
+		t.Fatalf("missing flags: code=%d stderr=%q", code, stderr)
+	}
+
+	// Nonexistent agent filter
+	manifests := t.TempDir()
+	writeManifest(t, manifests, "http_get", manifest("http_get", model.TierLow))
+	pol := filepath.Join(t.TempDir(), "policy.yaml")
+	yaml := `
+version: "1"
+default_effect: deny
+agents:
+  recon:
+    max_tier: low
+    allowed_tools: [http_get]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+rules: []
+`
+	if err := os.WriteFile(pol, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, _, stderr = run(t, "policy", "simulate", "--policy", pol, "--manifests", manifests, "--agent", "nonexistent")
+	if code != ExitError || !strings.Contains(stderr, "no agents") {
+		t.Fatalf("bad agent filter: code=%d stderr=%q", code, stderr)
+	}
+}
