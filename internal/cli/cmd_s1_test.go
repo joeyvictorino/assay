@@ -1130,3 +1130,43 @@ dangerous_combinations:
 		}
 	}
 }
+
+func TestPolicyTemplate(t *testing.T) {
+	for _, preset := range []string{"minimal", "standard", "strict"} {
+		t.Run(preset, func(t *testing.T) {
+			code, stdout, _ := run(t, "policy", "template", "--preset", preset)
+			if code != ExitPass {
+				t.Fatalf("template %s: code=%d", preset, code)
+			}
+			if !strings.Contains(stdout, "version:") {
+				t.Error("template output should contain version")
+			}
+			if !strings.Contains(stdout, "agents:") {
+				t.Error("template output should contain agents")
+			}
+		})
+	}
+
+	outDir := t.TempDir()
+	outFile := filepath.Join(outDir, "policy.yaml")
+	code, _, _ := run(t, "policy", "template", "--preset", "standard", "--out", outFile)
+	if code != ExitPass {
+		t.Fatalf("template --out: code=%d", code)
+	}
+	data, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("read written file: %v", err)
+	}
+	if !strings.Contains(string(data), "agents:") {
+		t.Error("written file should contain agents")
+	}
+
+	code, _, _ = run(t, "policy", "template")
+	if code != ExitError {
+		t.Fatal("template with no --preset should error")
+	}
+	code, _, _ = run(t, "policy", "template", "--preset", "nonexistent")
+	if code != ExitError {
+		t.Fatal("template with bad preset should error")
+	}
+}

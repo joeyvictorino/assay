@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate | export", runPolicy)
+	Register("policy", "evaluate the policy for one tool request: eval | lint | test | coverage | simulate | diff | merge | validate | export | template", runPolicy)
 }
 
 func runPolicy(args []string, stdout, stderr io.Writer) int {
@@ -45,6 +45,8 @@ func runPolicy(args []string, stdout, stderr io.Writer) int {
 		return policyValidate(args[1:], stdout, stderr)
 	case "export":
 		return policyExport(args[1:], stdout, stderr)
+	case "template":
+		return policyTemplate(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		policyUsage(stdout)
 		return ExitPass
@@ -84,6 +86,9 @@ func policyUsage(w io.Writer) {
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "  assay policy export --policy FILE [--format markdown|yaml|json]")
 	fmt.Fprintln(w, "  exports the policy as a human-readable document")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  assay policy template --preset minimal|standard|strict [--out FILE]")
+	fmt.Fprintln(w, "  generates a starter policy YAML from a preset")
 }
 
 func policyEval(args []string, stdout, stderr io.Writer) int {
@@ -683,6 +688,39 @@ func policyExport(args []string, stdout, stderr io.Writer) int {
 	default:
 		fmt.Fprintf(stderr, "assay policy export: unknown format %q\n", *format)
 		return ExitError
+	}
+	return ExitPass
+}
+
+func policyTemplate(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay policy template", stderr)
+	preset := fs.String("preset", "", "template preset: minimal, standard, or strict (required)")
+	outPath := fs.String("out", "-", "output path (default stdout)")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *preset == "" {
+		fmt.Fprintf(stderr, "assay policy template: --preset is required (choices: %s)\n",
+			strings.Join(policy.TemplatePresets(), ", "))
+		return ExitError
+	}
+	tmpl, err := policy.GenerateTemplate(*preset)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy template: %v\n", err)
+		return ExitError
+	}
+	if *outPath == "-" {
+		fmt.Fprint(stdout, tmpl)
+	} else {
+		if err := os.MkdirAll(filepath.Dir(*outPath), 0o755); err != nil {
+			fmt.Fprintf(stderr, "assay policy template: %v\n", err)
+			return ExitError
+		}
+		if err := os.WriteFile(*outPath, []byte(tmpl), 0o644); err != nil {
+			fmt.Fprintf(stderr, "assay policy template: %v\n", err)
+			return ExitError
+		}
+		fmt.Fprintf(stderr, "assay policy template: wrote %s\n", *outPath)
 	}
 	return ExitPass
 }
