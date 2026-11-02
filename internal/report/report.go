@@ -26,6 +26,30 @@ const NoGroundTruth = "No ground truth for this lab; recall only against the ref
 // states is the fixed column order for state tables.
 var states = []model.FindingState{model.StateValidated, model.StateTheorized, model.StateRefuted, model.StateDeclined}
 
+// WeightedScore computes the weighted risk score from findings and checker
+// weights. Each active finding (validated or theorized) contributes its
+// class weight (default 1.0) × severity rank. The score is normalized by
+// the sum of weights of active findings, yielding a value between 0 and 4.
+// An empty finding set returns 0.
+func WeightedScore(findings []model.Finding, weights map[string]float64) float64 {
+	var sum, wsum float64
+	for _, f := range findings {
+		if f.State != model.StateValidated && f.State != model.StateTheorized {
+			continue
+		}
+		w := 1.0
+		if v, ok := weights[string(f.Class)]; ok {
+			w = v
+		}
+		sum += w * float64(f.Severity.Rank())
+		wsum += w
+	}
+	if wsum == 0 {
+		return 0
+	}
+	return sum / wsum
+}
+
 // Markdown renders the run report. rec may be nil, in which case the
 // Reconciliation section falls back to the reason counts in rr. Sections
 // appear in this fixed order: Scope statement, Corpus, Findings,
@@ -82,6 +106,9 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 		w("\n")
 		if n := len(findings); n > 0 {
 			w("%d finding record(s) in `findings.redacted.json`; %d distinct dedup key(s).\n\n", n, distinctKeys(findings))
+		}
+		if rr.WeightedScore > 0 {
+			w("**Weighted risk score**: %.2f (severity-weighted average of active findings; 0–4 scale)\n\n", rr.WeightedScore)
 		}
 	}
 

@@ -158,3 +158,53 @@ func TestDangerousCombinationIsSortedAndFirstMatchWins(t *testing.T) {
 		t.Fatal("nil capabilities")
 	}
 }
+
+func TestWeightsValidation(t *testing.T) {
+	base := "version: '1'\ndefault_effect: deny\nagents: {a: {max_tier: low, allowed_tools: ['*'], max_delegation_depth: 0, budget: {max_usd: 1, max_latency_ms: 1}}}\n"
+	t.Run("valid weights", func(t *testing.T) {
+		y := base + "weights:\n  sqli: 3.0\n  xss-reflected: 2.0\n  info-disclosure: 0.5\n"
+		e, err := Parse([]byte(y))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(e.Weights()) != 3 {
+			t.Fatalf("got %d weights", len(e.Weights()))
+		}
+		if e.Weight(model.ClassSQLi) != 3.0 {
+			t.Fatalf("sqli weight = %f", e.Weight(model.ClassSQLi))
+		}
+		if e.Weight(model.ClassIDOR) != 1.0 {
+			t.Fatal("unset class should default to 1.0")
+		}
+	})
+	t.Run("zero weight allowed", func(t *testing.T) {
+		y := base + "weights:\n  sqli: 0\n"
+		if _, err := Parse([]byte(y)); err != nil {
+			t.Fatalf("zero weight should be valid: %v", err)
+		}
+	})
+	t.Run("negative weight rejected", func(t *testing.T) {
+		y := base + "weights:\n  sqli: -1.0\n"
+		if _, err := Parse([]byte(y)); !errors.Is(err, ErrInvalidPolicy) {
+			t.Fatalf("negative weight: err = %v", err)
+		}
+	})
+	t.Run("unknown class rejected", func(t *testing.T) {
+		y := base + "weights:\n  not-a-class: 2.0\n"
+		if _, err := Parse([]byte(y)); !errors.Is(err, ErrInvalidPolicy) {
+			t.Fatalf("unknown class: err = %v", err)
+		}
+	})
+	t.Run("empty weights allowed", func(t *testing.T) {
+		e, err := Parse([]byte(base))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if e.Weights() != nil {
+			t.Fatalf("empty weights should be nil, got %v", e.Weights())
+		}
+		if e.Weight(model.ClassSQLi) != 1.0 {
+			t.Fatal("nil weights should default everything to 1.0")
+		}
+	})
+}

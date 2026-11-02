@@ -279,6 +279,75 @@ func TestMarkdownAttackPathsPresent(t *testing.T) {
 	}
 }
 
+func TestWeightedScoreEqualWeights(t *testing.T) {
+	findings := []model.Finding{
+		{State: model.StateValidated, Class: model.ClassSQLi, Severity: model.SevHigh},
+		{State: model.StateTheorized, Class: model.ClassXSSReflected, Severity: model.SevMedium},
+		{State: model.StateRefuted, Class: model.ClassIDOR, Severity: model.SevCritical},
+	}
+	got := WeightedScore(findings, nil)
+	want := (3.0 + 2.0) / 2.0
+	if got != want {
+		t.Fatalf("WeightedScore = %f, want %f", got, want)
+	}
+}
+
+func TestWeightedScoreCustomWeights(t *testing.T) {
+	findings := []model.Finding{
+		{State: model.StateValidated, Class: model.ClassSQLi, Severity: model.SevHigh},
+		{State: model.StateTheorized, Class: model.ClassInfoDisclosure, Severity: model.SevLow},
+	}
+	weights := map[string]float64{
+		string(model.ClassSQLi): 3.0,
+	}
+	got := WeightedScore(findings, weights)
+	want := (3.0*3.0 + 1.0*1.0) / (3.0 + 1.0)
+	if got != want {
+		t.Fatalf("WeightedScore = %f, want %f", got, want)
+	}
+}
+
+func TestWeightedScoreZeroWeight(t *testing.T) {
+	findings := []model.Finding{
+		{State: model.StateValidated, Class: model.ClassSQLi, Severity: model.SevHigh},
+		{State: model.StateTheorized, Class: model.ClassInfoDisclosure, Severity: model.SevLow},
+	}
+	weights := map[string]float64{
+		string(model.ClassInfoDisclosure): 0,
+	}
+	got := WeightedScore(findings, weights)
+	want := (1.0*3.0 + 0.0*1.0) / (1.0 + 0.0)
+	if got != want {
+		t.Fatalf("WeightedScore = %f, want %f", got, want)
+	}
+}
+
+func TestWeightedScoreEmpty(t *testing.T) {
+	if got := WeightedScore(nil, nil); got != 0 {
+		t.Fatalf("empty findings should yield 0, got %f", got)
+	}
+	allRefuted := []model.Finding{
+		{State: model.StateRefuted, Class: model.ClassSQLi, Severity: model.SevHigh},
+	}
+	if got := WeightedScore(allRefuted, nil); got != 0 {
+		t.Fatalf("all refuted should yield 0, got %f", got)
+	}
+}
+
+func TestWeightedScoreInReport(t *testing.T) {
+	rr := sampleRun()
+	rr.WeightedScore = 2.75
+	md := Markdown(rr, nil, nil)
+	if !strings.Contains(md, "Weighted risk score") || !strings.Contains(md, "2.75") {
+		t.Fatalf("weighted score missing from report:\n%s", md)
+	}
+	rr.WeightedScore = 0
+	md = Markdown(rr, nil, nil)
+	if strings.Contains(md, "Weighted risk score") {
+		t.Fatal("weighted score should not appear when 0")
+	}
+}
+
 func TestMarkdownPromptVariantColumn(t *testing.T) {
 	rr := sampleRun()
 	rr.Reflection = []model.ReflectionResult{

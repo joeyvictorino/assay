@@ -253,6 +253,7 @@ type Policy struct {
 	Rules           []Rule                   `json:"rules"`
 	DangerousCombos [][]string               `json:"dangerous_combinations"`
 	Agents          map[string]AgentBoundary `json:"agents"`
+	Weights         map[string]float64       `json:"weights,omitempty"`
 }
 
 // PolicyRequest is what the engine evaluates.
@@ -430,9 +431,10 @@ type RunReport struct {
 	AuditCount   uint64             `json:"audit_record_count"`
 	BudgetCapUSD float64            `json:"budget_cap_usd"`
 	SpentUSD     float64            `json:"spent_usd"`
-	Truncated    bool               `json:"truncated"`
-	Verdict      string             `json:"verdict"` // PASS | BLOCKED | ERROR
-	ExitCode     int                `json:"exit_code"`
+	Truncated     bool               `json:"truncated"`
+	WeightedScore float64            `json:"weighted_score,omitempty"`
+	Verdict       string             `json:"verdict"` // PASS | BLOCKED | ERROR
+	ExitCode      int                `json:"exit_code"`
 }
 
 // Task is one unit of orchestrated work.
