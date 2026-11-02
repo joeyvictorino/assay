@@ -272,3 +272,65 @@ func TestAuditCommands(t *testing.T) {
 		t.Fatal("audit help")
 	}
 }
+
+func TestAuditVerifyCrossCheck(t *testing.T) {
+	master := audit.GenerateMaster()
+	logPath := filepath.Join(t.TempDir(), "audit.log")
+	w, err := audit.OpenWriter(logPath, "run-xc", master)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 5; i++ {
+		if _, err := w.Record(context.Background(), model.AuditRecord{Kind: "tool_call", Tool: "http_get"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, headHash := w.Head()
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	runDir := filepath.Join(t.TempDir(), "results", "run-xc")
+	if err := os.MkdirAll(runDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	rr := model.RunReport{
+		RunID:      "run-xc",
+		AuditHead:  headHash,
+		AuditCount: 5,
+		Verdict:    "PASS",
+		ExitCode:   0,
+	}
+	b, _ := json.Marshal(rr)
+	if err := os.WriteFile(filepath.Join(runDir, "run.json"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("ASSAY_XC_KEY", audit.EncodeMaster(master))
+	code, out, errs := run(t, "audit", "verify", "--log", logPath, "--key-env", "ASSAY_XC_KEY", "--run", runDir)
+	if code != ExitPass {
+		t.Fatalf("cross-check should pass: code=%d stderr=%q", code, errs)
+	}
+	if !strings.Contains(out, `"cross_checked": true`) {
+		t.Errorf("output should contain cross_checked: true, got %q", out)
+	}
+
+	// Mismatch: wrong record count in run.json.
+	rr.AuditCount = 999
+	b, _ = json.Marshal(rr)
+	os.WriteFile(filepath.Join(runDir, "run.json"), b, 0o600)
+	code, _, errs = run(t, "audit", "verify", "--log", logPath, "--key-env", "ASSAY_XC_KEY", "--run", runDir)
+	if code != ExitBlocked || !strings.Contains(errs, "MISMATCH") {
+		t.Fatalf("count mismatch: code=%d stderr=%q", code, errs)
+	}
+
+	// Mismatch: wrong head hash in run.json.
+	rr.AuditCount = 5
+	rr.AuditHead = "0000000000000000000000000000000000000000000000000000000000000000"
+	b, _ = json.Marshal(rr)
+	os.WriteFile(filepath.Join(runDir, "run.json"), b, 0o600)
+	code, _, errs = run(t, "audit", "verify", "--log", logPath, "--key-env", "ASSAY_XC_KEY", "--run", runDir)
+	if code != ExitBlocked || !strings.Contains(errs, "MISMATCH") || !strings.Contains(errs, "head_hash") {
+		t.Fatalf("hash mismatch: code=%d stderr=%q", code, errs)
+	}
+}
