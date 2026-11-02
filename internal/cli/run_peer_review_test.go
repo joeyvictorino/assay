@@ -110,7 +110,7 @@ func TestPeerReviewerScoresAnotherModelsReport(t *testing.T) {
 	}
 	report, err := os.ReadFile(filepath.Join(f.opts.out, f.opts.runID, "report.md"))
 	must(t, err)
-	if !strings.Contains(string(report), "| synthetic-ops | fake-model | peer: fake-model-2 | 8 |") {
+	if !strings.Contains(string(report), "| synthetic-ops | fake-model | - | peer: fake-model-2 | 8 |") {
 		t.Errorf("report.md lacks the peer reviewer row:\n%s", report)
 	}
 }

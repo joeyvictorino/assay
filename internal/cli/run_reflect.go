@@ -67,6 +67,10 @@ type probeInputs struct {
 	reviewer     model.ModelRef
 	reviewerKind string
 	reviewerNote string
+	// promptVariant and promptText override the default system prompt when a
+	// run config assigns a named prompt to this model (ADR 0020).
+	promptVariant string
+	promptText    string
 }
 
 type probeOutcome struct {
@@ -89,8 +93,13 @@ func runProbeTask(ctx context.Context, in probeInputs) probeOutcome {
 		in.reviewer, in.reviewerKind = in.ref, model.ReviewerSelf
 	}
 	out := probeOutcome{Reflection: model.ReflectionResult{
-		Lab: in.labName, Model: in.ref.Model, Reviewer: in.reviewer.Model, ReviewerKind: in.reviewerKind, Note: in.reviewerNote,
+		Lab: in.labName, Model: in.ref.Model, Reviewer: in.reviewer.Model, ReviewerKind: in.reviewerKind,
+		PromptVariant: in.promptVariant, Note: in.reviewerNote,
 	}}
+	probeSystem := systemPrompt
+	if in.promptText != "" {
+		probeSystem = in.promptText
+	}
 	scorePrompt := scoreSystemPrompt
 	if in.reviewerKind == model.ReviewerPeer {
 		scorePrompt = peerScoreSystemPrompt
@@ -134,7 +143,7 @@ func runProbeTask(ctx context.Context, in probeInputs) probeOutcome {
 		var reported []model.Finding
 		res, err := agent.Run(ctx, agent.Params{
 			Router: in.rt, TaskKind: "probe", TaskID: taskID("probe"), Agent: "probe",
-			Lab: in.labName, RunID: in.runID, Objective: objective, System: systemPrompt,
+			Lab: in.labName, RunID: in.runID, Objective: objective, System: probeSystem,
 			Tools: in.probeTools, Verifier: in.ts, Policy: in.eng, Auditor: in.aw,
 			Executor: tools.NewExecutor(),
 			Env: tools.Env{HTTP: in.client.Do, Gate: in.gate, Lab: in.labName, RunID: in.runID, Model: in.ref,

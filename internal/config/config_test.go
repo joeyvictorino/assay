@@ -105,6 +105,13 @@ func TestValidateRejects(t *testing.T) {
 		{"negative failovers", func(s string) string { return strings.Replace(s, "max_failovers: 1", "max_failovers: -2", 1) }, "max_failovers"},
 		{"negative cost", func(s string) string { return strings.Replace(s, "input_usd: 1,", "input_usd: -1,", 1) }, "negative price"},
 		{"unknown reviewer", func(s string) string { return s + "reflection: {reviewer: judge}\n" }, "unknown reviewer"},
+		{"model names undefined prompt", func(s string) string {
+			return strings.Replace(s, "model: claude-sonnet-5-5}", "model: claude-sonnet-5-5, prompt: auth-focus}", 1)
+		}, "no prompts are defined"},
+		{"model names unknown prompt", func(s string) string {
+			return strings.Replace(s, "model: claude-sonnet-5-5}", "model: claude-sonnet-5-5, prompt: auth-focus}", 1) +
+				"prompts:\n  injection-focus: test\n"
+		}, "unknown prompt"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -263,14 +270,41 @@ func TestReflectionReviewer(t *testing.T) {
 	if c.Reflection.ReviewerKind() != ReviewerPeer {
 		t.Fatalf("reviewer = %q, want peer", c.Reflection.ReviewerKind())
 	}
-	// A single-model config has no peer.
+}
+
+func TestPromptVariants(t *testing.T) {
+	yaml := good + `prompts:
+  auth-focus: "Focus on authentication and session management weaknesses."
+  injection-focus: "Focus on injection attacks: SQL, XSS, command injection."
+`
+	yaml = strings.Replace(yaml, "model: claude-sonnet-5-5}", "model: claude-sonnet-5-5, prompt: auth-focus}", 1)
+	yaml = strings.Replace(yaml, "model: local-8b,", "model: local-8b, prompt: injection-focus,", 1)
+	c, err := Parse([]byte(yaml))
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, text := c.PromptFor(model.ModelRef{Provider: "anthropic", Model: "claude-sonnet-5-5"})
+	if name != "auth-focus" || !strings.Contains(text, "authentication") {
+		t.Fatalf("sonnet prompt = %q %q", name, text)
+	}
+	name, text = c.PromptFor(model.ModelRef{Provider: "llama", Model: "local-8b"})
+	if name != "injection-focus" || !strings.Contains(text, "injection") {
+		t.Fatalf("local prompt = %q %q", name, text)
+	}
+	name, text = c.PromptFor(model.ModelRef{Provider: "fake", Model: "fake-model"})
+	if name != "" || text != "" {
+		t.Fatalf("fake prompt = %q %q, want empty", name, text)
+	}
+}
+
+func TestSingleModelNoPeer(t *testing.T) {
 	single := strings.NewReplacer(
 		"  - {provider: llama, model: local-8b, max_latency_ms: 600000}\n", "",
 		"  - {provider: fake, model: fake-model}\n", "",
 		"{provider: anthropic, model: claude-sonnet-5-5}, {provider: llama, model: local-8b}", "{provider: anthropic, model: claude-sonnet-5-5}",
 		"  score:     [{provider: fake, model: fake-model}]", "  score:     [{provider: anthropic, model: claude-sonnet-5-5}]",
 	).Replace(good)
-	c, err = Parse([]byte(single))
+	c, err := Parse([]byte(single))
 	if err != nil {
 		t.Fatal(err)
 	}

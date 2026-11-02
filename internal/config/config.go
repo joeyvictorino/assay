@@ -46,6 +46,7 @@ type ModelConfig struct {
 	Provider     string `yaml:"provider"`
 	Model        string `yaml:"model"`
 	MaxLatencyMS int64  `yaml:"max_latency_ms,omitempty"`
+	Prompt       string `yaml:"prompt,omitempty"` // names a key in Config.Prompts
 }
 
 // RouteRef is one ordered candidate for a task kind.
@@ -116,6 +117,7 @@ type Config struct {
 	MaxFailovers int                       `yaml:"max_failovers"`
 	Agent        AgentConfig               `yaml:"agent"`
 	Reflection   ReflectionConfig          `yaml:"reflection,omitempty"`
+	Prompts      map[string]string         `yaml:"prompts,omitempty"` // variant name -> system prompt text (ADR 0020)
 }
 
 // Load reads and validates a YAML file.
@@ -241,6 +243,16 @@ func (c *Config) Validate() error {
 	if r := c.Reflection.Reviewer; r != "" && !contains(ReviewerKinds, r) {
 		return invalid("reflection: unknown reviewer %q (want one of %s)", r, strings.Join(ReviewerKinds, ", "))
 	}
+	for _, m := range c.Models {
+		if m.Prompt != "" && len(c.Prompts) == 0 {
+			return invalid("models: model %q names prompt %q but no prompts are defined", m.Model, m.Prompt)
+		}
+		if m.Prompt != "" {
+			if _, ok := c.Prompts[m.Prompt]; !ok {
+				return invalid("models: model %q names unknown prompt %q", m.Model, m.Prompt)
+			}
+		}
+	}
 	return nil
 }
 
@@ -256,6 +268,17 @@ func (c *Config) PeerOf(ref model.ModelRef) (model.ModelRef, bool) {
 		return model.ModelRef{Provider: m.Provider, Model: m.Model}, true
 	}
 	return model.ModelRef{}, false
+}
+
+// PromptFor returns the prompt variant name and text assigned to ref, or
+// empty strings when ref uses the default system prompt (ADR 0020).
+func (c *Config) PromptFor(ref model.ModelRef) (name, text string) {
+	for _, m := range c.Models {
+		if m.Provider == ref.Provider && m.Model == ref.Model && m.Prompt != "" {
+			return m.Prompt, c.Prompts[m.Prompt]
+		}
+	}
+	return "", ""
 }
 
 func contains(list []string, s string) bool {

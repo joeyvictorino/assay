@@ -127,8 +127,8 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 	if len(rr.Reflection) > 0 {
 		w("### Self-reflection\n\n")
 		w("A reviewer scored each report from 0 to 10: the model itself (self) or another model of the run (peer). A score below 7 sent the assessed model back with the critique, at most twice; a revision that reported nothing new ended reflection. The score gates revision only: a finding is validated only by a deterministic checker, and the last three columns are what the checkers then said about the same model's findings on that lab. Critique text is not stored.\n\n")
-		w("| Lab | Model | Reviewer | Scores | Revisions | Final | Passed | Validated | Refuted | Theorized | Note |\n")
-		w("| --- | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | --- |\n")
+		w("| Lab | Model | Prompt | Reviewer | Scores | Revisions | Final | Passed | Validated | Refuted | Theorized | Note |\n")
+		w("| --- | --- | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | --- |\n")
 		for _, r := range rr.Reflection {
 			reviewer := "-"
 			switch r.ReviewerKind {
@@ -149,7 +149,8 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 			if r.Scored {
 				final = fmt.Sprintf("%d", r.Final)
 			}
-			w("| %s | %s | %s | %s | %d | %s | %t | %d | %d | %d | %s |\n", r.Lab, r.Model, reviewer, scores, r.Revisions, final, r.Passed, r.Validated, r.Refuted, r.Theorized, r.Note)
+			prompt := orDash(r.PromptVariant)
+			w("| %s | %s | %s | %s | %s | %d | %s | %t | %d | %d | %d | %s |\n", r.Lab, r.Model, prompt, reviewer, scores, r.Revisions, final, r.Passed, r.Validated, r.Refuted, r.Theorized, r.Note)
 		}
 		w("\n")
 	}

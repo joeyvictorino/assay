@@ -385,19 +385,20 @@ type ModelResult struct {
 // findings for this lab, so the score can be read beside what the
 // deterministic checkers then said.
 type ReflectionResult struct {
-	Lab          string `json:"lab"`
-	Model        string `json:"model"`
-	Reviewer     string `json:"reviewer,omitempty"`      // model id that scored the report
-	ReviewerKind string `json:"reviewer_kind,omitempty"` // self | peer
-	Scored       bool   `json:"scored"`
-	Scores       []int  `json:"scores,omitempty"`
-	Revisions    int    `json:"revisions"`
-	Final        int    `json:"final_score,omitempty"`
-	Passed       bool   `json:"passed"`
-	Validated    int    `json:"validated"`
-	Refuted      int    `json:"refuted"`
-	Theorized    int    `json:"theorized"`
-	Note         string `json:"note,omitempty"` // why reflection did not happen or stopped early
+	Lab           string `json:"lab"`
+	Model         string `json:"model"`
+	Reviewer      string `json:"reviewer,omitempty"`       // model id that scored the report
+	ReviewerKind  string `json:"reviewer_kind,omitempty"`  // self | peer
+	PromptVariant string `json:"prompt_variant,omitempty"` // variant name from config (ADR 0020)
+	Scored        bool   `json:"scored"`
+	Scores        []int  `json:"scores,omitempty"`
+	Revisions     int    `json:"revisions"`
+	Final         int    `json:"final_score,omitempty"`
+	Passed        bool   `json:"passed"`
+	Validated     int    `json:"validated"`
+	Refuted       int    `json:"refuted"`
+	Theorized     int    `json:"theorized"`
+	Note          string `json:"note,omitempty"` // why reflection did not happen or stopped early
 }
 
 // Reviewer kinds recorded in ReflectionResult.ReviewerKind.

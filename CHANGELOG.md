@@ -3,6 +3,11 @@
 ## Unreleased
 
 Added
+- Diversity by prompt (ADR 0020): run configs can declare named prompt
+  variants under `prompts:` and assign one to each model via a `prompt:`
+  field. Each model in the ensemble uses its assigned system prompt,
+  producing varied assessment angles and better collective coverage. The
+  variant name appears in the self-reflection table and in `run.json`.
 - Peer review scoring (ADR 0018): `reflection: { reviewer: peer }` in a run
   config has another model of the run score each report instead of the model
   itself. The reviewer is the first other model in the `models` list, runs
@@ -19,8 +24,8 @@ Added
   report notes "revision added nothing new; stopped".
 
 Changed
-- The `### Self-reflection` table in `report.md` has new columns: Reviewer,
-  Validated, Refuted and Theorized.
+- The `### Self-reflection` table in `report.md` has new columns: Prompt,
+  Reviewer, Validated, Refuted and Theorized.
 - `scripts/demo.sh`: a 60-second offline demo (no API key, no model) that builds
   the harness and the synthetic lab, runs the scripted fake provider against it,
   prints a plain-English summary and shows the audit chain failing after an edit.

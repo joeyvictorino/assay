@@ -267,12 +267,14 @@ func runPipeline(ctx context.Context, o runOpts, stdout, stderr io.Writer) (int,
 			rc.Budgets.PerModel.MaxUSD = modelLeft
 			rt := router.New(rc, reg, aw)
 			client := newClient("probe")
+			promptVariant, promptText := cfg.PromptFor(ref)
 			t0 := time.Now()
 			res := runProbeTask(ctx, probeInputs{
 				cfg: cfg, rt: rt, lab: lab, labName: name, ref: ref, client: client, gate: gate,
 				ts: ts, eng: eng, aw: aw, probeTools: probeTools, scoreTools: scoreTools,
 				runID: o.runID, stderr: stderr,
 				reviewer: reviewer, reviewerKind: reviewerKind, reviewerNote: reviewerNote,
+				promptVariant: promptVariant, promptText: promptText,
 			})
 			pm.lat = append(pm.lat, time.Since(t0).Milliseconds())
 			// The task's whole spend, including a peer reviewer's scoring

@@ -11,7 +11,9 @@ reproduces it against the live target, twice. It measures how little the
 models' findings overlap, chains validated findings into attack paths,
 generates remediations, and records every model call, tool call and decision
 in an AES-256-GCM, hash-chained audit log with zero transcript retention by
-default. Design decisions are recorded in 17 ADRs (`docs/adr`).
+default. Run configs can assign different prompt variants to each model
+(diversity by prompt, ADR 0020), so ensemble members approach the target from
+different angles. Design decisions are recorded in 20 ADRs (`docs/adr`).
 
 Why it exists: organizations are pointing frontier models at their own
 systems, and two things follow. The models disagree with each other about

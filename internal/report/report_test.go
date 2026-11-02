@@ -221,9 +221,9 @@ func TestMarkdownSelfReflectionTable(t *testing.T) {
 	md := Markdown(rr, nil, nil)
 	for _, want := range []string{
 		"### Self-reflection",
-		"| lab-a | m1 | self | 4, 9 | 1 | 9 | true | 1 | 1 | 2 |",
-		"| lab-b | m1 | peer: m2 | - | 0 | - | false | 0 | 0 | 0 | the model did not report a score |",
-		"| lab-c | m1 | - | - | 0 | - | false | 0 | 0 | 0 |",
+		"| lab-a | m1 | - | self | 4, 9 | 1 | 9 | true | 1 | 1 | 2 |",
+		"| lab-b | m1 | - | peer: m2 | - | 0 | - | false | 0 | 0 | 0 | the model did not report a score |",
+		"| lab-c | m1 | - | - | - | 0 | - | false | 0 | 0 | 0 |",
 		"The score gates revision only",
 		"what the checkers then said",
 	} {
@@ -240,5 +240,23 @@ func TestMarkdownSelfReflectionTable(t *testing.T) {
 	rr.Reflection = nil
 	if strings.Contains(Markdown(rr, nil, nil), "### Self-reflection") {
 		t.Error("table printed for a run with no reflection")
+	}
+}
+
+func TestMarkdownPromptVariantColumn(t *testing.T) {
+	rr := sampleRun()
+	rr.Reflection = []model.ReflectionResult{
+		{Lab: "lab-a", Model: "m1", PromptVariant: "auth-focus", ReviewerKind: model.ReviewerSelf, Reviewer: "m1", Scored: true, Scores: []int{8}, Final: 8, Passed: true},
+		{Lab: "lab-a", Model: "m2", ReviewerKind: model.ReviewerSelf, Reviewer: "m2", Scored: true, Scores: []int{7}, Final: 7, Passed: true},
+	}
+	md := Markdown(rr, nil, nil)
+	if !strings.Contains(md, "| Prompt |") {
+		t.Fatal("reflection table missing Prompt column header")
+	}
+	if !strings.Contains(md, "| lab-a | m1 | auth-focus | self |") {
+		t.Fatalf("variant not rendered:\n%s", md)
+	}
+	if !strings.Contains(md, "| lab-a | m2 | - | self |") {
+		t.Fatalf("empty variant should be dash:\n%s", md)
 	}
 }
