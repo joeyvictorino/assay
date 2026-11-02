@@ -52,7 +52,7 @@ var (
 
 type runOpts struct {
 	config, mode, out, scopePath, trust, policyPath, auditKeyEnv string
-	ephemeralKey, allowMissing                                   bool
+	ephemeralKey, allowMissing, dryRun                            bool
 	labNames, labURLs                                            []string
 	labDir, ciURL, runID                                         string
 }
@@ -82,6 +82,7 @@ func runRun(args []string, stdout, stderr io.Writer) int {
 	fs.StringVar(&o.labDir, "lab-dir", "labs", "checkout path of labs/")
 	fs.StringVar(&o.ciURL, "ci-url", "", "CI run URL recorded in results (default from GITHUB_* env)")
 	fs.StringVar(&o.runID, "run-id", "", "run id (default: timestamp plus random suffix)")
+	fs.BoolVar(&o.dryRun, "dry-run", false, "estimate cost without calling any provider")
 	if err := fs.Parse(args); err != nil {
 		return ExitError
 	}
@@ -90,6 +91,23 @@ func runRun(args []string, stdout, stderr io.Writer) int {
 		o.labNames = []string{"synthetic-ops", "juice-shop", "dvwa"}
 	}
 	o.labURLs = urlsFlag
+	if o.dryRun {
+		cfg, err := config.Load(o.config)
+		if err != nil {
+			fmt.Fprintf(stderr, "assay run: %v\n", err)
+			return ExitError
+		}
+		if o.allowMissing {
+			dropMissingProviders(cfg)
+		}
+		labs := o.labNames
+		if len(labs) == 0 {
+			labs = []string{"synthetic-ops", "juice-shop", "dvwa"}
+		}
+		est := EstimateDryRun(cfg, labs)
+		PrintDryRun(stdout, est)
+		return ExitPass
+	}
 	if o.runID == "" {
 		var b [4]byte
 		_, _ = rand.Read(b[:])
