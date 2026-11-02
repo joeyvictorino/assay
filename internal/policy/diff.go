@@ -11,19 +11,19 @@ import (
 
 // DiffReport describes what changed between two policy versions.
 type DiffReport struct {
-	Identical            bool                `json:"identical"`
-	DefaultEffectChanged *EffectChange       `json:"default_effect_changed,omitempty"`
-	VersionChanged       *StringChange       `json:"version_changed,omitempty"`
-	RulesAdded           []model.Rule        `json:"rules_added,omitempty"`
-	RulesRemoved         []model.Rule        `json:"rules_removed,omitempty"`
-	RulesChanged         []RuleChange        `json:"rules_changed,omitempty"`
-	AgentsAdded          []AgentEntry        `json:"agents_added,omitempty"`
-	AgentsRemoved        []AgentEntry        `json:"agents_removed,omitempty"`
-	AgentsChanged        []AgentChange       `json:"agents_changed,omitempty"`
-	CombosAdded          [][]string          `json:"combos_added,omitempty"`
-	CombosRemoved        [][]string          `json:"combos_removed,omitempty"`
-	WeightsAdded         map[string]float64  `json:"weights_added,omitempty"`
-	WeightsRemoved       map[string]float64  `json:"weights_removed,omitempty"`
+	Identical            bool                  `json:"identical"`
+	DefaultEffectChanged *EffectChange         `json:"default_effect_changed,omitempty"`
+	VersionChanged       *StringChange         `json:"version_changed,omitempty"`
+	RulesAdded           []model.Rule          `json:"rules_added,omitempty"`
+	RulesRemoved         []model.Rule          `json:"rules_removed,omitempty"`
+	RulesChanged         []RuleChange          `json:"rules_changed,omitempty"`
+	AgentsAdded          []AgentEntry          `json:"agents_added,omitempty"`
+	AgentsRemoved        []AgentEntry          `json:"agents_removed,omitempty"`
+	AgentsChanged        []AgentChange         `json:"agents_changed,omitempty"`
+	CombosAdded          [][]string            `json:"combos_added,omitempty"`
+	CombosRemoved        [][]string            `json:"combos_removed,omitempty"`
+	WeightsAdded         map[string]float64    `json:"weights_added,omitempty"`
+	WeightsRemoved       map[string]float64    `json:"weights_removed,omitempty"`
 	WeightsChanged       map[string][2]float64 `json:"weights_changed,omitempty"`
 }
 
@@ -41,13 +41,13 @@ type EffectChange struct {
 
 // RuleChange records what changed in a rule that exists in both versions.
 type RuleChange struct {
-	ID            string       `json:"id"`
-	EffectChanged *EffectChange `json:"effect_changed,omitempty"`
-	MatchChanged  bool          `json:"match_changed,omitempty"`
-	MatchBefore   *model.RuleMatch `json:"match_before,omitempty"`
-	MatchAfter    *model.RuleMatch `json:"match_after,omitempty"`
-	RationaleBefore string `json:"rationale_before,omitempty"`
-	RationaleAfter  string `json:"rationale_after,omitempty"`
+	ID              string           `json:"id"`
+	EffectChanged   *EffectChange    `json:"effect_changed,omitempty"`
+	MatchChanged    bool             `json:"match_changed,omitempty"`
+	MatchBefore     *model.RuleMatch `json:"match_before,omitempty"`
+	MatchAfter      *model.RuleMatch `json:"match_after,omitempty"`
+	RationaleBefore string           `json:"rationale_before,omitempty"`
+	RationaleAfter  string           `json:"rationale_after,omitempty"`
 }
 
 // AgentEntry pairs an agent name with its boundary.
