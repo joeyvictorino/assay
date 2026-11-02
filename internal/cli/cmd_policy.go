@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	Register("policy", "evaluate the policy for one tool request: eval", runPolicy)
+	Register("policy", "evaluate the policy for one tool request: eval | lint", runPolicy)
 }
 
 func runPolicy(args []string, stdout, stderr io.Writer) int {
@@ -24,6 +24,8 @@ func runPolicy(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "eval":
 		return policyEval(args[1:], stdout, stderr)
+	case "lint":
+		return policyLint(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		policyUsage(stdout)
 		return ExitPass
@@ -39,6 +41,9 @@ func policyUsage(w io.Writer) {
 	fmt.Fprintln(w, "                    [--trust DIR | --assume-signed] [--lab L] [--depth N]")
 	fmt.Fprintln(w, "                    [--ancestors a,b] [--spent USD]")
 	fmt.Fprintln(w, "  prints the Decision as JSON; exit 0 allow, 1 deny, 2 error")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  assay policy lint --policy FILE --manifests DIR")
+	fmt.Fprintln(w, "  checks for unreachable rules, unknown tool/agent refs; exit 0 clean, 1 issues, 2 error")
 }
 
 func policyEval(args []string, stdout, stderr io.Writer) int {
@@ -125,4 +130,44 @@ func policyEval(args []string, stdout, stderr io.Writer) int {
 		return ExitPass
 	}
 	return ExitBlocked
+}
+
+func policyLint(args []string, stdout, stderr io.Writer) int {
+	fs := newFlagSet("assay policy lint", stderr)
+	policyPath := fs.String("policy", "", "policy YAML file (required)")
+	manifests := fs.String("manifests", "", "directory of *.json tool manifests (required)")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *policyPath == "" || *manifests == "" {
+		fmt.Fprintln(stderr, "assay policy lint: --policy and --manifests are required")
+		return ExitError
+	}
+	eng, err := policy.Load(*policyPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy lint: %v\n", err)
+		return ExitError
+	}
+	files, err := loadManifestDir(*manifests)
+	if err != nil {
+		fmt.Fprintf(stderr, "assay policy lint: %v\n", err)
+		return ExitError
+	}
+	var ms []model.ToolManifest
+	for _, f := range files {
+		ms = append(ms, f.M)
+	}
+	issues := policy.Lint(eng, ms)
+	enc := json.NewEncoder(stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(issues); err != nil {
+		fmt.Fprintf(stderr, "assay policy lint: %v\n", err)
+		return ExitError
+	}
+	if len(issues) > 0 {
+		fmt.Fprintf(stderr, "assay policy lint: %d issue(s) found\n", len(issues))
+		return ExitBlocked
+	}
+	fmt.Fprintln(stderr, "assay policy lint: clean")
+	return ExitPass
 }

@@ -203,6 +203,94 @@ func TestPolicyEval(t *testing.T) {
 	}
 }
 
+func TestPolicyLint(t *testing.T) {
+	manifests := t.TempDir()
+	writeManifest(t, manifests, "http_get", manifest("http_get", model.TierLow, "http.read"))
+	writeManifest(t, manifests, "http_post", manifest("http_post", model.TierHigh, "http.read", "http.write"))
+	pol := filepath.Join("..", "..", "policy", "default.yaml")
+
+	// Clean lint against default policy.
+	code, stdout, stderr := run(t, "policy", "lint", "--policy", pol, "--manifests", manifests)
+	// The default policy references tools not in our test manifests (e.g. delegate,
+	// report_finding), so it should flag issues.
+	if code != ExitBlocked {
+		t.Fatalf("default policy lint: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	var issues []map[string]any
+	if err := json.Unmarshal([]byte(stdout), &issues); err != nil {
+		t.Fatalf("lint output not JSON: %v stdout=%q", err, stdout)
+	}
+	if len(issues) == 0 {
+		t.Fatal("expected issues for default policy with partial manifests")
+	}
+
+	// Build a tight policy that matches the manifests exactly.
+	tight := filepath.Join(t.TempDir(), "tight.yaml")
+	tightYAML := `
+version: "1"
+default_effect: deny
+agents:
+  probe:
+    max_tier: high
+    allowed_tools: [http_get, http_post]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+rules:
+  - id: allow-probe
+    effect: allow
+    match:
+      agents: [probe]
+      tools: [http_get, http_post]
+`
+	if err := os.WriteFile(tight, []byte(tightYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, _ = run(t, "policy", "lint", "--policy", tight, "--manifests", manifests)
+	if code != ExitPass {
+		t.Fatalf("tight policy should lint clean: code=%d stdout=%q", code, stdout)
+	}
+
+	// A policy with a ghost agent should produce an error-severity issue.
+	ghostPol := filepath.Join(t.TempDir(), "ghost.yaml")
+	ghostYAML := `
+version: "1"
+default_effect: deny
+agents:
+  probe:
+    max_tier: high
+    allowed_tools: [http_get]
+    max_delegation_depth: 0
+    budget: {max_usd: 1}
+rules:
+  - id: r1
+    effect: deny
+    match:
+      agents: [nonexistent_agent]
+`
+	if err := os.WriteFile(ghostPol, []byte(ghostYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, _ = run(t, "policy", "lint", "--policy", ghostPol, "--manifests", manifests)
+	if code != ExitBlocked {
+		t.Fatalf("ghost agent should cause issues: code=%d", code)
+	}
+	if !strings.Contains(stdout, "unknown_agent_in_rule") {
+		t.Fatalf("expected unknown_agent_in_rule in %q", stdout)
+	}
+
+	// Error cases.
+	for _, args := range [][]string{
+		{"policy", "lint"},
+		{"policy", "lint", "--policy", tight},
+		{"policy", "lint", "--manifests", manifests},
+		{"policy", "lint", "--policy", filepath.Join(t.TempDir(), "nope.yaml"), "--manifests", manifests},
+	} {
+		if code, _, _ := run(t, args...); code != ExitError {
+			t.Fatalf("%v should exit %d, got %d", args, ExitError, code)
+		}
+	}
+}
+
 func TestAuditCommands(t *testing.T) {
 	code, out, _ := run(t, "audit", "keygen")
 	if code != ExitPass {
