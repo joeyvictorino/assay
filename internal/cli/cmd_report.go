@@ -42,7 +42,7 @@ func init() {
 func runReport(args []string, stdout, stderr io.Writer) int {
 	fs := newFlagSet("assay report", stderr)
 	runDir := fs.String("run", "", "results directory for one run (required)")
-	format := fs.String("format", "md", "md | html | sarif | csv | dashboard")
+	format := fs.String("format", "md", "md | html | sarif | csv | summary | dashboard")
 	runsRoot := fs.String("runs-root", "results", "directory holding one sub-directory per run (dashboard format)")
 	out := fs.String("out", "", "output path (default DIR/report.md or docs/dashboard/data/index.json; \"-\" for stdout)")
 	if err := fs.Parse(args); err != nil {
@@ -62,10 +62,12 @@ func runReport(args []string, stdout, stderr io.Writer) int {
 		return reportSARIFCmd(*runDir, *out, stdout, stderr)
 	case "csv":
 		return reportCSVCmd(*runDir, *out, stdout, stderr)
+	case "summary":
+		return reportSummaryCmd(*runDir, *out, stdout, stderr)
 	case "dashboard":
 		return reportDashboard(*runsRoot, *out, stdout, stderr)
 	}
-	fmt.Fprintf(stderr, "assay report: unknown --format %q (md | html | sarif | csv | dashboard)\n", *format)
+	fmt.Fprintf(stderr, "assay report: unknown --format %q (md | html | sarif | csv | summary | dashboard)\n", *format)
 	return ExitError
 }
 
@@ -188,6 +190,47 @@ func reportCSVCmd(runDir, out string, stdout, stderr io.Writer) int {
 	}
 	if out != "-" {
 		fmt.Fprintf(stdout, "report: wrote CSV to %s (%d findings)\n", out, len(findings))
+	}
+	return ExitPass
+}
+
+func reportSummaryCmd(runDir, out string, stdout, stderr io.Writer) int {
+	rr, err := readRunReport(filepath.Join(runDir, runJSON))
+	if err != nil {
+		return fail(stderr, "report", err)
+	}
+	var findings []model.Finding
+	if p := filepath.Join(runDir, findingsJSON); fileExists(p) {
+		findings, err = readFindings(p, nil)
+		if err != nil {
+			return fail(stderr, "report", err)
+		}
+	}
+	var rec *reconcile.Report
+	if p := filepath.Join(runDir, reconcileJSON); fileExists(p) {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return fail(stderr, "report", err)
+		}
+		var r reconcile.Report
+		if err := json.Unmarshal(b, &r); err != nil {
+			return fail(stderr, "report", fmt.Errorf("%s: %w", p, err))
+		}
+		rec = &r
+	}
+	s := report.BuildSummary(rr, findings, rec)
+	js, err := report.SummaryJSON(s)
+	if err != nil {
+		return fail(stderr, "report", err)
+	}
+	if out == "" {
+		out = filepath.Join(runDir, "summary.json")
+	}
+	if err := writeText(out, js, stdout); err != nil {
+		return fail(stderr, "report", err)
+	}
+	if out != "-" {
+		fmt.Fprintf(stdout, "report: wrote summary to %s\n", out)
 	}
 	return ExitPass
 }
