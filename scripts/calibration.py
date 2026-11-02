@@ -56,6 +56,9 @@ def rows_for_run(run_dir):
             "ci_run": (run.get("ci_run_url") or "").split("/actions/")[-1],
             "lab": lab,
             "model": model,
+            "prompt_variant": r.get("prompt_variant", ""),
+            "reviewer_kind": r.get("reviewer_kind", ""),
+            "reviewer": r.get("reviewer", ""),
             "scores": r.get("scores") or [],
             "revisions": r.get("revisions", 0),
             "final": r.get("final_score"),
@@ -79,13 +82,18 @@ def collect(results_dir):
 
 
 def markdown(rows):
-    lines = ["| Run | Lab | Model | Self-scores | Revisions | Passed | Validated | Theorized | Refuted | Recall (ground truth) | Note |",
-             "| --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | --- |"]
+    lines = ["| Run | Lab | Model | Prompt | Reviewer | Self-scores | Revisions | Passed | Validated | Theorized | Refuted | Recall (ground truth) | Note |",
+             "| --- | --- | --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | --- |"]
     for r in rows:
         scores = ", ".join(str(s) for s in r["scores"]) or "-"
         recall = "-" if r["recall"] is None else "%.3f" % r["recall"]
-        lines.append("| %s | %s | %s | %s | %d | %s | %d | %d | %d | %s | %s |" % (
-            r["run"], r["lab"], r["model"], scores, r["revisions"], "yes" if r["passed"] else "no",
+        prompt = r.get("prompt_variant") or "-"
+        rk = r.get("reviewer_kind", "")
+        rv = r.get("reviewer", "")
+        reviewer = "%s: %s" % (rk, rv) if rk and rv else "-"
+        lines.append("| %s | %s | %s | %s | %s | %s | %d | %s | %d | %d | %d | %s | %s |" % (
+            r["run"], r["lab"], r["model"], prompt, reviewer, scores,
+            r["revisions"], "yes" if r["passed"] else "no",
             r["validated"], r["theorized"], r["refuted"], recall, r["note"] or ""))
     return "\n".join(lines)
 
