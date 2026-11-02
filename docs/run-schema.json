@@ -1,13 +1,25 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/joeyvictorino/assay/docs/run-schema.json",
-  "title": "Assay RunReport",
-  "description": "Schema for the run.json file produced by `assay run`. Describes the committed summary of a multi-model security validation run.",
+  "$id": "https://github.com/joeyvictorino/assay/blob/main/docs/run-schema.json",
+  "title": "Assay Run Report",
+  "description": "Output written to run.json after each assay run. Documents models, labs, findings, costs, timing, overlap, attack paths, reflection scores and the overall verdict.",
   "type": "object",
   "required": [
-    "run_id", "git_sha", "mode", "started", "finished", "scope",
-    "models", "labs", "audit_head_hash", "audit_record_count",
-    "budget_cap_usd", "spent_usd", "truncated", "verdict", "exit_code"
+    "run_id",
+    "git_sha",
+    "mode",
+    "started",
+    "finished",
+    "scope",
+    "models",
+    "labs",
+    "audit_head_hash",
+    "audit_record_count",
+    "budget_cap_usd",
+    "spent_usd",
+    "truncated",
+    "verdict",
+    "exit_code"
   ],
   "properties": {
     "run_id": {
@@ -16,321 +28,592 @@
     },
     "git_sha": {
       "type": "string",
-      "description": "Git commit SHA of the codebase under test."
+      "description": "Git commit SHA of the assay harness at run time."
     },
     "ci_run_url": {
       "type": "string",
-      "format": "uri",
-      "description": "URL of the CI job that triggered this run."
+      "description": "URL of the CI run that produced this report, if any."
     },
     "mode": {
       "type": "string",
-      "enum": ["full", "degraded"],
-      "description": "Whether all models completed (full) or some failed over (degraded)."
+      "enum": [
+        "full",
+        "degraded"
+      ],
+      "description": "Whether every model completed (full) or some failed over (degraded)."
     },
     "config": {
       "type": "string",
-      "description": "Run configuration name."
+      "description": "Name of the run configuration."
     },
     "label": {
       "type": "string",
-      "description": "Human label for the run configuration, e.g. which kind of models ran."
+      "description": "Human-readable label describing the run variant."
     },
     "started": {
       "type": "string",
       "format": "date-time",
-      "description": "ISO 8601 timestamp when the run began."
+      "description": "ISO-8601 UTC timestamp when the run began."
     },
     "finished": {
       "type": "string",
       "format": "date-time",
-      "description": "ISO 8601 timestamp when the run completed."
+      "description": "ISO-8601 UTC timestamp when the run ended."
     },
-    "scope": { "$ref": "#/$defs/Decision" },
+    "scope": {
+      "$ref": "#/$defs/decision"
+    },
     "models": {
       "type": "array",
-      "items": { "$ref": "#/$defs/ModelResult" },
+      "items": {
+        "$ref": "#/$defs/model_result"
+      },
       "description": "Per-model summary of findings, usage and latency."
     },
     "labs": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "Lab identifiers exercised in this run."
+      "items": {
+        "type": "string"
+      },
+      "description": "Lab names exercised during the run."
     },
     "overlap": {
-      "$ref": "#/$defs/OverlapMatrix",
-      "description": "Cross-model overlap analysis."
+      "oneOf": [
+        {
+          "$ref": "#/$defs/overlap_matrix"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Cross-model finding overlap matrix, absent when only one model ran."
     },
     "precision": {
       "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/PRF" },
-      "description": "Per-model precision/recall/F1 against ground-truth labs."
+      "additionalProperties": {
+        "$ref": "#/$defs/prf"
+      },
+      "description": "Per-model precision/recall against ground-truth labs."
     },
     "chains": {
       "type": "array",
-      "items": { "$ref": "#/$defs/AttackPath" },
-      "description": "Attack paths chaining findings to objectives."
+      "items": {
+        "$ref": "#/$defs/attack_path"
+      },
+      "description": "Reconstructed attack paths linking findings into chains."
     },
     "reflection": {
       "type": "array",
-      "items": { "$ref": "#/$defs/ReflectionResult" },
-      "description": "Self- and peer-review scoring results."
+      "items": {
+        "$ref": "#/$defs/reflection_result"
+      },
+      "description": "Self- and peer-reflection scores per lab and model."
     },
     "reconcile_reason_counts": {
       "type": "object",
-      "additionalProperties": { "type": "integer" },
-      "description": "Count of findings by reconciliation mismatch reason."
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "Counts of reconciliation reasons across all findings."
     },
     "policy_denies_by_reason": {
       "type": "object",
-      "additionalProperties": { "type": "integer" },
-      "description": "Count of policy denials by reason code."
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "Counts of policy denials grouped by reason code."
     },
     "audit_head_hash": {
       "type": "string",
-      "description": "Hash of the last audit-log record, forming a hash chain."
+      "description": "SHA-256 of the final audit-log record (hash chain head)."
     },
     "audit_record_count": {
       "type": "integer",
       "minimum": 0,
-      "description": "Total audit-log records written during this run."
+      "description": "Total records written to the audit log during the run."
     },
     "budget_cap_usd": {
       "type": "number",
       "minimum": 0,
-      "description": "Maximum spend allowed for this run in USD."
+      "description": "Maximum budget in USD that the run was allowed to spend."
     },
     "spent_usd": {
       "type": "number",
       "minimum": 0,
-      "description": "Actual spend for this run in USD."
+      "description": "Actual spend in USD across all models."
     },
     "truncated": {
       "type": "boolean",
-      "description": "Whether the run was cut short (budget or time limit)."
+      "description": "True if the run hit a budget or time limit before completing."
     },
     "weighted_score": {
       "type": "number",
-      "description": "Composite score weighted by policy checker weights."
+      "description": "Weighted ensemble score across all models (ADR 0020)."
     },
     "verdict": {
       "type": "string",
-      "enum": ["PASS", "BLOCKED", "ERROR"],
-      "description": "Final run outcome."
+      "enum": [
+        "PASS",
+        "BLOCKED",
+        "ERROR"
+      ],
+      "description": "Overall result: PASS when no blocking findings, BLOCKED when at least one, ERROR on infrastructure failure."
     },
     "exit_code": {
       "type": "integer",
-      "enum": [0, 1, 2],
-      "description": "Process exit code: 0 pass, 1 blocked, 2 error."
+      "enum": [
+        0,
+        1,
+        2
+      ],
+      "description": "0 = pass, 1 = blocked, 2 = error."
     }
   },
-  "additionalProperties": false,
   "$defs": {
-    "Decision": {
+    "model_ref": {
       "type": "object",
-      "description": "Policy or gate outcome with a machine reason and human rationale.",
-      "required": ["effect", "reason", "rationale"],
+      "required": [
+        "provider",
+        "model",
+        "agent"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "API provider (e.g. anthropic, openai)."
+        },
+        "model": {
+          "type": "string",
+          "description": "Model identifier."
+        },
+        "agent": {
+          "type": "string",
+          "description": "Agent profile name that ran this model."
+        }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "cache_read_tokens",
+        "cache_write_tokens",
+        "cost_usd",
+        "latency_ms"
+      ],
+      "properties": {
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cache_read_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cache_write_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "latency_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "model_result": {
+      "type": "object",
+      "required": [
+        "ref",
+        "findings_by_state",
+        "usage",
+        "p50_ms",
+        "p95_ms",
+        "refusals",
+        "failovers"
+      ],
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/model_ref"
+        },
+        "findings_by_state": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Counts of findings grouped by state (validated, theorized, refuted, declined)."
+        },
+        "usage": {
+          "$ref": "#/$defs/usage"
+        },
+        "p50_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Median latency in milliseconds."
+        },
+        "p95_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "95th percentile latency in milliseconds."
+        },
+        "refusals": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of model refusals."
+        },
+        "failovers": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of failover attempts."
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "required": [
+        "effect",
+        "reason",
+        "rationale"
+      ],
       "properties": {
         "effect": {
           "type": "string",
-          "enum": ["allow", "deny"],
-          "description": "Policy effect. Deny always wins."
+          "enum": [
+            "allow",
+            "deny"
+          ]
         },
         "reason": {
           "type": "string",
-          "description": "Machine-readable reason code, e.g. DENY_RULE:no-write-in-recon."
+          "description": "Machine-readable reason code."
         },
         "rationale": {
           "type": "string",
-          "description": "Human-readable explanation of the decision."
+          "description": "Human-readable explanation."
         },
         "matched_rules": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Policy rule IDs that matched."
         },
         "policy_hash": {
           "type": "string",
-          "description": "SHA-256 of the policy document used."
+          "description": "SHA-256 of the policy document."
         }
-      },
-      "additionalProperties": false
+      }
     },
-    "ModelRef": {
+    "prf": {
       "type": "object",
-      "description": "Identifies which model, provider and agent produced something.",
-      "required": ["provider", "model", "agent"],
+      "required": [
+        "tp",
+        "fp",
+        "fn",
+        "precision",
+        "recall",
+        "f1"
+      ],
       "properties": {
-        "provider": { "type": "string" },
-        "model": { "type": "string" },
-        "agent": { "type": "string" }
-      },
-      "additionalProperties": false
-    },
-    "Usage": {
-      "type": "object",
-      "description": "Token and cost accounting for one model.",
-      "required": ["input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens", "cost_usd", "latency_ms"],
-      "properties": {
-        "input_tokens": { "type": "integer", "minimum": 0 },
-        "output_tokens": { "type": "integer", "minimum": 0 },
-        "cache_read_tokens": { "type": "integer", "minimum": 0 },
-        "cache_write_tokens": { "type": "integer", "minimum": 0 },
-        "cost_usd": { "type": "number", "minimum": 0 },
-        "latency_ms": { "type": "integer", "minimum": 0 }
-      },
-      "additionalProperties": false
-    },
-    "ModelResult": {
-      "type": "object",
-      "description": "Summary of one model's run.",
-      "required": ["ref", "findings_by_state", "usage", "p50_ms", "p95_ms", "refusals", "failovers"],
-      "properties": {
-        "ref": { "$ref": "#/$defs/ModelRef" },
-        "findings_by_state": {
-          "type": "object",
-          "additionalProperties": { "type": "integer" },
-          "description": "Finding counts keyed by state (theorized, validated, refuted, declined)."
+        "tp": {
+          "type": "integer",
+          "minimum": 0
         },
-        "usage": { "$ref": "#/$defs/Usage" },
-        "p50_ms": { "type": "integer", "minimum": 0, "description": "Median latency in milliseconds." },
-        "p95_ms": { "type": "integer", "minimum": 0, "description": "95th percentile latency in milliseconds." },
-        "refusals": { "type": "integer", "minimum": 0, "description": "Number of model refusals." },
-        "failovers": { "type": "integer", "minimum": 0, "description": "Number of failovers to alternate models." }
-      },
-      "additionalProperties": false
+        "fp": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fn": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "f1": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
     },
-    "PairCell": {
+    "overlap_matrix": {
       "type": "object",
-      "description": "One cell of the pairwise overlap matrix.",
-      "required": ["both", "only_a", "only_b", "jaccard"],
+      "required": [
+        "models",
+        "keys",
+        "membership",
+        "pairwise",
+        "unique_per_model",
+        "union",
+        "intersection",
+        "inputs"
+      ],
       "properties": {
-        "both": { "type": "integer", "minimum": 0 },
-        "only_a": { "type": "integer", "minimum": 0 },
-        "only_b": { "type": "integer", "minimum": 0 },
-        "jaccard": { "type": "number", "minimum": 0, "maximum": 1 }
-      },
-      "additionalProperties": false
-    },
-    "FileDigest": {
-      "type": "object",
-      "description": "Input file hash for reproducibility.",
-      "required": ["name", "sha256", "bytes"],
-      "properties": {
-        "name": { "type": "string" },
-        "sha256": { "type": "string" },
-        "bytes": { "type": "integer", "minimum": 0 }
-      },
-      "additionalProperties": false
-    },
-    "OverlapMatrix": {
-      "type": "object",
-      "description": "Cross-model overlap analysis result.",
-      "required": ["models", "keys", "membership", "pairwise", "unique_per_model", "union", "intersection", "inputs"],
-      "properties": {
-        "models": { "type": "array", "items": { "type": "string" } },
-        "keys": { "type": "array", "items": { "type": "string" } },
+        "models": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "membership": {
           "type": "object",
           "additionalProperties": {
             "type": "array",
-            "items": { "type": "integer" }
+            "items": {
+              "type": "integer"
+            }
           }
         },
         "pairwise": {
           "type": "array",
           "items": {
             "type": "array",
-            "items": { "$ref": "#/$defs/PairCell" }
+            "items": {
+              "$ref": "#/$defs/pair_cell"
+            }
           }
         },
         "unique_per_model": {
           "type": "object",
           "additionalProperties": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           }
         },
-        "union": { "type": "integer", "minimum": 0 },
-        "intersection": { "type": "integer", "minimum": 0 },
-        "inputs": { "type": "array", "items": { "$ref": "#/$defs/FileDigest" } }
-      },
-      "additionalProperties": false
+        "union": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "intersection": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file_digest"
+          }
+        }
+      }
     },
-    "PRF": {
+    "pair_cell": {
       "type": "object",
-      "description": "Precision, recall and F1 against ground truth.",
-      "required": ["tp", "fp", "fn", "precision", "recall", "f1"],
+      "required": [
+        "both",
+        "only_a",
+        "only_b",
+        "jaccard"
+      ],
       "properties": {
-        "tp": { "type": "integer", "minimum": 0 },
-        "fp": { "type": "integer", "minimum": 0 },
-        "fn": { "type": "integer", "minimum": 0 },
-        "precision": { "type": "number", "minimum": 0, "maximum": 1 },
-        "recall": { "type": "number", "minimum": 0, "maximum": 1 },
-        "f1": { "type": "number", "minimum": 0, "maximum": 1 }
-      },
-      "additionalProperties": false
+        "both": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "only_a": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "only_b": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "jaccard": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
     },
-    "PathStep": {
+    "file_digest": {
       "type": "object",
-      "description": "One hop in an attack path.",
-      "required": ["type", "id"],
+      "required": [
+        "name",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "path_step": {
+      "type": "object",
+      "required": [
+        "type",
+        "id"
+      ],
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["finding", "precondition", "fact", "objective"]
+          "enum": [
+            "finding",
+            "precondition",
+            "fact",
+            "objective"
+          ]
         },
-        "id": { "type": "string" },
-        "note": { "type": "string" }
-      },
-      "additionalProperties": false
+        "id": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      }
     },
-    "AttackPath": {
+    "attack_path": {
       "type": "object",
-      "description": "Chain of findings leading to an objective.",
-      "required": ["id", "lab", "objective", "path", "confidence", "source_refs"],
+      "required": [
+        "id",
+        "lab",
+        "objective",
+        "path",
+        "confidence",
+        "source_refs"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "lab": { "type": "string" },
+        "id": {
+          "type": "string"
+        },
+        "lab": {
+          "type": "string"
+        },
         "objective": {
           "type": "string",
-          "enum": ["account-takeover", "data-access", "privilege-escalation", "code-exec"]
+          "enum": [
+            "account-takeover",
+            "data-access",
+            "privilege-escalation",
+            "code-exec"
+          ]
         },
-        "path": { "type": "array", "items": { "$ref": "#/$defs/PathStep" } },
+        "path": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/path_step"
+          }
+        },
         "confidence": {
           "type": "string",
-          "enum": ["theorized", "validated", "refuted", "declined"],
-          "description": "Minimum confidence over path steps."
+          "enum": [
+            "validated",
+            "theorized",
+            "refuted",
+            "declined"
+          ]
         },
-        "source_refs": { "type": "array", "items": { "type": "string" } }
-      },
-      "additionalProperties": false
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     },
-    "ReflectionResult": {
+    "reflection_result": {
       "type": "object",
-      "description": "Self- or peer-review scoring result for one lab/model pair.",
-      "required": ["lab", "model", "scored", "revisions", "passed", "validated", "refuted", "theorized"],
+      "required": [
+        "lab",
+        "model",
+        "scored",
+        "revisions",
+        "passed",
+        "validated",
+        "refuted",
+        "theorized"
+      ],
       "properties": {
-        "lab": { "type": "string" },
-        "model": { "type": "string", "description": "Model that was assessed." },
-        "reviewer": { "type": "string", "description": "Model that performed the review." },
+        "lab": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "reviewer": {
+          "type": "string",
+          "description": "Model that scored the report."
+        },
         "reviewer_kind": {
           "type": "string",
-          "enum": ["self", "peer"],
-          "description": "Whether the reviewer is the same model (self) or a different one (peer)."
+          "enum": [
+            "self",
+            "peer"
+          ]
         },
-        "prompt_variant": { "type": "string", "description": "Prompt variant name from config." },
-        "scored": { "type": "boolean" },
-        "scores": { "type": "array", "items": { "type": "integer" } },
-        "revisions": { "type": "integer", "minimum": 0 },
-        "final_score": { "type": "integer" },
-        "passed": { "type": "boolean" },
-        "validated": { "type": "integer", "minimum": 0, "description": "Findings confirmed by deterministic checkers." },
-        "refuted": { "type": "integer", "minimum": 0, "description": "Findings disproved by deterministic checkers." },
-        "theorized": { "type": "integer", "minimum": 0, "description": "Findings not yet checked." },
-        "note": { "type": "string" }
-      },
-      "additionalProperties": false
+        "prompt_variant": {
+          "type": "string",
+          "description": "Prompt variant name (ADR 0020)."
+        },
+        "scored": {
+          "type": "boolean"
+        },
+        "scores": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "revisions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "final_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "validated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "refuted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "theorized": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "note": {
+          "type": "string"
+        }
+      }
     }
   }
 }

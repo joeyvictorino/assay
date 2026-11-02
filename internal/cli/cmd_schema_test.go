@@ -32,7 +32,7 @@ func TestSchemaIsValidJSON(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &parsed); err != nil {
 		t.Fatalf("schema is not valid JSON: %v", err)
 	}
-	if parsed["title"] != "Assay RunReport" {
+	if parsed["title"] != "Assay Run Report" {
 		t.Errorf("unexpected title: %v", parsed["title"])
 	}
 }
@@ -58,8 +58,8 @@ func TestSchemaContainsDefs(t *testing.T) {
 	runSchema(nil, &stdout, &stderr)
 	out := stdout.String()
 	for _, def := range []string{
-		"ModelRef", "Usage", "ModelResult", "Decision",
-		"PRF", "OverlapMatrix", "AttackPath", "ReflectionResult",
+		"model_ref", "usage", "model_result", "decision",
+		"prf", "overlap_matrix", "attack_path", "reflection_result",
 	} {
 		if !strings.Contains(out, `"`+def+`"`) {
 			t.Errorf("schema should contain $def %q", def)
@@ -81,7 +81,7 @@ func TestSchemaExplicitRun(t *testing.T) {
 	if code != ExitPass {
 		t.Fatalf("expected ExitPass, got %d", code)
 	}
-	if !strings.Contains(stdout.String(), "Assay RunReport") {
+	if !strings.Contains(stdout.String(), "Assay Run Report") {
 		t.Error("should contain title")
 	}
 }
