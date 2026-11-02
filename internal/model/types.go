@@ -193,6 +193,8 @@ type Finding struct {
 	Reconcile    ReconcileStatus   `json:"reconcile"`
 	Validation   *ValidationResult `json:"validation,omitempty"`
 	Remediation  *Remediation      `json:"remediation,omitempty"`
+	Temperature  float64           `json:"temperature,omitempty"`
+	MaxTokens    int               `json:"max_tokens,omitempty"`
 	FirstSeen    time.Time         `json:"first_seen"`
 	LastSeen     time.Time         `json:"last_seen"`
 }
