@@ -42,7 +42,7 @@ func init() {
 func runReport(args []string, stdout, stderr io.Writer) int {
 	fs := newFlagSet("assay report", stderr)
 	runDir := fs.String("run", "", "results directory for one run (required)")
-	format := fs.String("format", "md", "md | html | sarif | csv | summary | trend | dashboard | dashboard-html")
+	format := fs.String("format", "md", "md | html | sarif | csv | summary | trend | dashboard | dashboard-html | consolidate | consolidate-html")
 	runsRoot := fs.String("runs-root", "results", "directory holding one sub-directory per run (dashboard format)")
 	out := fs.String("out", "", "output path (default DIR/report.md or docs/dashboard/data/index.json; \"-\" for stdout)")
 	if err := fs.Parse(args); err != nil {
@@ -70,8 +70,12 @@ func runReport(args []string, stdout, stderr io.Writer) int {
 		return reportDashboard(*runsRoot, *out, stdout, stderr)
 	case "dashboard-html":
 		return reportDashboardHTML(*runsRoot, *out, stdout, stderr)
+	case "consolidate":
+		return reportConsolidateCmd(*runsRoot, *out, "text", stdout, stderr)
+	case "consolidate-html":
+		return reportConsolidateCmd(*runsRoot, *out, "html", stdout, stderr)
 	}
-	fmt.Fprintf(stderr, "assay report: unknown --format %q (md | html | sarif | csv | summary | trend | dashboard | dashboard-html)\n", *format)
+	fmt.Fprintf(stderr, "assay report: unknown --format %q (md | html | sarif | csv | summary | trend | dashboard | dashboard-html | consolidate | consolidate-html)\n", *format)
 	return ExitError
 }
 
@@ -358,6 +362,58 @@ func reportDashboardHTML(runsRoot, out string, stdout, stderr io.Writer) int {
 	}
 	if out != "-" {
 		fmt.Fprintf(stdout, "report: dashboard-html rows=%d out=%s\n", len(runs), out)
+	}
+	return ExitPass
+}
+
+func reportConsolidateCmd(runsRoot, out, outputFmt string, stdout, stderr io.Writer) int {
+	entries, err := os.ReadDir(runsRoot)
+	if err != nil {
+		return fail(stderr, "report", err)
+	}
+	var runs []model.RunReport
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			names = append(names, e.Name())
+		}
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		p := filepath.Join(runsRoot, name, runJSON)
+		if !fileExists(p) {
+			continue
+		}
+		rr, err := readRunReport(p)
+		if err != nil {
+			return fail(stderr, "report", err)
+		}
+		runs = append(runs, rr)
+	}
+	if len(runs) == 0 {
+		fmt.Fprintln(stderr, "assay report: no runs found under "+runsRoot)
+		return ExitError
+	}
+	cr := report.Consolidate(runs)
+	var text string
+	switch outputFmt {
+	case "html":
+		text = report.FormatConsolidateHTML(cr)
+	default:
+		text = report.FormatConsolidateText(cr)
+	}
+	if out == "" {
+		if outputFmt == "html" {
+			out = "consolidate.html"
+		} else {
+			out = "-"
+		}
+	}
+	if err := writeText(out, text, stdout); err != nil {
+		return fail(stderr, "report", err)
+	}
+	if out != "-" {
+		fmt.Fprintf(stdout, "report: consolidate runs=%d trend=%s out=%s\n", cr.TotalRuns, cr.Trend, out)
 	}
 	return ExitPass
 }
