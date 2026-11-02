@@ -42,7 +42,7 @@ func init() {
 func runReport(args []string, stdout, stderr io.Writer) int {
 	fs := newFlagSet("assay report", stderr)
 	runDir := fs.String("run", "", "results directory for one run (required)")
-	format := fs.String("format", "md", "md | html | sarif | csv | summary | dashboard")
+	format := fs.String("format", "md", "md | html | sarif | csv | summary | dashboard | dashboard-html")
 	runsRoot := fs.String("runs-root", "results", "directory holding one sub-directory per run (dashboard format)")
 	out := fs.String("out", "", "output path (default DIR/report.md or docs/dashboard/data/index.json; \"-\" for stdout)")
 	if err := fs.Parse(args); err != nil {
@@ -66,8 +66,10 @@ func runReport(args []string, stdout, stderr io.Writer) int {
 		return reportSummaryCmd(*runDir, *out, stdout, stderr)
 	case "dashboard":
 		return reportDashboard(*runsRoot, *out, stdout, stderr)
+	case "dashboard-html":
+		return reportDashboardHTML(*runsRoot, *out, stdout, stderr)
 	}
-	fmt.Fprintf(stderr, "assay report: unknown --format %q (md | html | sarif | csv | summary | dashboard)\n", *format)
+	fmt.Fprintf(stderr, "assay report: unknown --format %q (md | html | sarif | csv | summary | dashboard | dashboard-html)\n", *format)
 	return ExitError
 }
 
@@ -277,6 +279,43 @@ func reportDashboard(runsRoot, out string, stdout, stderr io.Writer) int {
 		return fail(stderr, "report", err)
 	}
 	fmt.Fprintf(stdout, "report: dashboard rows=%d out=%s\n", len(runs), out)
+	return ExitPass
+}
+
+func reportDashboardHTML(runsRoot, out string, stdout, stderr io.Writer) int {
+	entries, err := os.ReadDir(runsRoot)
+	if err != nil {
+		return fail(stderr, "report", err)
+	}
+	var runs []model.RunReport
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			names = append(names, e.Name())
+		}
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		p := filepath.Join(runsRoot, name, runJSON)
+		if !fileExists(p) {
+			continue
+		}
+		rr, err := readRunReport(p)
+		if err != nil {
+			return fail(stderr, "report", err)
+		}
+		runs = append(runs, rr)
+	}
+	html := report.DashboardHTML(runs)
+	if out == "" {
+		out = "dashboard.html"
+	}
+	if err := writeText(out, html, stdout); err != nil {
+		return fail(stderr, "report", err)
+	}
+	if out != "-" {
+		fmt.Fprintf(stdout, "report: dashboard-html rows=%d out=%s\n", len(runs), out)
+	}
 	return ExitPass
 }
 
