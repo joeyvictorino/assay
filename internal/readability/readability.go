@@ -1,7 +1,6 @@
 package readability
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -14,172 +13,144 @@ import (
 type ReadabilityDetail struct {
 	AvgSentenceLen float64 `json:"avg_sentence_len"`
 	AvgWordLen     float64 `json:"avg_word_len"`
-	LongSentences  int     `json:"long_sentences"`
-	ShortSentences int     `json:"short_sentences"`
-	JargonCount    int     `json:"jargon_count"`
-	PassiveCount   int     `json:"passive_count"`
-	TransitionCues int     `json:"transition_cues"`
-	StructureCues  int     `json:"structure_cues"`
+	SyllableCount  int     `json:"syllable_count"`
+	WordCount      int     `json:"word_count"`
+	SentenceCount  int     `json:"sentence_count"`
+	ComplexWords   int     `json:"complex_words"`
+	FleschKincaid  float64 `json:"flesch_kincaid"`
+	GunningFog     float64 `json:"gunning_fog"`
 }
 
 type ModelReadability struct {
-	Model            string            `json:"model"`
-	ReadabilityScore float64           `json:"readability_score"`
-	Grade            string            `json:"grade"`
-	Detail           ReadabilityDetail `json:"detail"`
-	SampleCount      int               `json:"sample_count"`
-	LabCount         int               `json:"lab_count"`
-	PoorReadability  int               `json:"poor_readability"`
+	Model       string            `json:"model"`
+	Score       float64           `json:"score"`
+	Grade       string            `json:"grade"`
+	Detail      ReadabilityDetail `json:"detail"`
+	SampleCount int               `json:"sample_count"`
+	LabCount    int               `json:"lab_count"`
 }
 
 type Report struct {
-	Models       []ModelReadability `json:"models"`
-	MostReadable string             `json:"most_readable"`
-	LeastReadable string            `json:"least_readable"`
-	MeanScore    float64            `json:"mean_score"`
+	Models     []ModelReadability `json:"models"`
+	BestModel  string             `json:"best_model"`
+	WorstModel string             `json:"worst_model"`
+	MeanScore  float64            `json:"mean_score"`
 }
 
-var jargonPhrases = []string{
-	"synergy", "leverage", "paradigm", "utilize",
-	"operationalize", "ideation", "holistic",
-	"best-of-breed", "bleeding edge", "pivot",
-	"disruptive", "scalable", "actionable",
-	"deep dive", "thought leader", "circle back",
-	"move the needle", "low-hanging fruit",
-}
+func CountSyllables(word string) int {
+	word = strings.ToLower(word)
+	if len(word) <= 2 {
+		return 1
+	}
 
-var passivePhrases = []string{
-	"was done", "was made", "was created",
-	"was performed", "was completed", "was found",
-	"was given", "was taken", "was shown",
-	"were done", "were made", "were found",
-	"is considered", "is believed", "is assumed",
-	"has been", "have been", "had been",
-}
-
-var transitionPhrases = []string{
-	"however", "therefore", "moreover", "furthermore",
-	"in addition", "consequently", "nevertheless",
-	"on the other hand", "in contrast", "similarly",
-	"for example", "in particular", "specifically",
-	"as a result", "in conclusion", "to summarize",
-}
-
-var structurePhrases = []string{
-	"first", "second", "third", "finally",
-	"step 1", "step 2", "step 3",
-	"in summary", "to begin", "next",
-	"the following", "as follows", "below",
-	"above", "previously mentioned",
-}
-
-func countPhrases(text string, phrases []string) int {
-	lower := strings.ToLower(text)
+	vowels := "aeiouy"
 	count := 0
-	for _, p := range phrases {
-		count += strings.Count(lower, p)
+	prevVowel := false
+
+	for _, ch := range word {
+		isVowel := strings.ContainsRune(vowels, ch)
+		if isVowel && !prevVowel {
+			count++
+		}
+		prevVowel = isVowel
+	}
+
+	if strings.HasSuffix(word, "e") && count > 1 {
+		count--
+	}
+	if strings.HasSuffix(word, "le") && len(word) > 3 && !strings.ContainsRune(vowels, rune(word[len(word)-3])) {
+		count++
+	}
+
+	if count == 0 {
+		count = 1
 	}
 	return count
 }
 
-func splitSentences(text string) []string {
-	var sentences []string
-	current := strings.Builder{}
+func ExtractWords(text string) []string {
+	var words []string
+	for _, w := range strings.Fields(text) {
+		cleaned := strings.TrimFunc(w, func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+		})
+		if cleaned != "" {
+			words = append(words, cleaned)
+		}
+	}
+	return words
+}
+
+func CountSentences(text string) int {
+	count := 0
 	for _, r := range text {
-		current.WriteRune(r)
 		if r == '.' || r == '!' || r == '?' {
-			s := strings.TrimSpace(current.String())
-			if len(s) > 2 {
-				sentences = append(sentences, s)
-			}
-			current.Reset()
+			count++
 		}
 	}
-	if s := strings.TrimSpace(current.String()); len(s) > 2 {
-		sentences = append(sentences, s)
+	if count == 0 && len(strings.TrimSpace(text)) > 0 {
+		count = 1
 	}
-	return sentences
+	return count
 }
 
-func avgWordLength(text string) float64 {
-	words := strings.Fields(text)
-	if len(words) == 0 {
-		return 0
+func AnalyzeText(text string) (float64, ReadabilityDetail) {
+	words := ExtractWords(text)
+	wordCount := len(words)
+	sentenceCount := CountSentences(text)
+
+	if wordCount == 0 {
+		return 50.0, ReadabilityDetail{}
 	}
-	total := 0
+	if sentenceCount == 0 {
+		sentenceCount = 1
+	}
+
+	totalSyllables := 0
+	totalWordLen := 0
+	complexWords := 0
+
 	for _, w := range words {
-		for _, r := range w {
-			if unicode.IsLetter(r) {
-				total++
-			}
+		syl := CountSyllables(w)
+		totalSyllables += syl
+		totalWordLen += len(w)
+		if syl >= 3 {
+			complexWords++
 		}
 	}
-	return float64(total) / float64(len(words))
-}
 
-func scoreResponse(text string) (float64, ReadabilityDetail) {
-	sentences := splitSentences(text)
-	words := strings.Fields(text)
-	jargon := countPhrases(text, jargonPhrases)
-	passive := countPhrases(text, passivePhrases)
-	transitions := countPhrases(text, transitionPhrases)
-	structure := countPhrases(text, structurePhrases)
+	avgSentLen := float64(wordCount) / float64(sentenceCount)
+	avgWordLen := float64(totalWordLen) / float64(wordCount)
+	avgSyllPerWord := float64(totalSyllables) / float64(wordCount)
 
-	var avgSentLen float64
-	longSent := 0
-	shortSent := 0
-	if len(sentences) > 0 {
-		totalWords := 0
-		for _, s := range sentences {
-			wc := len(strings.Fields(s))
-			totalWords += wc
-			if wc > 30 {
-				longSent++
-			}
-			if wc < 5 {
-				shortSent++
-			}
-		}
-		avgSentLen = float64(totalWords) / float64(len(sentences))
+	fleschKincaid := 0.39*avgSentLen + 11.8*avgSyllPerWord - 15.59
+	if fleschKincaid < 0 {
+		fleschKincaid = 0
 	}
 
-	detail := ReadabilityDetail{
-		AvgSentenceLen: math.Round(avgSentLen*10) / 10,
-		AvgWordLen:     math.Round(avgWordLength(text)*10) / 10,
-		LongSentences:  longSent,
-		ShortSentences: shortSent,
-		JargonCount:    jargon,
-		PassiveCount:   passive,
-		TransitionCues: transitions,
-		StructureCues:  structure,
+	complexRatio := float64(complexWords) / float64(wordCount)
+	gunningFog := 0.4 * (avgSentLen + 100*complexRatio)
+	if gunningFog < 0 {
+		gunningFog = 0
 	}
 
-	if len(words) == 0 {
-		return 100, detail
-	}
-
-	score := 80.0
-
-	if avgSentLen > 25 {
-		score -= (avgSentLen - 25) * 0.5
-	}
-	if avgSentLen > 0 && avgSentLen < 8 {
-		score -= (8 - avgSentLen) * 0.3
-	}
-
-	jargonPenalty := float64(jargon) * 2.0
-	passivePenalty := float64(passive) * 1.5
-	score -= jargonPenalty + passivePenalty
-
-	transitionBonus := float64(transitions) * 2.0
-	structureBonus := float64(structure) * 1.5
-	score += transitionBonus + structureBonus
-
+	score := 100.0 - (fleschKincaid-4.0)*6.0
 	if score > 100 {
 		score = 100
 	}
 	if score < 0 {
 		score = 0
+	}
+
+	detail := ReadabilityDetail{
+		AvgSentenceLen: math.Round(avgSentLen*10) / 10,
+		AvgWordLen:     math.Round(avgWordLen*10) / 10,
+		SyllableCount:  totalSyllables,
+		WordCount:      wordCount,
+		SentenceCount:  sentenceCount,
+		ComplexWords:   complexWords,
+		FleschKincaid:  math.Round(fleschKincaid*10) / 10,
+		GunningFog:     math.Round(gunningFog*10) / 10,
 	}
 
 	return math.Round(score*10) / 10, detail
@@ -217,57 +188,53 @@ func Analyze(findings []model.Finding) Report {
 	var models []ModelReadability
 	for mn, entries := range modelEntries {
 		var totalScore float64
-		var totalDetail ReadabilityDetail
-		poorReadability := 0
-
+		var aggDetail ReadabilityDetail
 		labs := map[string]bool{}
+
 		for _, e := range entries {
 			labs[e.Lab] = true
-			score, detail := scoreResponse(e.Summary)
+			score, detail := AnalyzeText(e.Summary)
 			totalScore += score
-			totalDetail.AvgSentenceLen += detail.AvgSentenceLen
-			totalDetail.AvgWordLen += detail.AvgWordLen
-			totalDetail.LongSentences += detail.LongSentences
-			totalDetail.ShortSentences += detail.ShortSentences
-			totalDetail.JargonCount += detail.JargonCount
-			totalDetail.PassiveCount += detail.PassiveCount
-			totalDetail.TransitionCues += detail.TransitionCues
-			totalDetail.StructureCues += detail.StructureCues
-
-			if score < 50 {
-				poorReadability++
-			}
+			aggDetail.SyllableCount += detail.SyllableCount
+			aggDetail.WordCount += detail.WordCount
+			aggDetail.SentenceCount += detail.SentenceCount
+			aggDetail.ComplexWords += detail.ComplexWords
+			aggDetail.FleschKincaid += detail.FleschKincaid
+			aggDetail.GunningFog += detail.GunningFog
+			aggDetail.AvgSentenceLen += detail.AvgSentenceLen
+			aggDetail.AvgWordLen += detail.AvgWordLen
 		}
 
 		n := float64(len(entries))
 		avgScore := totalScore / n
-		totalDetail.AvgSentenceLen = math.Round(totalDetail.AvgSentenceLen/n*10) / 10
-		totalDetail.AvgWordLen = math.Round(totalDetail.AvgWordLen/n*10) / 10
+		aggDetail.FleschKincaid = math.Round(aggDetail.FleschKincaid/n*10) / 10
+		aggDetail.GunningFog = math.Round(aggDetail.GunningFog/n*10) / 10
+		aggDetail.AvgSentenceLen = math.Round(aggDetail.AvgSentenceLen/n*10) / 10
+		aggDetail.AvgWordLen = math.Round(aggDetail.AvgWordLen/n*10) / 10
 
 		models = append(models, ModelReadability{
-			Model:            mn,
-			ReadabilityScore: math.Round(avgScore*10) / 10,
-			Grade:            scoreToGrade(avgScore),
-			Detail:           totalDetail,
-			SampleCount:      len(entries),
-			LabCount:         len(labs),
-			PoorReadability:  poorReadability,
+			Model:       mn,
+			Score:       math.Round(avgScore*10) / 10,
+			Grade:       scoreToGrade(avgScore),
+			Detail:      aggDetail,
+			SampleCount: len(entries),
+			LabCount:    len(labs),
 		})
 	}
 
 	sort.Slice(models, func(i, j int) bool {
-		return models[i].ReadabilityScore > models[j].ReadabilityScore
+		return models[i].Score > models[j].Score
 	})
 
 	var sumScore float64
 	for _, m := range models {
-		sumScore += m.ReadabilityScore
+		sumScore += m.Score
 	}
 
 	r := Report{Models: models}
 	if len(models) > 0 {
-		r.MostReadable = models[0].Model
-		r.LeastReadable = models[len(models)-1].Model
+		r.BestModel = models[0].Model
+		r.WorstModel = models[len(models)-1].Model
 		r.MeanScore = math.Round(sumScore/float64(len(models))*10) / 10
 	}
 	return r
@@ -275,7 +242,7 @@ func Analyze(findings []model.Finding) Report {
 
 func FormatText(r Report) string {
 	var b strings.Builder
-	b.WriteString("Readability Analysis\n")
+	b.WriteString("Response Readability Analysis\n")
 	b.WriteString(strings.Repeat("=", 50) + "\n\n")
 
 	if len(r.Models) == 0 {
@@ -283,29 +250,19 @@ func FormatText(r Report) string {
 		return b.String()
 	}
 
-	fmt.Fprintf(&b, "  Models evaluated:     %d\n", len(r.Models))
-	fmt.Fprintf(&b, "  Mean score:           %.1f\n", r.MeanScore)
-	fmt.Fprintf(&b, "  Most readable:        %s\n", r.MostReadable)
-	fmt.Fprintf(&b, "  Least readable:       %s\n\n", r.LeastReadable)
-
 	for _, m := range r.Models {
-		fmt.Fprintf(&b, "  Model: %s  [%s] %.1f/100  (%d samples, %d labs)\n",
-			m.Model, m.Grade, m.ReadabilityScore, m.SampleCount, m.LabCount)
-		fmt.Fprintf(&b, "    %-28s %.1f\n", "avg_sentence_len", m.Detail.AvgSentenceLen)
-		fmt.Fprintf(&b, "    %-28s %.1f\n", "avg_word_len", m.Detail.AvgWordLen)
-		fmt.Fprintf(&b, "    %-28s %d\n", "long_sentences", m.Detail.LongSentences)
-		fmt.Fprintf(&b, "    %-28s %d\n", "jargon_count", m.Detail.JargonCount)
-		fmt.Fprintf(&b, "    %-28s %d\n", "passive_count", m.Detail.PassiveCount)
-		fmt.Fprintf(&b, "    %-28s %d\n", "transition_cues", m.Detail.TransitionCues)
-		fmt.Fprintf(&b, "    %-28s %d\n", "structure_cues", m.Detail.StructureCues)
-		fmt.Fprintf(&b, "    Poor readability: %d\n", m.PoorReadability)
-		b.WriteString("\n")
+		fmt.Fprintf(&b, "  Model: %s\n", m.Model)
+		fmt.Fprintf(&b, "    Score: %.1f  Grade: %s\n", m.Score, m.Grade)
+		fmt.Fprintf(&b, "    Flesch-Kincaid: %.1f  Gunning Fog: %.1f\n",
+			m.Detail.FleschKincaid, m.Detail.GunningFog)
+		fmt.Fprintf(&b, "    Avg Sentence: %.1f words  Avg Word: %.1f chars\n",
+			m.Detail.AvgSentenceLen, m.Detail.AvgWordLen)
+		fmt.Fprintf(&b, "    Complex Words: %d  Samples: %d  Labs: %d\n\n",
+			m.Detail.ComplexWords, m.SampleCount, m.LabCount)
 	}
 
-	return b.String()
-}
+	fmt.Fprintf(&b, "  Best: %s  Worst: %s  Mean: %.1f\n",
+		r.BestModel, r.WorstModel, r.MeanScore)
 
-func FormatJSON(r Report) string {
-	data, _ := json.MarshalIndent(r, "", "  ")
-	return string(data) + "\n"
+	return b.String()
 }
