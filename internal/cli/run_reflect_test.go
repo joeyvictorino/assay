@@ -109,11 +109,13 @@ func TestLowScoreTriggersOneRevisionThenPasses(t *testing.T) {
 
 func TestRevisionsAreCappedAtTwo(t *testing.T) {
 	f := newPipelineFixture(t, "NOT-A-SECRET-LAB-MARKER")
+	// Every revision adds a finding, so each one is rescored (ADR 0019 stops
+	// only a revision that changes nothing) and the cap of two is what ends it.
 	rr := f.runWithScript(t, func(string) []fake.Step {
 		return []fake.Step{
 			fake.Text("done"),
-			scoreStep("s1", 3), fake.Text("scored"), fake.Text("done"),
-			scoreStep("s2", 3), fake.Text("scored"), fake.Text("done"),
+			scoreStep("s1", 3), fake.Text("scored"), reportStep("r1", "security-headers", "/"), fake.Text("done"),
+			scoreStep("s2", 3), fake.Text("scored"), reportStep("r2", "verbose-error", "/api/boom"), fake.Text("done"),
 			scoreStep("s3", 3), fake.Text("scored"),
 		}
 	})
@@ -161,7 +163,7 @@ func TestScoreErrorAfterARevisionIsNotCalledARevisionFailure(t *testing.T) {
 		return []fake.Step{
 			fake.Text("done"),
 			scoreStep("s1", 3), fake.Text("scored"),
-			fake.Text("revised"),                     // the revision succeeds
+			reportStep("r1", "security-headers", "/"), fake.Text("revised"), // the revision adds a finding
 			fake.Text("I could not decide a score."), // the second score turn reports nothing
 		}
 	})

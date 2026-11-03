@@ -11,7 +11,9 @@ reproduces it against the live target, twice. It measures how little the
 models' findings overlap, chains validated findings into attack paths,
 generates remediations, and records every model call, tool call and decision
 in an AES-256-GCM, hash-chained audit log with zero transcript retention by
-default. Design decisions are recorded in 17 ADRs (`docs/adr`).
+default. Run configs can assign different prompt variants to each model
+(diversity by prompt, ADR 0020), so ensemble members approach the target from
+different angles. Design decisions are recorded in 20 ADRs (`docs/adr`).
 
 Why it exists: organizations are pointing frontier models at their own
 systems, and two things follow. The models disagree with each other about
@@ -137,6 +139,83 @@ go build -o assay ./cmd/assay
 policy and a signed scope document. `scope/ci.yaml` is signed with the key in
 `trust/keys`; to point it at other targets, sign your own with `assay scope sign`.
 
+## Policy commands
+
+The policy engine uses a deny-wins evaluation with a fixed check order.
+`assay policy` has seven subcommands for working with policy files:
+
+```
+assay policy eval --policy FILE --tool NAME --manifests DIR --agent AGENT
+                  [--trust DIR | --assume-signed] [--lab L] [--depth N]
+                  [--ancestors a,b] [--spent USD]
+```
+
+Evaluates the policy for a single tool request and prints the decision.
+
+```
+assay policy lint --policy FILE --manifests DIR
+```
+
+Checks for unreachable rules, unknown tool or agent references, shadowed allow
+rules, and dangerous-combination issues. Exit 0 when clean, 1 when issues are
+found, 2 on error.
+
+```
+assay policy test --policy FILE --manifests DIR --scenarios FILE
+```
+
+Batch-tests a YAML file of scenarios against the policy. Each scenario names an
+agent, a tool and the expected decision. Exit 0 when all pass, 1 on failures.
+
+```
+assay policy coverage --policy FILE --manifests DIR
+```
+
+Reports rule coverage over the agent x tool matrix: which pairs have an explicit
+rule match versus falling through to `default_effect`. Exit 0 for full coverage,
+1 when gaps exist.
+
+```
+assay policy simulate --policy FILE --manifests DIR [--agent A] [--tool T]
+```
+
+Evaluates every agent x tool pair (or a filtered subset) and prints the full
+decision matrix.
+
+```
+assay policy diff --before FILE --after FILE [--format json|text]
+```
+
+Compares two policy files and reports added, removed and changed rules, agent
+boundary changes, dangerous-combination changes and default-effect changes.
+Exit 0 when identical, 1 when different.
+
+```
+assay policy merge --policies FILE[,FILE,...] [--out FILE] [--format yaml|json]
+```
+
+Merges multiple policy files. Later files override earlier ones: rules append,
+agents merge by name, dangerous combinations union, and `default_effect` takes
+the last non-empty value.
+
+## Report formats
+
+```
+assay report --run DIR [--format md|html|sarif|csv|summary|trend|dashboard|dashboard-html]
+             [--runs-root results/] [--out FILE]
+```
+
+| Format | Description |
+|--------|-------------|
+| `md` (default) | Markdown report from one run's results |
+| `html` | Self-contained HTML report |
+| `sarif` | SARIF v2.1.0 JSON for GitHub Code Scanning (`github/codeql-action/upload-sarif`) |
+| `csv` | Findings as CSV for spreadsheet analysis |
+| `summary` | Compact JSON summary of one run |
+| `trend` | Cross-run trend analysis from `--runs-root` |
+| `dashboard` | JSON index for the static dashboard from `--runs-root` |
+| `dashboard-html` | Self-contained HTML dashboard with run statistics |
+
 ## Results
 
 Every committed run lives under `results/<run-id>/` with the CI run that
@@ -158,10 +237,14 @@ said about its findings and its recall where a lab has complete ground truth.
   non-destructive and needs two consistent observations.
 - **Theorized only:** any finding whose class has no checker (`other`), and any
   finding a checker could not confirm.
-- **Self-reflection:** each model scores its own report and revises when the
-  score is below 7, at most twice (ADR 0017). The score gates revision only,
-  and a model grading itself is a biased judge; the scores are recorded so
-  that bias can be measured once runs with several real models exist.
+- **Self-reflection and peer review:** a reviewer scores each report and the
+  model revises when the score is below 7, at most twice, stopping early when a
+  revision adds nothing (ADR 0017, ADR 0019). The reviewer is the model itself
+  by default or, with `reflection: { reviewer: peer }` in the run config,
+  another model of the run (ADR 0018). The score gates revision only, and a
+  model grading itself is a biased judge; every score is recorded next to what
+  the checkers then said about the same findings, so the bias can be measured
+  once runs with several real models exist.
 - **Shown with small local models only:** a three-model overlap result and
   per-model precision and recall (`results/README.md`).
 - **Not yet shown:** an overlap result or precision and recall for frontier

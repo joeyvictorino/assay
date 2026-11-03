@@ -205,6 +205,81 @@ func TestReportMarkdownCommand(t *testing.T) {
 	}
 }
 
+func TestReportCSVCommand(t *testing.T) {
+	dir := t.TempDir()
+	runDir := filepath.Join(dir, "20261007-r1")
+	writeJSONFile(t, runDir, "run.json", sampleRunReport("r1", time.Date(2026, 10, 7, 0, 0, 0, 0, time.UTC)))
+	writeJSONFile(t, runDir, "findings.redacted.json", []model.Finding{
+		{ID: "f1", DedupKey: "k1", Class: "sqli", Severity: "high", State: model.StateValidated,
+			Location: model.Location{Method: "POST", PathTemplate: "/login"}, Lab: "dvwa",
+			Model: model.ModelRef{Model: "fake-model"}, Summary: "SQL injection",
+			Reconcile: model.ReconcileStatus{Checked: true, Match: true},
+			FirstSeen: time.Date(2026, 10, 7, 0, 0, 0, 0, time.UTC)},
+	})
+
+	code, stdout, stderr := runS4(t, "report", "--run", runDir, "--format", "csv")
+	if code != ExitPass {
+		t.Fatalf("code=%d out=%q err=%q", code, stdout, stderr)
+	}
+	csvPath := filepath.Join(runDir, "findings.csv")
+	b, err := os.ReadFile(csvPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	csv := string(b)
+	if !strings.Contains(csv, "id,class,severity") {
+		t.Error("CSV should contain header")
+	}
+	if !strings.Contains(csv, "f1,sqli,high,validated") {
+		t.Error("CSV should contain finding row")
+	}
+
+	// stdout mode
+	code, stdout, _ = runS4(t, "report", "--run", runDir, "--format", "csv", "--out", "-")
+	if code != ExitPass || !strings.Contains(stdout, "f1,sqli") {
+		t.Fatalf("csv stdout: code=%d", code)
+	}
+}
+
+func TestReportSummaryCommand(t *testing.T) {
+	dir := t.TempDir()
+	runDir := filepath.Join(dir, "20261007-r1")
+	writeJSONFile(t, runDir, "run.json", sampleRunReport("r1", time.Date(2026, 10, 7, 0, 0, 0, 0, time.UTC)))
+	writeJSONFile(t, runDir, "findings.redacted.json", []model.Finding{
+		{ID: "f1", DedupKey: "k1", Class: "sqli", Severity: "high", State: model.StateValidated,
+			Model: model.ModelRef{Model: "fake-model"}, Summary: "SQL injection"},
+	})
+	writeJSONFile(t, runDir, "reconcile.json", reconcile.Report{Checked: 2, Mismatches: []reconcile.Mismatch{}, ReasonCounts: map[string]int{}})
+
+	code, stdout, stderr := runS4(t, "report", "--run", runDir, "--format", "summary")
+	if code != ExitPass {
+		t.Fatalf("code=%d out=%q err=%q", code, stdout, stderr)
+	}
+	b, err := os.ReadFile(filepath.Join(runDir, "summary.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var s map[string]any
+	if err := json.Unmarshal(b, &s); err != nil {
+		t.Fatal(err)
+	}
+	if s["run_id"] != "r1" {
+		t.Errorf("run_id = %v", s["run_id"])
+	}
+	if s["total_findings"].(float64) != 1 {
+		t.Errorf("total_findings = %v", s["total_findings"])
+	}
+	if s["verdict"] != "PASS" {
+		t.Errorf("verdict = %v", s["verdict"])
+	}
+
+	// stdout mode
+	code, stdout, _ = runS4(t, "report", "--run", runDir, "--format", "summary", "--out", "-")
+	if code != ExitPass || !strings.Contains(stdout, `"run_id"`) {
+		t.Fatalf("summary stdout: code=%d stdout=%q", code, stdout)
+	}
+}
+
 func TestReportDashboardCommand(t *testing.T) {
 	root := t.TempDir()
 	writeJSONFile(t, filepath.Join(root, "20261001-a"), "run.json", sampleRunReport("a", time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)))

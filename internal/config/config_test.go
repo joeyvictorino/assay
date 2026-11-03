@@ -104,6 +104,14 @@ func TestValidateRejects(t *testing.T) {
 		{"unknown field", func(s string) string { return s + "surprise: 1\n" }, "yaml"},
 		{"negative failovers", func(s string) string { return strings.Replace(s, "max_failovers: 1", "max_failovers: -2", 1) }, "max_failovers"},
 		{"negative cost", func(s string) string { return strings.Replace(s, "input_usd: 1,", "input_usd: -1,", 1) }, "negative price"},
+		{"unknown reviewer", func(s string) string { return s + "reflection: {reviewer: judge}\n" }, "unknown reviewer"},
+		{"model names undefined prompt", func(s string) string {
+			return strings.Replace(s, "model: claude-sonnet-5-5}", "model: claude-sonnet-5-5, prompt: auth-focus}", 1)
+		}, "no prompts are defined"},
+		{"model names unknown prompt", func(s string) string {
+			return strings.Replace(s, "model: claude-sonnet-5-5}", "model: claude-sonnet-5-5, prompt: auth-focus}", 1) +
+				"prompts:\n  injection-focus: test\n"
+		}, "unknown prompt"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -235,5 +243,72 @@ func TestBuildRegistry(t *testing.T) {
 	}
 	if p, _ := reg.Get("anthropic"); p.Name() != "scripted" {
 		t.Fatalf("override ignored: %s", p.Name())
+	}
+}
+
+func TestReflectionReviewer(t *testing.T) {
+	c, err := Parse([]byte(good))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Reflection.ReviewerKind() != ReviewerSelf {
+		t.Fatalf("default reviewer = %q, want self", c.Reflection.ReviewerKind())
+	}
+	// Peer: the first other model in list order, so the choice follows the file.
+	peer, ok := c.PeerOf(model.ModelRef{Provider: "anthropic", Model: "claude-sonnet-5-5"})
+	if !ok || peer.Provider != "llama" || peer.Model != "local-8b" {
+		t.Fatalf("peer of sonnet = %+v %v", peer, ok)
+	}
+	peer, ok = c.PeerOf(model.ModelRef{Provider: "llama", Model: "local-8b"})
+	if !ok || peer.Provider != "anthropic" || peer.Model != "claude-sonnet-5-5" {
+		t.Fatalf("peer of local = %+v %v", peer, ok)
+	}
+	c, err = Parse([]byte(good + "reflection: {reviewer: peer}\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Reflection.ReviewerKind() != ReviewerPeer {
+		t.Fatalf("reviewer = %q, want peer", c.Reflection.ReviewerKind())
+	}
+}
+
+func TestPromptVariants(t *testing.T) {
+	yaml := good + `prompts:
+  auth-focus: "Focus on authentication and session management weaknesses."
+  injection-focus: "Focus on injection attacks: SQL, XSS, command injection."
+`
+	yaml = strings.Replace(yaml, "model: claude-sonnet-5-5}", "model: claude-sonnet-5-5, prompt: auth-focus}", 1)
+	yaml = strings.Replace(yaml, "model: local-8b,", "model: local-8b, prompt: injection-focus,", 1)
+	c, err := Parse([]byte(yaml))
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, text := c.PromptFor(model.ModelRef{Provider: "anthropic", Model: "claude-sonnet-5-5"})
+	if name != "auth-focus" || !strings.Contains(text, "authentication") {
+		t.Fatalf("sonnet prompt = %q %q", name, text)
+	}
+	name, text = c.PromptFor(model.ModelRef{Provider: "llama", Model: "local-8b"})
+	if name != "injection-focus" || !strings.Contains(text, "injection") {
+		t.Fatalf("local prompt = %q %q", name, text)
+	}
+	name, text = c.PromptFor(model.ModelRef{Provider: "fake", Model: "fake-model"})
+	if name != "" || text != "" {
+		t.Fatalf("fake prompt = %q %q, want empty", name, text)
+	}
+}
+
+func TestSingleModelNoPeer(t *testing.T) {
+	single := strings.NewReplacer(
+		"  - {provider: llama, model: local-8b, max_latency_ms: 600000}\n", "",
+		"  - {provider: fake, model: fake-model}\n", "",
+		"{provider: anthropic, model: claude-sonnet-5-5}, {provider: llama, model: local-8b}", "{provider: anthropic, model: claude-sonnet-5-5}",
+		"  score:     [{provider: fake, model: fake-model}]", "  score:     [{provider: anthropic, model: claude-sonnet-5-5}]",
+	).Replace(good)
+	c, err := Parse([]byte(single))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := c.PeerOf(model.ModelRef{Provider: "anthropic", Model: "claude-sonnet-5-5"}); ok {
+		t.Fatal("single-model config reported a peer")
 	}
 }

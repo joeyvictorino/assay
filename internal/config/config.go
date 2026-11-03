@@ -46,6 +46,7 @@ type ModelConfig struct {
 	Provider     string `yaml:"provider"`
 	Model        string `yaml:"model"`
 	MaxLatencyMS int64  `yaml:"max_latency_ms,omitempty"`
+	Prompt       string `yaml:"prompt,omitempty"` // names a key in Config.Prompts
 }
 
 // RouteRef is one ordered candidate for a task kind.
@@ -78,6 +79,31 @@ type AgentConfig struct {
 	MaxTokens int `yaml:"max_tokens"`
 }
 
+// Reviewer kinds a run config may name under reflection.reviewer.
+const (
+	// ReviewerSelf has each model score its own report (ADR 0017).
+	ReviewerSelf = model.ReviewerSelf
+	// ReviewerPeer has another model of the run score the report; with a
+	// single model the run falls back to self and records it (ADR 0018).
+	ReviewerPeer = model.ReviewerPeer
+)
+
+// ReviewerKinds lists the accepted values in a stable order.
+var ReviewerKinds = []string{ReviewerSelf, ReviewerPeer}
+
+// ReflectionConfig chooses who scores a model's report. Empty means self.
+type ReflectionConfig struct {
+	Reviewer string `yaml:"reviewer,omitempty"`
+}
+
+// ReviewerKind returns the configured reviewer kind, self when unset.
+func (r ReflectionConfig) ReviewerKind() string {
+	if r.Reviewer == "" {
+		return ReviewerSelf
+	}
+	return r.Reviewer
+}
+
 // Config is the whole run configuration.
 type Config struct {
 	Name         string                    `yaml:"name"`
@@ -90,6 +116,8 @@ type Config struct {
 	CostPerMTok  map[string]provider.Cost  `yaml:"cost_per_mtok"`
 	MaxFailovers int                       `yaml:"max_failovers"`
 	Agent        AgentConfig               `yaml:"agent"`
+	Reflection   ReflectionConfig          `yaml:"reflection,omitempty"`
+	Prompts      map[string]string         `yaml:"prompts,omitempty"` // variant name -> system prompt text (ADR 0020)
 }
 
 // Load reads and validates a YAML file.
@@ -212,7 +240,45 @@ func (c *Config) Validate() error {
 	if c.Agent.MaxTurns < 0 || c.Agent.MaxTokens < 0 {
 		return invalid("agent: max_turns and max_tokens must not be negative")
 	}
+	if r := c.Reflection.Reviewer; r != "" && !contains(ReviewerKinds, r) {
+		return invalid("reflection: unknown reviewer %q (want one of %s)", r, strings.Join(ReviewerKinds, ", "))
+	}
+	for _, m := range c.Models {
+		if m.Prompt != "" && len(c.Prompts) == 0 {
+			return invalid("models: model %q names prompt %q but no prompts are defined", m.Model, m.Prompt)
+		}
+		if m.Prompt != "" {
+			if _, ok := c.Prompts[m.Prompt]; !ok {
+				return invalid("models: model %q names unknown prompt %q", m.Model, m.Prompt)
+			}
+		}
+	}
 	return nil
+}
+
+// PeerOf returns the first model in the models list other than ref, in
+// list order, and whether one exists. It is the reviewer a peer-reviewed
+// run uses for ref's report (ADR 0018): list order keeps the choice a pure
+// function of the config, so a run is reproducible from its file alone.
+func (c *Config) PeerOf(ref model.ModelRef) (model.ModelRef, bool) {
+	for _, m := range c.Models {
+		if m.Provider == ref.Provider && m.Model == ref.Model {
+			continue
+		}
+		return model.ModelRef{Provider: m.Provider, Model: m.Model}, true
+	}
+	return model.ModelRef{}, false
+}
+
+// PromptFor returns the prompt variant name and text assigned to ref, or
+// empty strings when ref uses the default system prompt (ADR 0020).
+func (c *Config) PromptFor(ref model.ModelRef) (name, text string) {
+	for _, m := range c.Models {
+		if m.Provider == ref.Provider && m.Model == ref.Model && m.Prompt != "" {
+			return m.Prompt, c.Prompts[m.Prompt]
+		}
+	}
+	return "", ""
 }
 
 func contains(list []string, s string) bool {

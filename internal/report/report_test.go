@@ -15,6 +15,7 @@ var sectionOrder = []string{
 	"## Scope statement",
 	"## Corpus",
 	"## Findings",
+	"## Attack paths",
 	"## Overlap",
 	"## Evaluation",
 	"## Reconciliation",
@@ -214,15 +215,18 @@ func rows2run() []model.RunReport { return []model.RunReport{sampleRun()} }
 func TestMarkdownSelfReflectionTable(t *testing.T) {
 	rr := sampleRun()
 	rr.Reflection = []model.ReflectionResult{
-		{Lab: "lab-a", Model: "m1", Scored: true, Scores: []int{4, 9}, Revisions: 1, Final: 9, Passed: true},
-		{Lab: "lab-b", Model: "m1", Scored: false, Note: "the model did not report a score"},
+		{Lab: "lab-a", Model: "m1", ReviewerKind: model.ReviewerSelf, Reviewer: "m1", Scored: true, Scores: []int{4, 9}, Revisions: 1, Final: 9, Passed: true, Validated: 1, Refuted: 1, Theorized: 2},
+		{Lab: "lab-b", Model: "m1", ReviewerKind: model.ReviewerPeer, Reviewer: "m2", Scored: false, Note: "the model did not report a score"},
+		{Lab: "lab-c", Model: "m1"}, // a record from before reviewers were named
 	}
 	md := Markdown(rr, nil, nil)
 	for _, want := range []string{
 		"### Self-reflection",
-		"| lab-a | m1 | 4, 9 | 1 | 9 | true |",
-		"| lab-b | m1 | - | 0 | - | false | the model did not report a score |",
+		"| lab-a | m1 | - | self | 4, 9 | 1 | 9 | true | 1 | 1 | 2 |",
+		"| lab-b | m1 | - | peer: m2 | - | 0 | - | false | 0 | 0 | 0 | the model did not report a score |",
+		"| lab-c | m1 | - | - | - | 0 | - | false | 0 | 0 | 0 |",
 		"The score gates revision only",
+		"what the checkers then said",
 	} {
 		if !strings.Contains(md, want) {
 			t.Errorf("report lacks %q:\n%s", want, md)
@@ -237,5 +241,127 @@ func TestMarkdownSelfReflectionTable(t *testing.T) {
 	rr.Reflection = nil
 	if strings.Contains(Markdown(rr, nil, nil), "### Self-reflection") {
 		t.Error("table printed for a run with no reflection")
+	}
+}
+
+func TestMarkdownAttackPathsEmpty(t *testing.T) {
+	rr := sampleRun()
+	md := Markdown(rr, nil, nil)
+	if !strings.Contains(md, "No attack paths derived") {
+		t.Fatal("empty attack-path section should show fallback text")
+	}
+	if strings.Contains(md, "```mermaid") {
+		t.Fatal("mermaid block should not appear with no paths")
+	}
+}
+
+func TestMarkdownAttackPathsPresent(t *testing.T) {
+	rr := sampleRun()
+	findings := []model.Finding{
+		{ID: "f1", Class: "default-creds", State: model.StateValidated, Lab: "lab-a", Model: model.ModelRef{Model: "m-a"}, Location: model.Location{Method: "POST", PathTemplate: "/login"}},
+		{ID: "f2", Class: "idor", State: model.StateTheorized, Lab: "lab-a", Model: model.ModelRef{Model: "m-a"}, Location: model.Location{Method: "GET", PathTemplate: "/api/users/{id}"}},
+	}
+	md := Markdown(rr, findings, nil)
+	for _, want := range []string{
+		"## Attack paths",
+		"path(s) derived from",
+		"| Path | Lab | Objective | Confidence | Steps |",
+		"account-takeover",
+		"```mermaid",
+		"flowchart LR",
+	} {
+		if !strings.Contains(md, want) {
+			t.Fatalf("missing %q in attack paths section", want)
+		}
+	}
+	if strings.Contains(md, "No attack paths derived") {
+		t.Fatal("fallback text should not appear when paths exist")
+	}
+}
+
+func TestWeightedScoreEqualWeights(t *testing.T) {
+	findings := []model.Finding{
+		{State: model.StateValidated, Class: model.ClassSQLi, Severity: model.SevHigh},
+		{State: model.StateTheorized, Class: model.ClassXSSReflected, Severity: model.SevMedium},
+		{State: model.StateRefuted, Class: model.ClassIDOR, Severity: model.SevCritical},
+	}
+	got := WeightedScore(findings, nil)
+	want := (3.0 + 2.0) / 2.0
+	if got != want {
+		t.Fatalf("WeightedScore = %f, want %f", got, want)
+	}
+}
+
+func TestWeightedScoreCustomWeights(t *testing.T) {
+	findings := []model.Finding{
+		{State: model.StateValidated, Class: model.ClassSQLi, Severity: model.SevHigh},
+		{State: model.StateTheorized, Class: model.ClassInfoDisclosure, Severity: model.SevLow},
+	}
+	weights := map[string]float64{
+		string(model.ClassSQLi): 3.0,
+	}
+	got := WeightedScore(findings, weights)
+	want := (3.0*3.0 + 1.0*1.0) / (3.0 + 1.0)
+	if got != want {
+		t.Fatalf("WeightedScore = %f, want %f", got, want)
+	}
+}
+
+func TestWeightedScoreZeroWeight(t *testing.T) {
+	findings := []model.Finding{
+		{State: model.StateValidated, Class: model.ClassSQLi, Severity: model.SevHigh},
+		{State: model.StateTheorized, Class: model.ClassInfoDisclosure, Severity: model.SevLow},
+	}
+	weights := map[string]float64{
+		string(model.ClassInfoDisclosure): 0,
+	}
+	got := WeightedScore(findings, weights)
+	want := (1.0*3.0 + 0.0*1.0) / (1.0 + 0.0)
+	if got != want {
+		t.Fatalf("WeightedScore = %f, want %f", got, want)
+	}
+}
+
+func TestWeightedScoreEmpty(t *testing.T) {
+	if got := WeightedScore(nil, nil); got != 0 {
+		t.Fatalf("empty findings should yield 0, got %f", got)
+	}
+	allRefuted := []model.Finding{
+		{State: model.StateRefuted, Class: model.ClassSQLi, Severity: model.SevHigh},
+	}
+	if got := WeightedScore(allRefuted, nil); got != 0 {
+		t.Fatalf("all refuted should yield 0, got %f", got)
+	}
+}
+
+func TestWeightedScoreInReport(t *testing.T) {
+	rr := sampleRun()
+	rr.WeightedScore = 2.75
+	md := Markdown(rr, nil, nil)
+	if !strings.Contains(md, "Weighted risk score") || !strings.Contains(md, "2.75") {
+		t.Fatalf("weighted score missing from report:\n%s", md)
+	}
+	rr.WeightedScore = 0
+	md = Markdown(rr, nil, nil)
+	if strings.Contains(md, "Weighted risk score") {
+		t.Fatal("weighted score should not appear when 0")
+	}
+}
+
+func TestMarkdownPromptVariantColumn(t *testing.T) {
+	rr := sampleRun()
+	rr.Reflection = []model.ReflectionResult{
+		{Lab: "lab-a", Model: "m1", PromptVariant: "auth-focus", ReviewerKind: model.ReviewerSelf, Reviewer: "m1", Scored: true, Scores: []int{8}, Final: 8, Passed: true},
+		{Lab: "lab-a", Model: "m2", ReviewerKind: model.ReviewerSelf, Reviewer: "m2", Scored: true, Scores: []int{7}, Final: 7, Passed: true},
+	}
+	md := Markdown(rr, nil, nil)
+	if !strings.Contains(md, "| Prompt |") {
+		t.Fatal("reflection table missing Prompt column header")
+	}
+	if !strings.Contains(md, "| lab-a | m1 | auth-focus | self |") {
+		t.Fatalf("variant not rendered:\n%s", md)
+	}
+	if !strings.Contains(md, "| lab-a | m2 | - | self |") {
+		t.Fatalf("empty variant should be dash:\n%s", md)
 	}
 }

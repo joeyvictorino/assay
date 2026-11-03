@@ -29,7 +29,7 @@
   "allowed_agents": [
     "orchestrator"
   ],
-  "signer": "2b27f3ae1608dce4",
-  "signed_at": "2026-10-10T13:55:54Z",
-  "signature": "W7ISIunSF9if51BV+C+xdAIeePkk9YlLZNF0mLfiF02Gzpw1F5xX0LHQGRGmZLJggnvjAXoWsvj+qfG8l/LBAg=="
+  "signer": "3a8894f1c7879ea2",
+  "signed_at": "2026-11-02T10:06:18Z",
+  "signature": "BVrmUolykaZe0IBtYhaDketvmetVM1VCxXt0BF3mf988yDB7WMbXD5yaH1s0qfOiKNQqdYE77t/SvaaqNZd4Dg=="
 }

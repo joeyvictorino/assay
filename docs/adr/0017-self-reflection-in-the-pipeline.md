@@ -40,3 +40,10 @@ are runs with several real models, not an assumption.
 
 Scoring and revision add model calls, so a run costs more and takes longer,
 bounded by the router's budgets.
+
+Amendment (2026-11-01): the run report's reflection record now also names the
+reviewer (`reviewer`, `reviewer_kind`; ADR 0018 lets a peer score the report),
+carries the final `validated`, `refuted` and `theorized` counts of the assessed
+model's findings on that lab, and notes when a revision added nothing and
+reflection stopped (ADR 0019). A score is still never used for anything but
+gating revision.

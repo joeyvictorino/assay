@@ -3,6 +3,35 @@
 ## Unreleased
 
 Added
+- Delegation wiring in `assay run`: `tools.Env.Delegate` is now set on every
+  probe agent with an `orchestrate.Runner`-backed closure that creates a child
+  task, validates depth/cycle limits, runs the delegated agent, merges its
+  findings, and audits the decision. The shipped policy restricts delegation to
+  the orchestrator agent; probe and other leaf agents are denied by the
+  `no-delegation-from-leaf-agents` rule. Closes the sole known limitation.
+- Diversity by prompt (ADR 0020): run configs can declare named prompt
+  variants under `prompts:` and assign one to each model via a `prompt:`
+  field. Each model in the ensemble uses its assigned system prompt,
+  producing varied assessment angles and better collective coverage. The
+  variant name appears in the self-reflection table and in `run.json`.
+- Peer review scoring (ADR 0018): `reflection: { reviewer: peer }` in a run
+  config has another model of the run score each report instead of the model
+  itself. The reviewer is the first other model in the `models` list, runs
+  under the `score` agent in its own conversation, and sees the same
+  finding list the self-reviewer sees. A single-model run falls back to self
+  and says so. Every reflection record now names its reviewer and kind.
+- Checker outcomes beside every score: reflection records and the report's
+  self-reflection table carry the validated, refuted and theorized counts of
+  the assessed model's findings on that lab after validation and
+  reconciliation (ADR 0017 amendment).
+- No-progress stop (ADR 0019): a revision that reports nothing new ends
+  reflection without scoring the identical report again. The attempt is
+  marked `no_progress` in the orchestrator and in the audit log, and the run
+  report notes "revision added nothing new; stopped".
+
+Changed
+- The `### Self-reflection` table in `report.md` has new columns: Prompt,
+  Reviewer, Validated, Refuted and Theorized.
 - `scripts/demo.sh`: a 60-second offline demo (no API key, no model) that builds
   the harness and the synthetic lab, runs the scripted fake provider against it,
   prints a plain-English summary and shows the audit chain failing after an edit.
@@ -14,6 +43,12 @@ Added
 - `scripts/ci/results-gate.py`: decides what the full-run workflow may commit.
 
 Fixed
+- Four manifest/policy disagreements resolved: `report_finding` and
+  `score_task` manifests now include `orchestrator` in `allowed_agents`, and
+  `http_get` and `report_finding` now include `remediate`. The policy rules
+  that allow these agents were unreachable because the manifest check ran
+  first and refused the agent. Tests evaluate all four against the shipped
+  policy. (Closes the known limitation from the previous release.)
 - The per-run and per-model USD caps applied to each (lab, model) assessment
   separately, because every assessment builds its own router. They now hold
   across the whole run, and a run that reaches one is BLOCKED (ADR 0006
@@ -37,16 +72,7 @@ Fixed
   is uploaded as an artifact instead of being lost.
 
 Known limitations
-- `assay run` does not wire delegation: `tools.Env.Delegate` is never set, so a
-  `delegate` call would return "delegation not available in this context". The
-  tool is now authorized for the orchestrator by manifest and policy, which is
-  tested, but multi-agent delegation does not run in the pipeline.
-  `internal/orchestrate` has it as library code with tests.
-- Four more manifest and policy disagreements remain: the policy lists
-  `report_finding` and `score_task` for the orchestrator, and `http_get` and
-  `report_finding` for the remediate agent, but those manifests' `allowed_agents`
-  exclude those agents, so the requests are denied. The default pipeline does
-  not use either agent for those tools.
+- (none remaining — delegation is wired into the pipeline)
 
 ## 0.3.0 (2026-10-08)
 

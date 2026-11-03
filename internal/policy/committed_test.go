@@ -68,6 +68,42 @@ func TestDelegateManifestNamesOnlyTheOrchestrator(t *testing.T) {
 	}
 }
 
+// The four manifest/policy disagreements that were documented as known
+// limitations: report_finding and score_task for the orchestrator, and
+// http_get and report_finding for the remediate agent. The manifests now
+// include those agents in allowed_agents, so the policy rules are reachable.
+func TestFormerlyDisagreedManifestsNowAlign(t *testing.T) {
+	e := defaultEngine(t)
+	cases := []struct {
+		agent, tool, wantReason string
+	}{
+		{"orchestrator", "report_finding", "ALLOW_RULE:allow-read-only-tools"},
+		{"orchestrator", "score_task", "ALLOW_RULE:allow-scoring"},
+		{"remediate", "http_get", "ALLOW_RULE:allow-read-only-tools"},
+		{"remediate", "report_finding", "ALLOW_RULE:allow-read-only-tools"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.agent+"/"+tc.tool, func(t *testing.T) {
+			d := evalCommitted(t, e, tc.agent, tc.tool)
+			if d.Effect != model.EffectAllow || d.Reason != tc.wantReason {
+				t.Fatalf("%s %s: %s %s (%s)", tc.agent, tc.tool, d.Effect, d.Reason, d.Rationale)
+			}
+		})
+	}
+}
+
+// The remediate agent must not gain write or auth capabilities even though
+// it can now use http_get and report_finding.
+func TestRemediateStillDeniedWriteAndAuth(t *testing.T) {
+	e := defaultEngine(t)
+	for _, tool := range []string{"http_post", "login_as"} {
+		d := evalCommitted(t, e, "remediate", tool)
+		if d.Effect != model.EffectDeny {
+			t.Errorf("remediate %s: %s %s", tool, d.Effect, d.Reason)
+		}
+	}
+}
+
 // Every shipped manifest, delegate included after it is re-signed, must still
 // carry a valid signature from a key in trust/keys.
 func TestShippedManifestsVerifyAgainstTheTrustStore(t *testing.T) {

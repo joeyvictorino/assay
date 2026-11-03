@@ -27,6 +27,9 @@ var allowedWriterPackages = map[string]bool{
 	"internal/remediate": true,
 	"internal/cli":       true,
 	"internal/results":   true,
+	"internal/annotate":  true,
+	"internal/threshold":  true,
+	"internal/promptbank": true,
 }
 
 // TestNoFileWritesOutsideAllowedPackages walks every non-test Go file under

@@ -74,6 +74,11 @@ cost_per_mtok:
 
 max_failovers: 1
 
+# Who scores each model's report (ADR 0017, ADR 0018): `self` (default) has
+# the model grade its own work; `peer` has the first other model in the models
+# list grade it, in its own conversation, seeing only the finding list.
+# reflection: { reviewer: peer }
+
 agent:
   max_turns: 8
   max_tokens: 2048

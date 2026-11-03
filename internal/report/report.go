@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joeyvictorino/assay/internal/chain"
 	"github.com/joeyvictorino/assay/internal/model"
 	"github.com/joeyvictorino/assay/internal/reconcile"
 )
@@ -25,11 +26,35 @@ const NoGroundTruth = "No ground truth for this lab; recall only against the ref
 // states is the fixed column order for state tables.
 var states = []model.FindingState{model.StateValidated, model.StateTheorized, model.StateRefuted, model.StateDeclined}
 
+// WeightedScore computes the weighted risk score from findings and checker
+// weights. Each active finding (validated or theorized) contributes its
+// class weight (default 1.0) × severity rank. The score is normalized by
+// the sum of weights of active findings, yielding a value between 0 and 4.
+// An empty finding set returns 0.
+func WeightedScore(findings []model.Finding, weights map[string]float64) float64 {
+	var sum, wsum float64
+	for _, f := range findings {
+		if f.State != model.StateValidated && f.State != model.StateTheorized {
+			continue
+		}
+		w := 1.0
+		if v, ok := weights[string(f.Class)]; ok {
+			w = v
+		}
+		sum += w * float64(f.Severity.Rank())
+		wsum += w
+	}
+	if wsum == 0 {
+		return 0
+	}
+	return sum / wsum
+}
+
 // Markdown renders the run report. rec may be nil, in which case the
 // Reconciliation section falls back to the reason counts in rr. Sections
-// appear in this fixed order: Scope statement, Corpus, Findings, Overlap,
-// Evaluation, Reconciliation, Policy decisions, Evidence model, Limitations,
-// Runtime.
+// appear in this fixed order: Scope statement, Corpus, Findings,
+// Attack paths, Overlap, Evaluation, Reconciliation, Policy decisions,
+// Evidence model, Limitations, Runtime.
 func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Report) string {
 	var b strings.Builder
 	w := func(format string, args ...any) { fmt.Fprintf(&b, format, args...) }
@@ -82,9 +107,27 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 		if n := len(findings); n > 0 {
 			w("%d finding record(s) in `findings.redacted.json`; %d distinct dedup key(s).\n\n", n, distinctKeys(findings))
 		}
+		if rr.WeightedScore > 0 {
+			w("**Weighted risk score**: %.2f (severity-weighted average of active findings; 0–4 scale)\n\n", rr.WeightedScore)
+		}
 	}
 
-	// 4. Overlap.
+	// 4. Attack paths.
+	paths := chain.Build(findings)
+	w("## Attack paths\n\n")
+	if len(paths) == 0 {
+		w("No attack paths derived (no chainable validated or theorized findings).\n\n")
+	} else {
+		w("%d path(s) derived from %d finding(s).\n\n", len(paths), len(findings))
+		w("| Path | Lab | Objective | Confidence | Steps |\n")
+		w("| --- | --- | --- | --- | ---: |\n")
+		for _, p := range paths {
+			w("| `%s` | %s | %s | %s | %d |\n", p.ID, p.Lab, p.Objective, p.Confidence, len(p.Path))
+		}
+		w("\n```mermaid\n%s```\n\n", chain.Mermaid(paths))
+	}
+
+	// 5. Overlap.
 	w("## Overlap\n\n")
 	if rr.Overlap == nil || len(rr.Overlap.Models) == 0 {
 		w("No overlap matrix (fewer than one model with findings).\n\n")
@@ -111,7 +154,7 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 		w("\n")
 	}
 
-	// 5. Evaluation.
+	// 6. Evaluation.
 	w("## Evaluation\n\n")
 	if len(rr.Precision) == 0 {
 		w("%s\n\n", NoGroundTruth)
@@ -126,10 +169,17 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 	}
 	if len(rr.Reflection) > 0 {
 		w("### Self-reflection\n\n")
-		w("Each model scored its own report from 0 to 10; a score below 7 sent it back with its own critique, at most twice. The score gates revision only: a finding is validated only by a deterministic checker. Critique text is not stored.\n\n")
-		w("| Lab | Model | Scores | Revisions | Final | Passed | Note |\n")
-		w("| --- | --- | --- | ---: | ---: | --- | --- |\n")
+		w("A reviewer scored each report from 0 to 10: the model itself (self) or another model of the run (peer). A score below 7 sent the assessed model back with the critique, at most twice; a revision that reported nothing new ended reflection. The score gates revision only: a finding is validated only by a deterministic checker, and the last three columns are what the checkers then said about the same model's findings on that lab. Critique text is not stored.\n\n")
+		w("| Lab | Model | Prompt | Reviewer | Scores | Revisions | Final | Passed | Validated | Refuted | Theorized | Note |\n")
+		w("| --- | --- | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | --- |\n")
 		for _, r := range rr.Reflection {
+			reviewer := "-"
+			switch r.ReviewerKind {
+			case model.ReviewerSelf:
+				reviewer = "self"
+			case model.ReviewerPeer:
+				reviewer = "peer: " + r.Reviewer
+			}
 			scores := "-"
 			if len(r.Scores) > 0 {
 				parts := make([]string, len(r.Scores))
@@ -142,12 +192,13 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 			if r.Scored {
 				final = fmt.Sprintf("%d", r.Final)
 			}
-			w("| %s | %s | %s | %d | %s | %t | %s |\n", r.Lab, r.Model, scores, r.Revisions, final, r.Passed, r.Note)
+			prompt := orDash(r.PromptVariant)
+			w("| %s | %s | %s | %s | %s | %d | %s | %t | %d | %d | %d | %s |\n", r.Lab, r.Model, prompt, reviewer, scores, r.Revisions, final, r.Passed, r.Validated, r.Refuted, r.Theorized, r.Note)
 		}
 		w("\n")
 	}
 
-	// 6. Reconciliation.
+	// 7. Reconciliation.
 	w("## Reconciliation\n\n")
 	switch {
 	case rec != nil:
@@ -181,7 +232,7 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 		w("No reconciliation mismatches recorded.\n\n")
 	}
 
-	// 7. Policy decisions.
+	// 8. Policy decisions.
 	w("## Policy decisions\n\n")
 	if len(rr.PolicyDenies) == 0 {
 		w("No policy denials recorded.\n\n")
@@ -193,7 +244,7 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 		w("\n")
 	}
 
-	// 8. Evidence model.
+	// 9. Evidence model.
 	w("## Evidence model\n\n")
 	w("`model call -> claimed tool call -> policy decision -> executed tool call -> gate decision -> HTTP exchange digest -> finding -> checker evidence`\n\n")
 	w("- Audit head hash: `%s`\n", orDash(rr.AuditHead))
@@ -204,14 +255,14 @@ func Markdown(rr model.RunReport, findings []model.Finding, rec *reconcile.Repor
 	w("- Audit key id: see the audit log header (not carried in run.json)\n")
 	w("- Transcript retention: none (zero data retention sink)\n\n")
 
-	// 9. Limitations.
+	// 10. Limitations.
 	w("## Limitations\n\n")
 	for _, l := range limitations(rr) {
 		w("- %s\n", l)
 	}
 	w("\n")
 
-	// 10. Runtime.
+	// 11. Runtime.
 	w("## Runtime\n\n")
 	w("- Started: %s\n", stamp(rr.Started))
 	w("- Finished: %s\n", stamp(rr.Finished))

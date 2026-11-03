@@ -29,9 +29,10 @@
   "side_effects": false,
   "timeout_ms": 2000,
   "allowed_agents": [
-    "score"
+    "score",
+    "orchestrator"
   ],
-  "signer": "2b27f3ae1608dce4",
-  "signed_at": "2026-10-07T18:46:34Z",
-  "signature": "dLsY7jP24q201aSw49bGSG5+khZZshz2oMfgF91YjmQ8dU/DTmhfzl4G1I6AACzZ0hOCwfFy+U8NqPoZoIvMCQ=="
+  "signer": "3a8894f1c7879ea2",
+  "signed_at": "2026-11-02T10:06:18Z",
+  "signature": "FEIK5wkO6RyHIqf2Hu9q7WiFTxi4CXnxkIA7ZvL7JnFBM4ySRTCmJd0plY5KhePTPeVCeQnHKj0x8csxERd7AQ=="
 }

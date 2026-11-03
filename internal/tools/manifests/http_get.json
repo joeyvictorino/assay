@@ -24,9 +24,10 @@
   "allowed_agents": [
     "recon",
     "probe",
-    "validate"
+    "validate",
+    "remediate"
   ],
-  "signer": "2b27f3ae1608dce4",
-  "signed_at": "2026-10-07T18:46:34Z",
-  "signature": "Q/PsnlCTGTBY2VFflVlp2QY4nxIT886ubjNfMHq8cF8QeieYDdp0521VIEX+pmRSe7RIpnqxd0AHjH7bbNVsAw=="
+  "signer": "3a8894f1c7879ea2",
+  "signed_at": "2026-11-02T10:06:18Z",
+  "signature": "gSkqGAw5rDNqHoHrhPiIHRQdCJzsCTPh5uolWu9tI4PfDmAjGZ4uIXppkcQ/e1F+rIwRK+Vwi2UZOotDLV6tCA=="
 }

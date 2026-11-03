@@ -10,10 +10,11 @@ import (
 	"sort"
 )
 
-// Exit codes (mirroring tasia): 0 pass, 1 blocked, 2 tool/config error.
+// Exit codes (mirroring tasia): 0 pass, 1 blocked/fail, 2 tool/config error.
 const (
 	ExitPass    = 0
 	ExitBlocked = 1
+	ExitFail    = 1
 	ExitError   = 2
 )
 

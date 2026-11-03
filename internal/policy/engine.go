@@ -98,6 +98,7 @@ func Parse(raw []byte) (*Engine, error) {
 	return &Engine{p: p, hash: hex.EncodeToString(sum[:])}, nil
 }
 
+
 func validEffect(e model.Effect) bool { return e == model.EffectAllow || e == model.EffectDeny }
 
 func validTier(t model.RiskTier) bool { return t.Rank() > 0 }
@@ -155,6 +156,18 @@ func validate(p model.Policy) error {
 			}
 		}
 	}
+	validClasses := map[string]bool{}
+	for _, c := range model.AllClasses {
+		validClasses[string(c)] = true
+	}
+	for k, w := range p.Weights {
+		if !validClasses[k] {
+			return bad("weights: unknown class %q", k)
+		}
+		if w < 0 {
+			return bad("weights: class %q has negative weight %.4f", k, w)
+		}
+	}
 	return nil
 }
 
@@ -165,6 +178,18 @@ func (e *Engine) Hash() string { return e.hash }
 
 // Policy returns a copy of the loaded document.
 func (e *Engine) Policy() model.Policy { return e.p }
+
+// Weights returns the configured checker weights. Missing classes default
+// to 1.0; an empty or nil map means equal weighting.
+func (e *Engine) Weights() map[string]float64 { return e.p.Weights }
+
+// Weight returns the weight for a single class, defaulting to 1.0.
+func (e *Engine) Weight(class model.Class) float64 {
+	if w, ok := e.p.Weights[string(class)]; ok {
+		return w
+	}
+	return 1.0
+}
 
 // Evaluate implements model.PolicyEvaluator. Checks run in a fixed order and
 // the first failing check decides; deny rules always beat allow rules.
