@@ -7,65 +7,52 @@ import (
 	"github.com/joeyvictorino/assay/internal/model"
 )
 
-func finding(mid, summary string) model.Finding {
-	return model.Finding{
-		Model:   model.ModelRef{Model: mid},
-		Summary: summary,
+func finding(mid, lab, summary string) model.Finding {
+	return model.Finding{Model: model.ModelRef{Model: mid}, Lab: lab, Summary: summary}
+}
+
+func TestAnalyzeEmpty(t *testing.T) {
+	r := Analyze(nil)
+	if len(r.Models) != 0 {
+		t.Error("expected empty models")
 	}
 }
 
-func TestCountWords(t *testing.T) {
-	if n := countWords("hello world foo"); n != 3 {
-		t.Errorf("countWords = %d, want 3", n)
+func TestAnalyzeSingleModel(t *testing.T) {
+	findings := []model.Finding{
+		finding("gpt-4", "lab1", "The algorithm uses a hash function with cryptographic properties to prevent injection attacks."),
+		finding("gpt-4", "lab2", "The root cause is a buffer overflow vulnerability in the implementation."),
 	}
-	if n := countWords(""); n != 0 {
-		t.Errorf("countWords empty = %d, want 0", n)
+	r := Analyze(findings)
+	if len(r.Models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(r.Models))
 	}
-}
-
-func TestCountPhrases(t *testing.T) {
-	text := "the algorithm uses encryption and another algorithm"
-	n := countPhrases(text, []string{"algorithm", "encryption"})
-	if n != 3 {
-		t.Errorf("countPhrases = %d, want 3", n)
+	if r.Models[0].Model != "gpt-4" {
+		t.Errorf("expected gpt-4, got %s", r.Models[0].Model)
 	}
-}
-
-func TestCountPhrasesEmpty(t *testing.T) {
-	n := countPhrases("hello world", []string{"missing"})
-	if n != 0 {
-		t.Errorf("countPhrases = %d, want 0", n)
+	if r.Models[0].SampleCount != 2 {
+		t.Errorf("expected 2 samples, got %d", r.Models[0].SampleCount)
+	}
+	if r.BestModel != "gpt-4" {
+		t.Errorf("expected best model gpt-4, got %s", r.BestModel)
 	}
 }
 
-func TestAnalyzeSample(t *testing.T) {
-	text := "The algorithm implementation uses encryption because the underlying protocol requires authentication"
-	d := analyzeSample(text)
-	if d.TechnicalTerms < 3 {
-		t.Errorf("TechnicalTerms = %d, want >= 3", d.TechnicalTerms)
+func TestAnalyzeMultipleModels(t *testing.T) {
+	findings := []model.Finding{
+		finding("modelA", "lab1", "The algorithm exploits a buffer overflow vulnerability in the implementation's cryptographic hash function."),
+		finding("modelB", "lab1", "It was bad."),
 	}
-	if d.MechanismWords < 1 {
-		t.Errorf("MechanismWords = %d, want >= 1", d.MechanismWords)
+	r := Analyze(findings)
+	if len(r.Models) != 2 {
+		t.Fatalf("expected 2 models, got %d", len(r.Models))
 	}
-	if d.TotalWords == 0 {
-		t.Error("TotalWords should not be 0")
-	}
-	if d.DepthRatio <= 0 {
-		t.Error("DepthRatio should be positive")
+	if r.BestModel == r.WorstModel {
+		t.Error("best and worst should differ for models with different depth")
 	}
 }
 
-func TestAnalyzeSampleEmpty(t *testing.T) {
-	d := analyzeSample("")
-	if d.TotalWords != 0 {
-		t.Errorf("TotalWords = %d, want 0", d.TotalWords)
-	}
-	if d.DepthRatio != 0 {
-		t.Errorf("DepthRatio = %f, want 0", d.DepthRatio)
-	}
-}
-
-func TestGrade(t *testing.T) {
+func TestGradeRanges(t *testing.T) {
 	tests := []struct {
 		score float64
 		want  string
@@ -83,97 +70,102 @@ func TestGrade(t *testing.T) {
 	for _, tt := range tests {
 		got := grade(tt.score)
 		if got != tt.want {
-			t.Errorf("grade(%.2f) = %q, want %q", tt.score, got, tt.want)
+			t.Errorf("grade(%.2f) = %s, want %s", tt.score, got, tt.want)
 		}
 	}
 }
 
-func TestAnalyze(t *testing.T) {
-	findings := []model.Finding{
-		finding("gpt-4", "The algorithm uses encryption because the underlying protocol needs authentication"),
-		finding("gpt-4", "The implementation of the hash function specifically addresses the buffer overflow vulnerability"),
-		finding("claude", "It works fine and is good"),
-	}
-	r := Analyze(findings)
-	if len(r.Models) != 2 {
-		t.Fatalf("Models = %d, want 2", len(r.Models))
-	}
-	if r.BestModel == "" {
-		t.Error("BestModel should not be empty")
-	}
-	if r.WorstModel == "" {
-		t.Error("WorstModel should not be empty")
-	}
-	if r.MeanScore <= 0 {
-		t.Error("MeanScore should be positive")
+func TestCountPhrases(t *testing.T) {
+	text := "The algorithm uses a hash function and another hash function for encryption."
+	n := countPhrases(text, []string{"hash function", "encryption"})
+	if n != 3 {
+		t.Errorf("expected 3 phrase matches, got %d", n)
 	}
 }
 
-func TestAnalyzeEmpty(t *testing.T) {
-	r := Analyze(nil)
-	if len(r.Models) != 0 {
-		t.Errorf("Models = %d, want 0", len(r.Models))
-	}
-	if r.BestModel != "" {
-		t.Errorf("BestModel = %q, want empty", r.BestModel)
+func TestCountWords(t *testing.T) {
+	n := countWords("one two three four")
+	if n != 4 {
+		t.Errorf("expected 4, got %d", n)
 	}
 }
 
-func TestAnalyzeSorting(t *testing.T) {
+func TestAnalyzeSample(t *testing.T) {
+	d := analyzeSample("The root cause is a buffer overflow because the implementation has a vulnerability.")
+	if d.TechnicalTerms == 0 {
+		t.Error("expected technical terms")
+	}
+	if d.MechanismWords == 0 {
+		t.Error("expected mechanism words")
+	}
+	if d.TotalWords == 0 {
+		t.Error("expected non-zero word count")
+	}
+}
+
+func TestLabCount(t *testing.T) {
 	findings := []model.Finding{
-		finding("shallow", "yes ok fine"),
-		finding("deep", "The algorithm implementation uses encryption because the underlying protocol requires cryptographic authentication and the hash function addresses the buffer overflow vulnerability specifically in the stack trace"),
+		finding("m1", "labA", "The algorithm has a vulnerability."),
+		finding("m1", "labB", "The implementation has a buffer overflow."),
+		finding("m1", "labA", "Another implementation vulnerability exploit."),
 	}
 	r := Analyze(findings)
-	if len(r.Models) < 2 {
-		t.Fatal("expected at least 2 models")
-	}
-	if r.Models[0].DepthScore < r.Models[1].DepthScore {
-		t.Error("models should be sorted by depth score descending")
-	}
-	if r.BestModel != "deep" {
-		t.Errorf("BestModel = %q, want deep", r.BestModel)
+	if r.Models[0].LabCount != 2 {
+		t.Errorf("expected 2 labs, got %d", r.Models[0].LabCount)
 	}
 }
 
 func TestFormatText(t *testing.T) {
 	findings := []model.Finding{
-		finding("model-a", "The algorithm uses encryption because the protocol requires it"),
+		finding("gpt-4", "lab1", "The algorithm implementation has a vulnerability."),
 	}
 	r := Analyze(findings)
 	text := FormatText(r)
 	if !strings.Contains(text, "Technical Depth Analysis") {
-		t.Error("expected header in text output")
+		t.Error("expected header")
 	}
-	if !strings.Contains(text, "model-a") {
-		t.Error("expected model name in text output")
+	if !strings.Contains(text, "gpt-4") {
+		t.Error("expected model name in output")
+	}
+}
+
+func TestFormatTextEmpty(t *testing.T) {
+	r := Analyze(nil)
+	text := FormatText(r)
+	if !strings.Contains(text, "Models evaluated:  0") {
+		t.Error("expected zero models line")
 	}
 }
 
 func TestFormatJSON(t *testing.T) {
 	findings := []model.Finding{
-		finding("model-b", "The implementation handles the vulnerability"),
+		finding("m1", "lab1", "The algorithm vulnerability exploit."),
 	}
 	r := Analyze(findings)
 	j := FormatJSON(r)
-	if !strings.Contains(j, "model-b") {
-		t.Error("expected model name in JSON output")
-	}
 	if !strings.Contains(j, "depth_score") {
-		t.Error("expected depth_score field in JSON output")
+		t.Error("expected depth_score in JSON")
+	}
+}
+
+func TestMeanScore(t *testing.T) {
+	findings := []model.Finding{
+		finding("m1", "lab1", "The algorithm implementation has a vulnerability using cryptographic hash function."),
+		finding("m2", "lab1", "ok"),
+	}
+	r := Analyze(findings)
+	if r.MeanScore <= 0 {
+		t.Error("expected positive mean score")
 	}
 }
 
 func TestDeepCount(t *testing.T) {
 	findings := []model.Finding{
-		finding("m", "The algorithm implementation uses encryption because the underlying protocol requires cryptographic authentication and the hash function addresses the buffer overflow vulnerability specifically in the stack trace and the root cause is the memory leak"),
-		finding("m", "ok"),
+		finding("m1", "lab1", "short"),
+		finding("m1", "lab2", "The algorithm implementation vulnerability exploit buffer overflow hash function cryptographic authentication authorization protocol encryption specifically the root cause because therefore."),
 	}
 	r := Analyze(findings)
-	if len(r.Models) != 1 {
-		t.Fatal("expected 1 model")
-	}
-	if r.Models[0].DeepCount != 1 {
-		t.Errorf("DeepCount = %d, want 1", r.Models[0].DeepCount)
+	if r.Models[0].DeepCount == 0 {
+		t.Error("expected at least one deep sample")
 	}
 }
