@@ -7,90 +7,170 @@ import (
 	"github.com/joeyvictorino/assay/internal/model"
 )
 
-func makeFinding(modelName, summary string) model.Finding {
+func mkFinding(modelName, lab, summary string) model.Finding {
 	return model.Finding{
 		Model:   model.ModelRef{Model: modelName},
-		Lab:     "test-lab",
+		Lab:     lab,
 		Summary: summary,
 	}
 }
 
-func TestHighPrecision(t *testing.T) {
+func TestAnalyzeTextEmpty(t *testing.T) {
+	score, detail := AnalyzeText("")
+	if score != 50.0 {
+		t.Errorf("empty text should score 50, got %.1f", score)
+	}
+	if detail.WordCount != 0 {
+		t.Errorf("expected 0 words, got %d", detail.WordCount)
+	}
+}
+
+func TestAnalyzeTextPrecise(t *testing.T) {
+	text := "The API returns exactly 42 results with 99.5% accuracy per RFC 7231. The latency is 150ms at the 95th percentile."
+	score, detail := AnalyzeText(text)
+	if score <= 50 {
+		t.Errorf("precise text should score above 50, got %.1f", score)
+	}
+	if detail.NumberCount == 0 {
+		t.Error("expected numbers to be detected")
+	}
+	if detail.PercentCount == 0 {
+		t.Error("expected percentages to be detected")
+	}
+}
+
+func TestAnalyzeTextImprecise(t *testing.T) {
+	text := "Usually some things happen often. Many cases generally show that several factors are typically involved in various ways."
+	score, detail := AnalyzeText(text)
+	if score >= 50 {
+		t.Errorf("imprecise text should score below 50, got %.1f", score)
+	}
+	if detail.WeaselCount == 0 {
+		t.Error("expected weasel words to be detected")
+	}
+	if detail.QuantifierCount == 0 {
+		t.Error("expected quantifiers to be detected")
+	}
+}
+
+func TestNumberCounting(t *testing.T) {
+	text := "There are 42 items at 9.99 each for 3 orders"
+	_, detail := AnalyzeText(text)
+	if detail.NumberCount != 3 {
+		t.Errorf("expected 3 numbers, got %d", detail.NumberCount)
+	}
+}
+
+func TestPercentCounting(t *testing.T) {
+	text := "Success rate is 99.5% and error rate is 0.5%"
+	_, detail := AnalyzeText(text)
+	if detail.PercentCount != 2 {
+		t.Errorf("expected 2 percents, got %d", detail.PercentCount)
+	}
+}
+
+func TestCitationDetection(t *testing.T) {
+	text := "Per RFC 7231 and CVE-2023-1234, the issue relates to CWE-89"
+	_, detail := AnalyzeText(text)
+	if detail.CitationCount < 3 {
+		t.Errorf("expected at least 3 citations, got %d", detail.CitationCount)
+	}
+}
+
+func TestWeaselWordDetection(t *testing.T) {
+	text := "This usually happens and frequently causes issues. It typically results in problems."
+	count := countPhrases(text, weaselPhrases)
+	if count < 3 {
+		t.Errorf("expected at least 3 weasel words, got %d", count)
+	}
+}
+
+func TestQuantifierDetection(t *testing.T) {
+	text := "Some users and many systems have several issues with various configurations."
+	count := countPhrases(text, quantifierPhrases)
+	if count < 3 {
+		t.Errorf("expected at least 3 quantifiers, got %d", count)
+	}
+}
+
+func TestScoreClamping(t *testing.T) {
+	imprecise := "usually often generally typically commonly frequently sometimes occasionally " +
+		"some many few several various a lot numerous"
+	score, _ := AnalyzeText(imprecise)
+	if score < 0 || score > 100 {
+		t.Errorf("score should be clamped to [0,100], got %.1f", score)
+	}
+}
+
+func TestScoreToGrade(t *testing.T) {
+	tests := []struct {
+		score float64
+		want  string
+	}{
+		{95, "A"}, {85, "B"}, {75, "C"}, {65, "D"}, {40, "F"},
+	}
+	for _, tt := range tests {
+		if got := scoreToGrade(tt.score); got != tt.want {
+			t.Errorf("scoreToGrade(%.0f) = %s, want %s", tt.score, got, tt.want)
+		}
+	}
+}
+
+func TestAnalyzeSingleModel(t *testing.T) {
 	findings := []model.Finding{
-		makeFinding("gpt-4", "The answer is specifically that the buffer overflow occurs at line 42. As shown in the stack trace, the result is a segfault."),
+		mkFinding("gpt-4", "lab1", "The API returns 42 results per RFC 7231 with 99% accuracy."),
 	}
 	r := Analyze(findings)
 	if len(r.Models) != 1 {
 		t.Fatalf("expected 1 model, got %d", len(r.Models))
 	}
-	if r.Models[0].PrecisionScore < 60 {
-		t.Errorf("expected high precision score, got %.1f", r.Models[0].PrecisionScore)
+	if r.BestModel != "gpt-4" {
+		t.Errorf("expected gpt-4, got %s", r.BestModel)
 	}
 }
 
-func TestLowPrecision(t *testing.T) {
+func TestAnalyzeMultipleModels(t *testing.T) {
 	findings := []model.Finding{
-		makeFinding("gpt-3", "By the way, it goes without saying that obviously, on a related note, to elaborate further, let me explain in more detail, needless to say as an aside incidentally speaking of which"),
-	}
-	r := Analyze(findings)
-	if len(r.Models) != 1 {
-		t.Fatalf("expected 1 model, got %d", len(r.Models))
-	}
-	if r.Models[0].PrecisionScore > 50 {
-		t.Errorf("expected low precision score for filler-heavy response, got %.1f", r.Models[0].PrecisionScore)
-	}
-}
-
-func TestEmptyFindings(t *testing.T) {
-	r := Analyze(nil)
-	if len(r.Models) != 0 {
-		t.Errorf("expected empty report, got %d models", len(r.Models))
-	}
-}
-
-func TestMultipleModels(t *testing.T) {
-	findings := []model.Finding{
-		makeFinding("model-a", "The answer is specifically the root cause. As shown in the logs."),
-		makeFinding("model-b", "By the way, incidentally, on a related note, tangentially."),
+		mkFinding("gpt-4", "lab1", "Exactly 42 items per RFC 7231 at 99.5% success rate."),
+		mkFinding("claude", "lab1", "Usually some things are generally involved in various ways."),
 	}
 	r := Analyze(findings)
 	if len(r.Models) != 2 {
 		t.Fatalf("expected 2 models, got %d", len(r.Models))
 	}
-	if r.BestModel == "" {
-		t.Error("expected best model to be set")
+	if r.BestModel == r.WorstModel {
+		t.Error("best and worst should differ")
 	}
 }
 
-func TestGrading(t *testing.T) {
-	tests := []struct {
-		score float64
-		grade string
-	}{
-		{95, "A"},
-		{85, "B"},
-		{75, "C"},
-		{65, "D"},
-		{45, "F"},
+func TestAnalyzeEmpty(t *testing.T) {
+	r := Analyze(nil)
+	if len(r.Models) != 0 {
+		t.Errorf("expected 0 models, got %d", len(r.Models))
 	}
-	for _, tt := range tests {
-		if g := scoreToGrade(tt.score); g != tt.grade {
-			t.Errorf("scoreToGrade(%.1f) = %s, want %s", tt.score, g, tt.grade)
-		}
+}
+
+func TestAnalyzeUnknownModel(t *testing.T) {
+	findings := []model.Finding{
+		mkFinding("", "lab1", "There are 10 items."),
+	}
+	r := Analyze(findings)
+	if r.Models[0].Model != "unknown" {
+		t.Errorf("expected unknown, got %s", r.Models[0].Model)
 	}
 }
 
 func TestFormatText(t *testing.T) {
 	findings := []model.Finding{
-		makeFinding("test-model", "The answer is specifically clear."),
+		mkFinding("test-model", "lab", "A test with 42 items."),
 	}
 	r := Analyze(findings)
 	text := FormatText(r)
-	if !strings.Contains(text, "Precision Analysis") {
-		t.Error("expected header in output")
+	if !strings.Contains(text, "Precision") {
+		t.Error("expected header")
 	}
 	if !strings.Contains(text, "test-model") {
-		t.Error("expected model name in output")
+		t.Error("expected model name")
 	}
 }
 
@@ -102,31 +182,13 @@ func TestFormatTextEmpty(t *testing.T) {
 	}
 }
 
-func TestFormatJSON(t *testing.T) {
+func TestMeanScore(t *testing.T) {
 	findings := []model.Finding{
-		makeFinding("test-model", "Specifically the answer is clear."),
+		mkFinding("a", "lab1", "Exactly 10 items."),
+		mkFinding("b", "lab1", "About some things."),
 	}
 	r := Analyze(findings)
-	j := FormatJSON(r)
-	if !strings.Contains(j, "precision_score") {
-		t.Error("expected precision_score in JSON")
-	}
-}
-
-func TestCountPhrases(t *testing.T) {
-	text := "The answer is specifically clear. The answer is correct."
-	count := countPhrases(text, directAnswerPhrases)
-	if count < 2 {
-		t.Errorf("expected at least 2 direct answer phrases, got %d", count)
-	}
-}
-
-func TestScoreResponse(t *testing.T) {
-	score, detail := scoreResponse("The answer is specifically the buffer overflow at line 42.", "")
-	if score < 50 {
-		t.Errorf("expected decent score for precise response, got %.1f", score)
-	}
-	if detail.DirectAnswerCount == 0 {
-		t.Error("expected direct answer count > 0")
+	if r.MeanScore <= 0 {
+		t.Errorf("mean should be positive, got %.1f", r.MeanScore)
 	}
 }
