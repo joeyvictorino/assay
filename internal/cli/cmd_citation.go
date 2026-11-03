@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	Register("citation", "analyze citation and reference accuracy", runCitation)
+	Register("citation", "score citation accuracy in model responses", runCitation)
 }
 
 func runCitation(args []string, stdout, stderr io.Writer) int {

@@ -8,156 +8,248 @@ import (
 	"github.com/joeyvictorino/assay/internal/model"
 )
 
-func findings(summaries ...string) []model.Finding {
-	var ff []model.Finding
-	for _, s := range summaries {
-		ff = append(ff, model.Finding{
-			Summary:  s,
-			Model:    model.ModelRef{Model: "test-model"},
-			Severity: "medium",
-		})
-	}
-	return ff
-}
-
-func TestClassifyExcessive(t *testing.T) {
-	f := model.Finding{Summary: "It's worth noting that in conclusion the model was verbose"}
-	l := classifyLevel(f)
-	if l != LevelExcessive {
-		t.Errorf("expected LevelExcessive, got %s", l)
+func finding(m, summary string) model.Finding {
+	return model.Finding{
+		Model:   model.ModelRef{Model: m},
+		Summary: summary,
+		Lab:     "lab1",
 	}
 }
 
-func TestClassifyTerse(t *testing.T) {
-	f := model.Finding{Summary: "yes"}
-	l := classifyLevel(f)
-	if l != LevelTerse {
-		t.Errorf("expected LevelTerse, got %s", l)
+func TestScoreResponseEmpty(t *testing.T) {
+	score, detail := scoreResponse("")
+	if score != 100 {
+		t.Errorf("expected 100, got %.1f", score)
+	}
+	if detail.WordCount != 0 {
+		t.Errorf("expected 0 words, got %d", detail.WordCount)
 	}
 }
 
-func TestClassifyVerbose(t *testing.T) {
-	words := strings.Repeat("word ", 201)
-	f := model.Finding{Summary: words}
-	l := classifyLevel(f)
-	if l != LevelVerbose {
-		t.Errorf("expected LevelVerbose, got %s", l)
+func TestScoreResponseClean(t *testing.T) {
+	score, _ := scoreResponse("This is a clear and concise response.")
+	if score < 70 {
+		t.Errorf("expected high score for clean text, got %.1f", score)
 	}
 }
 
-func TestClassifyConcise(t *testing.T) {
-	f := model.Finding{Summary: "short answer here"}
-	l := classifyLevel(f)
-	if l != LevelConcise {
-		t.Errorf("expected LevelConcise, got %s", l)
+func TestScoreResponseFillerPenalty(t *testing.T) {
+	text := "It is important to note that we should consider this. It should be noted that the approach works."
+	score, detail := scoreResponse(text)
+	if detail.FillerPhrases < 2 {
+		t.Errorf("expected at least 2 filler phrases, got %d", detail.FillerPhrases)
+	}
+	if score >= 85 {
+		t.Errorf("expected penalty for fillers, got %.1f", score)
 	}
 }
 
-func TestClassifyModerate(t *testing.T) {
-	words := strings.Repeat("word ", 50)
-	f := model.Finding{Summary: words}
-	l := classifyLevel(f)
-	if l != LevelModerate {
-		t.Errorf("expected LevelModerate, got %s", l)
+func TestScoreResponseRedundantPenalty(t *testing.T) {
+	text := "The end result of the past history shows the final outcome."
+	_, detail := scoreResponse(text)
+	if detail.RedundantPhrases < 2 {
+		t.Errorf("expected at least 2 redundant phrases, got %d", detail.RedundantPhrases)
+	}
+}
+
+func TestScoreResponseOverQualPenalty(t *testing.T) {
+	text := "I think that perhaps it might be possible that this could work, to some extent."
+	_, detail := scoreResponse(text)
+	if detail.OverQualifications < 2 {
+		t.Errorf("expected at least 2 over-qualifications, got %d", detail.OverQualifications)
+	}
+}
+
+func TestScoreBounded(t *testing.T) {
+	text := strings.Repeat("It is important to note that basically the end result is. ", 20)
+	score, _ := scoreResponse(text)
+	if score < 0 {
+		t.Errorf("score should not be negative, got %.1f", score)
+	}
+	if score > 100 {
+		t.Errorf("score should not exceed 100, got %.1f", score)
+	}
+}
+
+func TestInfoDensityHigh(t *testing.T) {
+	d := infoDensity("Each word here is unique and different from others in this sentence.")
+	if d < 0.5 {
+		t.Errorf("expected high density, got %.2f", d)
+	}
+}
+
+func TestInfoDensityLow(t *testing.T) {
+	d := infoDensity("the the the the the the the the the the")
+	if d >= 0.2 {
+		t.Errorf("expected low density, got %.2f", d)
+	}
+}
+
+func TestInfoDensityEmpty(t *testing.T) {
+	d := infoDensity("")
+	if d != 1.0 {
+		t.Errorf("expected 1.0 for empty, got %.2f", d)
+	}
+}
+
+func TestSplitSentences(t *testing.T) {
+	n := splitSentences("First. Second! Third?")
+	if n != 3 {
+		t.Errorf("expected 3 sentences, got %d", n)
+	}
+}
+
+func TestSplitSentencesNoDelim(t *testing.T) {
+	n := splitSentences("No sentence delimiter here")
+	if n != 1 {
+		t.Errorf("expected 1, got %d", n)
+	}
+}
+
+func TestScoreToGrade(t *testing.T) {
+	tests := []struct {
+		score float64
+		grade string
+	}{
+		{95, "A"}, {85, "B"}, {75, "C"}, {65, "D"}, {40, "F"},
+	}
+	for _, tt := range tests {
+		if g := scoreToGrade(tt.score); g != tt.grade {
+			t.Errorf("scoreToGrade(%.0f) = %s, want %s", tt.score, g, tt.grade)
+		}
 	}
 }
 
 func TestAnalyzeEmpty(t *testing.T) {
 	r := Analyze(nil)
 	if len(r.Models) != 0 {
-		t.Error("expected no models for nil findings")
+		t.Errorf("expected empty report")
 	}
 }
 
-func TestAnalyzeSingle(t *testing.T) {
-	ff := findings("It's worth noting that this response is quite verbose")
-	r := Analyze(ff)
+func TestAnalyzeSingleModel(t *testing.T) {
+	fs := []model.Finding{
+		finding("gpt-4", "Clear concise answer."),
+		finding("gpt-4", "Another good response."),
+	}
+	r := Analyze(fs)
 	if len(r.Models) != 1 {
 		t.Fatalf("expected 1 model, got %d", len(r.Models))
 	}
-	if r.Models[0].TotalFindings != 1 {
-		t.Errorf("expected 1 finding, got %d", r.Models[0].TotalFindings)
+	if r.Models[0].SampleCount != 2 {
+		t.Errorf("expected 2 samples, got %d", r.Models[0].SampleCount)
 	}
 }
 
-func TestAnalyzeMultiModel(t *testing.T) {
-	ff := []model.Finding{
-		{Summary: "verbose response", Model: model.ModelRef{Model: "gpt-4"}, Severity: "medium"},
-		{Summary: "concise", Model: model.ModelRef{Model: "claude-3"}, Severity: "low"},
+func TestAnalyzeMultipleModels(t *testing.T) {
+	fs := []model.Finding{
+		finding("gpt-4", "Short answer."),
+		finding("claude", "It is important to note that basically the end result is that we need to consider things."),
 	}
-	r := Analyze(ff)
+	r := Analyze(fs)
 	if len(r.Models) != 2 {
 		t.Fatalf("expected 2 models, got %d", len(r.Models))
 	}
-}
-
-func TestGrading(t *testing.T) {
-	tests := []struct {
-		score float64
-		want  string
-	}{
-		{0.95, "A"},
-		{0.85, "B"},
-		{0.75, "C"},
-		{0.65, "D"},
-		{0.45, "F"},
-	}
-	for _, tt := range tests {
-		got := grade(tt.score)
-		if got != tt.want {
-			t.Errorf("grade(%f) = %s, want %s", tt.score, got, tt.want)
-		}
+	if r.MostConcise == "" {
+		t.Error("expected most_concise to be set")
 	}
 }
 
-func TestBestWorst(t *testing.T) {
-	ff := []model.Finding{
-		{Summary: "it's worth noting furthermore moreover additionally", Model: model.ModelRef{Model: "verbose-model"}, Severity: "high"},
-		{Summary: "ok", Model: model.ModelRef{Model: "terse-model"}, Severity: "low"},
+func TestAnalyzeUnknownModel(t *testing.T) {
+	fs := []model.Finding{
+		{Summary: "Clean text.", Lab: "lab1"},
 	}
-	r := Analyze(ff)
-	if r.BestModel == "" || r.WorstModel == "" {
-		t.Error("expected best and worst models to be set")
+	r := Analyze(fs)
+	if r.Models[0].Model != "unknown" {
+		t.Errorf("expected unknown, got %s", r.Models[0].Model)
 	}
 }
 
-func TestFormatText(t *testing.T) {
-	ff := findings("it's worth noting verbosity")
-	r := Analyze(ff)
+func TestAnalyzeLabCount(t *testing.T) {
+	fs := []model.Finding{
+		{Model: model.ModelRef{Model: "m1"}, Summary: "Clean.", Lab: "lab1"},
+		{Model: model.ModelRef{Model: "m1"}, Summary: "Clean.", Lab: "lab2"},
+		{Model: model.ModelRef{Model: "m1"}, Summary: "Clean.", Lab: "lab3"},
+	}
+	r := Analyze(fs)
+	if r.Models[0].LabCount != 3 {
+		t.Errorf("expected 3 labs, got %d", r.Models[0].LabCount)
+	}
+}
+
+func TestAnalyzeTooVerbose(t *testing.T) {
+	verbose := strings.Repeat("It is important to note that basically the end result is the final outcome. ", 15)
+	fs := []model.Finding{
+		finding("bad", verbose),
+	}
+	r := Analyze(fs)
+	if r.Models[0].TooVerbose != 1 {
+		t.Errorf("expected 1 too verbose, got %d", r.Models[0].TooVerbose)
+	}
+}
+
+func TestFormatTextEmpty(t *testing.T) {
+	r := Analyze(nil)
 	text := FormatText(r)
-	if text == "" {
-		t.Fatal("empty text output")
-	}
-	if !strings.Contains(text, "Verbosity Analysis") {
-		t.Error("missing header")
+	if !strings.Contains(text, "No verbosity data") {
+		t.Error("expected empty message")
 	}
 }
 
-func TestFormatJSON(t *testing.T) {
-	ff := findings("it's worth noting verbosity")
-	r := Analyze(ff)
-	output := FormatJSON(r)
-	var parsed Report
-	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
+func TestFormatTextNonEmpty(t *testing.T) {
+	fs := []model.Finding{
+		finding("gpt-4", "Short and concise."),
+	}
+	r := Analyze(fs)
+	text := FormatText(r)
+	if !strings.Contains(text, "Verbosity Analysis") {
+		t.Error("expected header")
+	}
+	if !strings.Contains(text, "gpt-4") {
+		t.Error("expected model name")
+	}
+}
+
+func TestFormatJSONValid(t *testing.T) {
+	fs := []model.Finding{
+		finding("gpt-4", "Short response."),
+	}
+	r := Analyze(fs)
+	out := FormatJSON(r)
+	var data map[string]any
+	if err := json.Unmarshal([]byte(out), &data); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if _, ok := data["models"]; !ok {
+		t.Error("expected models key")
+	}
+}
+
+func TestFormatJSONRoundtrip(t *testing.T) {
+	r := Analyze(nil)
+	out := FormatJSON(r)
+	var data Report
+	if err := json.Unmarshal([]byte(out), &data); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 }
 
-func TestScoreRange(t *testing.T) {
-	ff := findings("it's worth noting", "furthermore verbose", "in conclusion")
-	r := Analyze(ff)
-	for _, m := range r.Models {
-		if m.OverallScore < 0 || m.OverallScore > 1 {
-			t.Errorf("score %f out of [0,1] range", m.OverallScore)
-		}
+func TestCountPhrases(t *testing.T) {
+	text := "basically the end result is basically clear"
+	c := countPhrases(text, []string{"basically", "end result"})
+	if c != 3 {
+		t.Errorf("expected 3, got %d", c)
 	}
 }
 
-func TestVerbosityIndex(t *testing.T) {
-	words := strings.Repeat("word ", 201)
-	ff := findings(words, "short")
-	r := Analyze(ff)
-	if r.Models[0].VerbosityIndex < 0 {
-		t.Error("verbosity index should be >= 0")
+func TestAnalyzeSortedByScore(t *testing.T) {
+	verbose := strings.Repeat("It is important to note that basically the end result is. ", 10)
+	fs := []model.Finding{
+		finding("bad", verbose),
+		finding("good", "Clear."),
+	}
+	r := Analyze(fs)
+	if r.Models[0].VerbosityScore < r.Models[1].VerbosityScore {
+		t.Error("expected sorted by score descending")
 	}
 }
