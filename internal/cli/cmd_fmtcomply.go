@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	Register("format-compliance", "check model output format compliance", runFmtComply)
+	Register("fmt-comply", "check model output format compliance", runFmtComply)
 }
 
 func runFmtComply(args []string, stdout, stderr io.Writer) int {
