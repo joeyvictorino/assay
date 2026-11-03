@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -11,24 +12,23 @@ import (
 )
 
 type StructureDetail struct {
-	LogicalOrganization float64 `json:"logical_organization"`
-	HeadingUsage        float64 `json:"heading_usage"`
-	ListFormatting      float64 `json:"list_formatting"`
-	ParagraphCoherence  float64 `json:"paragraph_coherence"`
-	TransitionQuality   float64 `json:"transition_quality"`
-	HeadingCount        int     `json:"heading_count"`
-	ListCount           int     `json:"list_count"`
-	TransitionCount     int     `json:"transition_count"`
+	HeadingCount    int     `json:"heading_count"`
+	ListCount       int     `json:"list_count"`
+	CodeBlockCount  int     `json:"code_block_count"`
+	SectionCount    int     `json:"section_count"`
+	TransitionCount int     `json:"transition_count"`
+	RunOnCount      int     `json:"run_on_count"`
+	WordCount       int     `json:"word_count"`
+	StructureRatio  float64 `json:"structure_ratio"`
 }
 
 type ModelStructure struct {
-	Model          string          `json:"model"`
-	StructureScore float64         `json:"structure_score"`
-	Grade          string          `json:"grade"`
-	Detail         StructureDetail `json:"detail"`
-	SampleCount    int             `json:"sample_count"`
-	LabCount       int             `json:"lab_count"`
-	Concerns       int             `json:"concerns"`
+	Model       string          `json:"model"`
+	Score       float64         `json:"score"`
+	Grade       string          `json:"grade"`
+	Detail      StructureDetail `json:"detail"`
+	SampleCount int             `json:"sample_count"`
+	LabCount    int             `json:"lab_count"`
 }
 
 type Report struct {
@@ -38,58 +38,47 @@ type Report struct {
 	MeanScore  float64          `json:"mean_score"`
 }
 
-var organizationPhrases = []string{
-	"first", "second", "third", "fourth",
-	"step 1", "step 2", "step 3",
-	"to begin", "next", "then",
-	"following that", "subsequently",
-	"in the first place", "to start with",
-	"moving on", "proceeding to",
-}
+var headingPatterns = regexp.MustCompile(`(?m)^#{1,6}\s+\S|^\*\*[^*]+\*\*:?\s*$`)
 
-var headingPhrases = []string{
-	"overview:", "summary:", "introduction:",
-	"background:", "methodology:", "results:",
-	"conclusion:", "recommendations:",
-	"analysis:", "discussion:",
-	"key points:", "main findings:",
-	"section", "part 1", "part 2",
-}
+var listPatterns = regexp.MustCompile(`(?m)^[\s]*[-*+]\s+\S|^[\s]*\d+\.\s+\S`)
 
-var listPhrases = []string{
-	"1.", "2.", "3.", "4.", "5.",
-	"- ", "* ", "a)", "b)", "c)",
-	"bullet point", "item:",
-	"the following:", "as follows:",
-	"listed below", "enumerated",
-}
+var codeBlockPattern = regexp.MustCompile("(?m)^```")
 
-var coherencePhrases = []string{
-	"in summary", "to conclude", "therefore",
-	"as mentioned", "as discussed",
-	"building on", "expanding on",
-	"returning to", "as noted above",
-	"in other words", "to clarify",
-	"that is to say", "more specifically",
+var sectionPhrases = []string{
+	"step 1", "step 2", "step 3", "step 4",
+	"first,", "second,", "third,", "finally,",
+	"to begin", "next,", "then,", "lastly,",
+	"in summary", "in conclusion", "to summarize",
+	"overview:", "background:", "solution:", "approach:",
 }
 
 var transitionPhrases = []string{
-	"furthermore", "moreover", "additionally",
-	"in addition", "however", "nevertheless",
-	"on the contrary", "meanwhile",
-	"consequently", "as a result",
-	"in contrast", "similarly",
-	"likewise", "accordingly",
-	"for this reason", "thus",
+	"however", "furthermore", "additionally", "moreover",
+	"in contrast", "on the other hand", "nevertheless",
+	"as a result", "for example", "specifically",
+	"in particular", "to illustrate", "that said",
+	"building on this", "with that in mind",
 }
 
-var unstructuredPhrases = []string{
-	"by the way", "oh and also",
-	"i forgot to mention", "another thing",
-	"randomly", "off topic",
-	"going back to", "i should have said",
-	"let me backtrack", "sorry i digress",
-	"actually wait", "one more thing",
+var runOnIndicators = []string{
+	" and then and ", " and also and ", " but also but ",
+	" which is which ", " that is that ",
+}
+
+func countHeadings(text string) int {
+	return len(headingPatterns.FindAllString(text, -1))
+}
+
+func countListItems(text string) int {
+	return len(listPatterns.FindAllString(text, -1))
+}
+
+func countCodeBlocks(text string) int {
+	n := len(codeBlockPattern.FindAllString(text, -1)) / 2
+	if n < 0 {
+		n = 0
+	}
+	return n
 }
 
 func countPhrases(text string, phrases []string) int {
@@ -101,61 +90,53 @@ func countPhrases(text string, phrases []string) int {
 	return count
 }
 
-func scoreResponse(response, evidence string) (float64, StructureDetail) {
-	combined := response + " " + evidence
-	words := len(strings.Fields(combined))
+func AnalyzeText(text string) (float64, StructureDetail) {
+	words := strings.Fields(text)
+	wordCount := len(words)
 
-	org := countPhrases(combined, organizationPhrases)
-	headings := countPhrases(combined, headingPhrases)
-	lists := countPhrases(combined, listPhrases)
-	coherence := countPhrases(combined, coherencePhrases)
-	transitions := countPhrases(combined, transitionPhrases)
-	unstructured := countPhrases(combined, unstructuredPhrases)
-
-	orgScore := 0.2
-	if words > 0 {
-		orgScore = math.Min(1.0, float64(org)*2.0/float64(words)*10.0+0.2)
+	if wordCount == 0 {
+		return 50.0, StructureDetail{}
 	}
 
-	headingScore := 0.2
-	if headings > 0 {
-		headingScore = math.Min(1.0, float64(headings)*0.25+0.2)
+	headings := len(headingPatterns.FindAllString(text, -1))
+	lists := len(listPatterns.FindAllString(text, -1))
+	codeBlocks := len(codeBlockPattern.FindAllString(text, -1)) / 2
+	if codeBlocks < 0 {
+		codeBlocks = 0
+	}
+	sections := countPhrases(text, sectionPhrases)
+	transitions := countPhrases(text, transitionPhrases)
+	runOns := countPhrases(text, runOnIndicators)
+
+	lines := strings.Split(text, "\n")
+	longLineCount := 0
+	for _, line := range lines {
+		lineWords := strings.Fields(line)
+		if len(lineWords) > 60 {
+			longLineCount++
+		}
 	}
 
-	listScore := 0.2
-	if lists > 0 {
-		listScore = math.Min(1.0, float64(lists)*0.2+0.2)
+	positiveSignals := float64(headings + lists + codeBlocks + sections + transitions)
+	negativeSignals := float64(runOns + longLineCount)
+	totalSignals := positiveSignals + negativeSignals
+
+	ratio := 0.5
+	if totalSignals > 0 {
+		ratio = positiveSignals / totalSignals
 	}
 
-	coherenceScore := 0.3
-	if words > 0 {
-		coherenceScore = math.Min(1.0, float64(coherence)*2.0/float64(words)*10.0+0.3)
-	}
+	score := 50.0
+	score += float64(headings) * 4.0
+	score += float64(lists) * 2.5
+	score += float64(codeBlocks) * 3.5
+	score += float64(sections) * 3.0
+	score += float64(transitions) * 2.0
+	score -= float64(runOns) * 5.0
+	score -= float64(longLineCount) * 3.0
 
-	transitionScore := 0.2
-	if words > 0 {
-		transitionScore = math.Min(1.0, float64(transitions)*2.0/float64(words)*10.0+0.2)
-	}
-
-	detail := StructureDetail{
-		LogicalOrganization: math.Round(orgScore*100) / 100,
-		HeadingUsage:        math.Round(headingScore*100) / 100,
-		ListFormatting:      math.Round(listScore*100) / 100,
-		ParagraphCoherence:  math.Round(coherenceScore*100) / 100,
-		TransitionQuality:   math.Round(transitionScore*100) / 100,
-		HeadingCount:        headings,
-		ListCount:           lists,
-		TransitionCount:     transitions,
-	}
-
-	score := 30.0
-	score += orgScore * 15.0
-	score += headingScore * 12.0
-	score += listScore * 12.0
-	score += coherenceScore * 13.0
-	score += transitionScore * 13.0
-
-	score -= float64(unstructured) * 4.0
+	density := positiveSignals / float64(wordCount) * 100
+	score += density * 2.0
 
 	if score > 100 {
 		score = 100
@@ -163,6 +144,18 @@ func scoreResponse(response, evidence string) (float64, StructureDetail) {
 	if score < 0 {
 		score = 0
 	}
+
+	detail := StructureDetail{
+		HeadingCount:    headings,
+		ListCount:       lists,
+		CodeBlockCount:  codeBlocks,
+		SectionCount:    sections,
+		TransitionCount: transitions,
+		RunOnCount:      runOns + longLineCount,
+		WordCount:       wordCount,
+		StructureRatio:  math.Round(ratio*100) / 100,
+	}
+
 	return math.Round(score*10) / 10, detail
 }
 
@@ -179,19 +172,6 @@ func scoreToGrade(score float64) string {
 	default:
 		return "F"
 	}
-}
-
-func evidenceText(f model.Finding) string {
-	var parts []string
-	for _, e := range f.Evidence {
-		if e.Marker != "" {
-			parts = append(parts, e.Marker)
-		}
-	}
-	if len(parts) == 0 {
-		return f.Summary
-	}
-	return strings.Join(parts, " ")
 }
 
 func Analyze(findings []model.Finding) Report {
@@ -211,55 +191,44 @@ func Analyze(findings []model.Finding) Report {
 	var models []ModelStructure
 	for mn, entries := range modelEntries {
 		var totalScore float64
-		var totalDetail StructureDetail
-		totalConcerns := 0
-
+		var aggDetail StructureDetail
 		labs := map[string]bool{}
+
 		for _, e := range entries {
 			labs[e.Lab] = true
-			evidence := evidenceText(e)
-			score, detail := scoreResponse(e.Summary, evidence)
+			score, detail := AnalyzeText(e.Summary)
 			totalScore += score
-			totalDetail.LogicalOrganization += detail.LogicalOrganization
-			totalDetail.HeadingUsage += detail.HeadingUsage
-			totalDetail.ListFormatting += detail.ListFormatting
-			totalDetail.ParagraphCoherence += detail.ParagraphCoherence
-			totalDetail.TransitionQuality += detail.TransitionQuality
-			totalDetail.HeadingCount += detail.HeadingCount
-			totalDetail.ListCount += detail.ListCount
-			totalDetail.TransitionCount += detail.TransitionCount
-
-			if detail.HeadingCount == 0 && detail.ListCount == 0 && detail.TransitionCount == 0 {
-				totalConcerns++
-			}
+			aggDetail.HeadingCount += detail.HeadingCount
+			aggDetail.ListCount += detail.ListCount
+			aggDetail.CodeBlockCount += detail.CodeBlockCount
+			aggDetail.SectionCount += detail.SectionCount
+			aggDetail.TransitionCount += detail.TransitionCount
+			aggDetail.RunOnCount += detail.RunOnCount
+			aggDetail.WordCount += detail.WordCount
+			aggDetail.StructureRatio += detail.StructureRatio
 		}
 
 		n := float64(len(entries))
 		avgScore := totalScore / n
-		totalDetail.LogicalOrganization = math.Round(totalDetail.LogicalOrganization/n*100) / 100
-		totalDetail.HeadingUsage = math.Round(totalDetail.HeadingUsage/n*100) / 100
-		totalDetail.ListFormatting = math.Round(totalDetail.ListFormatting/n*100) / 100
-		totalDetail.ParagraphCoherence = math.Round(totalDetail.ParagraphCoherence/n*100) / 100
-		totalDetail.TransitionQuality = math.Round(totalDetail.TransitionQuality/n*100) / 100
+		aggDetail.StructureRatio = math.Round(aggDetail.StructureRatio/n*100) / 100
 
 		models = append(models, ModelStructure{
-			Model:          mn,
-			StructureScore: math.Round(avgScore*10) / 10,
-			Grade:          scoreToGrade(avgScore),
-			Detail:         totalDetail,
-			SampleCount:    len(entries),
-			LabCount:       len(labs),
-			Concerns:       totalConcerns,
+			Model:       mn,
+			Score:       math.Round(avgScore*10) / 10,
+			Grade:       scoreToGrade(avgScore),
+			Detail:      aggDetail,
+			SampleCount: len(entries),
+			LabCount:    len(labs),
 		})
 	}
 
 	sort.Slice(models, func(i, j int) bool {
-		return models[i].StructureScore > models[j].StructureScore
+		return models[i].Score > models[j].Score
 	})
 
 	var sumScore float64
 	for _, m := range models {
-		sumScore += m.StructureScore
+		sumScore += m.Score
 	}
 
 	r := Report{Models: models}
@@ -273,7 +242,7 @@ func Analyze(findings []model.Finding) Report {
 
 func FormatText(r Report) string {
 	var b strings.Builder
-	b.WriteString("Response Structure Quality Analysis\n")
+	b.WriteString("Response Structure Analysis\n")
 	b.WriteString(strings.Repeat("=", 50) + "\n\n")
 
 	if len(r.Models) == 0 {
@@ -281,30 +250,24 @@ func FormatText(r Report) string {
 		return b.String()
 	}
 
-	fmt.Fprintf(&b, "  Models evaluated:     %d\n", len(r.Models))
-	fmt.Fprintf(&b, "  Mean score:           %.1f\n", r.MeanScore)
-	fmt.Fprintf(&b, "  Best model:           %s\n", r.BestModel)
-	fmt.Fprintf(&b, "  Worst model:          %s\n\n", r.WorstModel)
-
 	for _, m := range r.Models {
-		fmt.Fprintf(&b, "  Model: %s  [%s] %.1f/100  (%d samples, %d labs)\n",
-			m.Model, m.Grade, m.StructureScore, m.SampleCount, m.LabCount)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "logical_organization", m.Detail.LogicalOrganization)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "heading_usage", m.Detail.HeadingUsage)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "list_formatting", m.Detail.ListFormatting)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "paragraph_coherence", m.Detail.ParagraphCoherence)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "transition_quality", m.Detail.TransitionQuality)
-		fmt.Fprintf(&b, "    %-28s %d\n", "heading_count", m.Detail.HeadingCount)
-		fmt.Fprintf(&b, "    %-28s %d\n", "list_count", m.Detail.ListCount)
-		fmt.Fprintf(&b, "    %-28s %d\n", "transition_count", m.Detail.TransitionCount)
-		fmt.Fprintf(&b, "    Concerns: %d\n", m.Concerns)
-		b.WriteString("\n")
+		fmt.Fprintf(&b, "  Model: %s\n", m.Model)
+		fmt.Fprintf(&b, "    Score: %.1f  Grade: %s\n", m.Score, m.Grade)
+		fmt.Fprintf(&b, "    Headings: %d  Lists: %d  Code blocks: %d\n",
+			m.Detail.HeadingCount, m.Detail.ListCount, m.Detail.CodeBlockCount)
+		fmt.Fprintf(&b, "    Sections: %d  Transitions: %d  Run-ons: %d  Ratio: %.2f\n",
+			m.Detail.SectionCount, m.Detail.TransitionCount, m.Detail.RunOnCount, m.Detail.StructureRatio)
+		fmt.Fprintf(&b, "    Samples: %d  Labs: %d\n\n",
+			m.SampleCount, m.LabCount)
 	}
+
+	fmt.Fprintf(&b, "  Best: %s  Worst: %s  Mean: %.1f\n",
+		r.BestModel, r.WorstModel, r.MeanScore)
 
 	return b.String()
 }
 
 func FormatJSON(r Report) string {
 	data, _ := json.MarshalIndent(r, "", "  ")
-	return string(data) + "\n"
+	return string(data)
 }

@@ -1,242 +1,226 @@
 package structure
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/joeyvictorino/assay/internal/model"
 )
 
-func finding(mdl, summary string) model.Finding {
+func mkFinding(modelName, lab, summary string) model.Finding {
 	return model.Finding{
-		Model:   model.ModelRef{Model: mdl},
-		Lab:     "lab1",
+		Model:   model.ModelRef{Model: modelName},
+		Lab:     lab,
 		Summary: summary,
 	}
 }
 
-func TestCountPhrases(t *testing.T) {
-	text := "first we do step 1 then overview: the results furthermore"
-	if n := countPhrases(text, organizationPhrases); n < 2 {
-		t.Fatalf("expected at least 2 organization phrase matches, got %d", n)
+func TestAnalyzeTextWellStructured(t *testing.T) {
+	text := "## Overview\n\nThe API has three endpoints:\n\n- GET /users\n- POST /users\n- DELETE /users/:id\n\n## Details\n\n```json\n{\"status\": 200}\n```\n\nIn addition, the error handling follows standard patterns. Furthermore, each endpoint validates input."
+	score, detail := AnalyzeText(text)
+	if score <= 50 {
+		t.Errorf("well-structured text should score above 50, got %.1f", score)
 	}
-	if n := countPhrases(text, headingPhrases); n < 1 {
-		t.Fatalf("expected at least 1 heading phrase match, got %d", n)
+	if detail.HeadingCount == 0 {
+		t.Error("expected headings")
 	}
-}
-
-func TestCountPhrasesEmpty(t *testing.T) {
-	if n := countPhrases("", organizationPhrases); n != 0 {
-		t.Fatalf("expected 0, got %d", n)
+	if detail.ListCount == 0 {
+		t.Error("expected list items")
 	}
 }
 
-func TestCountPhrasesCaseInsensitive(t *testing.T) {
-	text := "FIRST we OVERVIEW: then FURTHERMORE"
-	if n := countPhrases(text, organizationPhrases); n < 1 {
-		t.Fatalf("expected at least 1 match, got %d", n)
+func TestAnalyzeTextPoorStructure(t *testing.T) {
+	text := "this is a really long sentence and then and then and also and then and also and more stuff and then and then keeps going and then and there are no breaks and then and no headings and then and no lists"
+	score, detail := AnalyzeText(text)
+	if score >= 50 {
+		t.Errorf("poorly structured text should score below 50, got %.1f", score)
+	}
+	if detail.RunOnCount == 0 {
+		t.Error("expected run-on indicators")
 	}
 }
 
-func TestScoreResponseBasic(t *testing.T) {
-	score, detail := scoreResponse("first overview: the results 1. item 2. item furthermore in summary", "")
-	if score < 30 {
-		t.Fatalf("expected score >= 30, got %.1f", score)
+func TestAnalyzeTextEmpty(t *testing.T) {
+	score, detail := AnalyzeText("")
+	if score != 50.0 {
+		t.Errorf("empty text should score 50, got %.1f", score)
 	}
-	if detail.TransitionCount < 0 {
-		t.Fatal("transition count should be non-negative")
-	}
-}
-
-func TestScoreResponseUnstructuredPenalty(t *testing.T) {
-	clean, _ := scoreResponse("first overview: 1. item furthermore in summary therefore", "")
-	messy, _ := scoreResponse("by the way oh and also i forgot to mention another thing randomly off topic", "")
-	if messy >= clean {
-		t.Fatalf("unstructured should reduce score: clean=%.1f messy=%.1f", clean, messy)
+	if detail.WordCount != 0 {
+		t.Errorf("empty text should have 0 words, got %d", detail.WordCount)
 	}
 }
 
-func TestScoreResponseBounded(t *testing.T) {
-	score, _ := scoreResponse(strings.Repeat("first second overview: 1. 2. furthermore moreover in summary ", 50), "")
-	if score < 0 || score > 100 {
-		t.Fatalf("score out of bounds: %.1f", score)
+func TestHeadingDetection(t *testing.T) {
+	text := "# Title\n## Section\n### Subsection"
+	count := countHeadings(text)
+	if count != 3 {
+		t.Errorf("expected 3 headings, got %d", count)
 	}
 }
 
-func TestScoreResponseEmpty(t *testing.T) {
-	score, _ := scoreResponse("", "")
-	if score < 0 || score > 100 {
-		t.Fatalf("score out of bounds: %.1f", score)
+func TestListDetection(t *testing.T) {
+	text := "- item one\n- item two\n* item three\n1. numbered"
+	count := countListItems(text)
+	if count < 3 {
+		t.Errorf("expected at least 3 list items, got %d", count)
+	}
+}
+
+func TestCodeBlockDetection(t *testing.T) {
+	text := "some text\n```\ncode here\n```\nmore text\n```python\nprint('hi')\n```"
+	count := countCodeBlocks(text)
+	if count != 2 {
+		t.Errorf("expected 2 code blocks, got %d", count)
+	}
+}
+
+func TestTransitionDetection(t *testing.T) {
+	text := "However, we check the input. Furthermore, the output is validated. Specifically, errors are logged. Moreover, alerts are sent."
+	count := countPhrases(text, transitionPhrases)
+	if count < 3 {
+		t.Errorf("expected at least 3 transition phrases, got %d", count)
+	}
+}
+
+func TestRunOnDetection(t *testing.T) {
+	text := "stuff and then and stuff and then and more and also and more and also and stuff"
+	count := countPhrases(text, runOnIndicators)
+	if count < 2 {
+		t.Errorf("expected at least 2 run-on indicators, got %d", count)
 	}
 }
 
 func TestScoreToGrade(t *testing.T) {
 	tests := []struct {
 		score float64
-		grade string
+		want  string
 	}{
-		{95, "A"},
-		{85, "B"},
-		{75, "C"},
-		{65, "D"},
-		{45, "F"},
+		{95, "A"}, {85, "B"}, {75, "C"}, {65, "D"}, {40, "F"},
 	}
 	for _, tt := range tests {
-		got := scoreToGrade(tt.score)
-		if got != tt.grade {
-			t.Errorf("scoreToGrade(%.0f) = %s, want %s", tt.score, got, tt.grade)
+		if got := scoreToGrade(tt.score); got != tt.want {
+			t.Errorf("scoreToGrade(%.0f) = %s, want %s", tt.score, got, tt.want)
 		}
+	}
+}
+
+func TestScoreClamping(t *testing.T) {
+	runon := "and then and then and then and then also also also also " +
+		"and then and then and then also also also also and then"
+	score, _ := AnalyzeText(runon)
+	if score < 0 || score > 100 {
+		t.Errorf("score should be clamped to [0,100], got %.1f", score)
+	}
+}
+
+func TestAnalyzeSingleModel(t *testing.T) {
+	findings := []model.Finding{
+		mkFinding("gpt-4", "lab1", "## Summary\n\n- Point one\n- Point two\n\nFurthermore, the fix is simple."),
+	}
+	r := Analyze(findings)
+	if len(r.Models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(r.Models))
+	}
+	if r.Models[0].Model != "gpt-4" {
+		t.Errorf("expected gpt-4, got %s", r.Models[0].Model)
+	}
+	if r.BestModel != "gpt-4" {
+		t.Errorf("expected best model gpt-4, got %s", r.BestModel)
+	}
+}
+
+func TestAnalyzeMultipleModels(t *testing.T) {
+	findings := []model.Finding{
+		mkFinding("gpt-4", "lab1", "## Analysis\n\n- First issue\n- Second issue\n\n```\nerror code 500\n```\n\nIn addition, the logs confirm this."),
+		mkFinding("claude", "lab1", "it is broken and then it fails and then it crashes and also it is slow and also it hangs"),
+	}
+	r := Analyze(findings)
+	if len(r.Models) != 2 {
+		t.Fatalf("expected 2 models, got %d", len(r.Models))
+	}
+	if r.BestModel == r.WorstModel {
+		t.Error("best and worst should differ with different quality texts")
+	}
+}
+
+func TestAnalyzeUnknownModel(t *testing.T) {
+	findings := []model.Finding{
+		mkFinding("", "lab1", "## Report\n\n- Finding one\n- Finding two"),
+	}
+	r := Analyze(findings)
+	if r.Models[0].Model != "unknown" {
+		t.Errorf("expected unknown, got %s", r.Models[0].Model)
 	}
 }
 
 func TestAnalyzeEmpty(t *testing.T) {
 	r := Analyze(nil)
 	if len(r.Models) != 0 {
-		t.Fatalf("expected empty models, got %d", len(r.Models))
+		t.Errorf("expected 0 models, got %d", len(r.Models))
 	}
 }
 
-func TestAnalyzeSingleModel(t *testing.T) {
+func TestLabCounting(t *testing.T) {
 	findings := []model.Finding{
-		finding("gpt-4", "first overview: the results 1. item furthermore in summary"),
-		finding("gpt-4", "second step 1 moreover additionally key points: conclusion:"),
-	}
-	r := Analyze(findings)
-	if len(r.Models) != 1 {
-		t.Fatalf("expected 1 model, got %d", len(r.Models))
-	}
-	if r.BestModel != "gpt-4" {
-		t.Fatalf("expected best model gpt-4, got %s", r.BestModel)
-	}
-	if r.Models[0].SampleCount != 2 {
-		t.Fatalf("expected 2 samples, got %d", r.Models[0].SampleCount)
-	}
-}
-
-func TestAnalyzeMultipleModels(t *testing.T) {
-	findings := []model.Finding{
-		finding("gpt-4", "first overview: 1. 2. furthermore in summary therefore conclusion:"),
-		finding("claude-3", "by the way oh and also i forgot to mention another thing randomly"),
-	}
-	r := Analyze(findings)
-	if len(r.Models) != 2 {
-		t.Fatalf("expected 2 models, got %d", len(r.Models))
-	}
-	if r.Models[0].StructureScore < r.Models[1].StructureScore {
-		t.Fatal("models should be sorted by score descending")
-	}
-}
-
-func TestAnalyzeUnknownModel(t *testing.T) {
-	findings := []model.Finding{
-		{Lab: "lab1", Summary: "first overview:"},
-	}
-	r := Analyze(findings)
-	if r.BestModel != "unknown" {
-		t.Fatalf("expected unknown model, got %s", r.BestModel)
-	}
-}
-
-func TestAnalyzeMeanScore(t *testing.T) {
-	findings := []model.Finding{
-		finding("m1", "first overview: furthermore in summary"),
-		finding("m2", "by the way oh and also randomly"),
-	}
-	r := Analyze(findings)
-	if r.MeanScore <= 0 {
-		t.Fatalf("expected positive mean score, got %.1f", r.MeanScore)
-	}
-}
-
-func TestAnalyzeLabCount(t *testing.T) {
-	findings := []model.Finding{
-		{Model: model.ModelRef{Model: "m1"}, Lab: "lab1", Summary: "first"},
-		{Model: model.ModelRef{Model: "m1"}, Lab: "lab2", Summary: "second"},
+		mkFinding("gpt-4", "lab1", "## Section\n\n- Item one"),
+		mkFinding("gpt-4", "lab2", "## Section\n\n- Item two"),
+		mkFinding("gpt-4", "lab1", "## Section\n\n- Item three"),
 	}
 	r := Analyze(findings)
 	if r.Models[0].LabCount != 2 {
-		t.Fatalf("expected 2 labs, got %d", r.Models[0].LabCount)
+		t.Errorf("expected 2 labs, got %d", r.Models[0].LabCount)
+	}
+	if r.Models[0].SampleCount != 3 {
+		t.Errorf("expected 3 samples, got %d", r.Models[0].SampleCount)
 	}
 }
 
-func TestAnalyzeConcerns(t *testing.T) {
+func TestFormatText(t *testing.T) {
 	findings := []model.Finding{
-		finding("m1", "plain text with no structure at all just words"),
+		mkFinding("gpt-4", "lab1", "## Report\n\n- Finding"),
 	}
 	r := Analyze(findings)
-	if r.Models[0].Concerns < 1 {
-		t.Fatal("expected at least 1 concern for no structural elements")
+	text := FormatText(r)
+	if !strings.Contains(text, "Response Structure Analysis") {
+		t.Error("missing title")
+	}
+	if !strings.Contains(text, "gpt-4") {
+		t.Error("missing model name")
 	}
 }
 
 func TestFormatTextEmpty(t *testing.T) {
-	r := Analyze(nil)
-	text := FormatText(r)
+	text := FormatText(Report{})
 	if !strings.Contains(text, "No structure data") {
-		t.Fatal("expected empty message")
+		t.Error("missing empty message")
 	}
 }
 
-func TestFormatTextNonEmpty(t *testing.T) {
+func TestFormatJSON(t *testing.T) {
 	findings := []model.Finding{
-		finding("gpt-4", "first overview: furthermore in summary 1. 2."),
+		mkFinding("gpt-4", "lab1", "## Heading\n\n- List item"),
 	}
 	r := Analyze(findings)
-	text := FormatText(r)
-	if !strings.Contains(text, "Structure") {
-		t.Fatal("expected header")
-	}
-	if !strings.Contains(text, "gpt-4") {
-		t.Fatal("expected model name")
-	}
-	if !strings.Contains(text, "logical_organization") {
-		t.Fatal("expected detail field")
+	j := FormatJSON(r)
+	if !strings.Contains(j, "gpt-4") {
+		t.Error("expected model in JSON output")
 	}
 }
 
-func TestFormatJSONValid(t *testing.T) {
+func TestMeanScore(t *testing.T) {
 	findings := []model.Finding{
-		finding("gpt-4", "first overview: furthermore in summary"),
+		mkFinding("m1", "lab1", "## Overview\n\n- Point one\n- Point two\n\nFurthermore, this is clear."),
+		mkFinding("m2", "lab1", "it is broken and then also and then also and then"),
 	}
 	r := Analyze(findings)
-	out := FormatJSON(r)
-	var data map[string]interface{}
-	if err := json.Unmarshal([]byte(out), &data); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	if _, ok := data["models"]; !ok {
-		t.Fatal("expected models key")
+	if r.MeanScore <= 0 {
+		t.Error("mean score should be positive")
 	}
 }
 
-func TestFormatJSONRoundtrip(t *testing.T) {
-	r := Analyze(nil)
-	out := FormatJSON(r)
-	var data map[string]interface{}
-	if err := json.Unmarshal([]byte(out), &data); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-}
-
-func TestEvidenceText(t *testing.T) {
-	f := model.Finding{
-		Summary: "test summary",
-		Evidence: []model.Evidence{
-			{Marker: "marker1"},
-			{Marker: "marker2"},
-		},
-	}
-	text := evidenceText(f)
-	if !strings.Contains(text, "marker1") {
-		t.Fatal("expected marker1")
-	}
-}
-
-func TestEvidenceTextFallback(t *testing.T) {
-	f := model.Finding{Summary: "fallback summary"}
-	text := evidenceText(f)
-	if text != "fallback summary" {
-		t.Fatalf("expected fallback, got %s", text)
+func TestStructureRatio(t *testing.T) {
+	_, detail := AnalyzeText("## Title\n\n- Item one\n\nstuff and then and stuff and then and more filler text")
+	if detail.StructureRatio <= 0 || detail.StructureRatio >= 1 {
+		t.Errorf("structure ratio should be between 0 and 1 exclusive, got %.2f", detail.StructureRatio)
 	}
 }

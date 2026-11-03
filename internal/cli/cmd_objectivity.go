@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	Register("objectivity", "score response objectivity, impartial tone, and evidence-based reasoning", runObjectivity)
+	Register("objectivity", "score response objectivity: neutral tone, evidence-based vs biased/opinionated", runObjectivity)
 }
 
 func runObjectivity(args []string, stdout, stderr io.Writer) int {

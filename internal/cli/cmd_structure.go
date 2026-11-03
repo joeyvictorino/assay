@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	Register("structure", "score response structural quality, organization, and formatting", runStructure)
+	Register("structure", "score structural organization: headings, lists, code blocks vs wall-of-text", runStructure)
 }
 
 func runStructure(args []string, stdout, stderr io.Writer) int {
