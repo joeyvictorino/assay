@@ -11,14 +11,13 @@ import (
 )
 
 type PersuasivenessDetail struct {
-	ArgumentStrength  float64 `json:"argument_strength"`
-	EvidenceUse       float64 `json:"evidence_use"`
-	LogicalFlow       float64 `json:"logical_flow"`
-	RhetoricalSkill   float64 `json:"rhetorical_skill"`
-	CounterHandling   float64 `json:"counter_handling"`
-	PersuasiveCount   int     `json:"persuasive_count"`
-	WeakCount         int     `json:"weak_count"`
-	HedgingCount      int     `json:"hedging_count"`
+	ArgumentScore  float64 `json:"argument_score"`
+	EvidenceScore  float64 `json:"evidence_score"`
+	LogicScore     float64 `json:"logic_score"`
+	AppealScore    float64 `json:"appeal_score"`
+	ArgumentCount  int     `json:"argument_count"`
+	WeakCount      int     `json:"weak_count"`
+	EvidenceCount  int     `json:"evidence_count"`
 }
 
 type ModelPersuasiveness struct {
@@ -39,129 +38,87 @@ type Report struct {
 }
 
 var argumentPhrases = []string{
-	"because", "therefore", "consequently",
-	"as a result", "this demonstrates", "this proves",
-	"the evidence shows", "research indicates", "studies show",
-	"it follows that", "this means", "clearly",
-	"the data suggests", "this implies", "given that",
-}
-
-var evidencePhrases = []string{
-	"according to", "based on", "as shown by",
-	"demonstrated by", "supported by", "confirmed by",
-	"evidenced by", "as documented", "per the findings",
-	"the results indicate", "data from", "analysis reveals",
-	"experiments show", "metrics demonstrate", "benchmarks confirm",
-}
-
-var logicPhrases = []string{
-	"first", "second", "third",
-	"in addition", "furthermore", "moreover",
-	"on one hand", "on the other hand", "in contrast",
-	"building on this", "it follows", "to summarize",
-	"in conclusion", "the key point", "most importantly",
-}
-
-var rhetoricalPhrases = []string{
-	"consider the impact", "imagine if", "what would happen",
-	"the question is", "let us examine", "it is worth noting",
-	"significantly", "crucially", "fundamentally",
-	"the compelling reason", "a strong case", "undeniably",
-	"the critical factor", "the decisive evidence", "beyond doubt",
-}
-
-var counterPhrases = []string{
-	"although some argue", "despite the objection",
-	"while it may seem", "critics might say",
-	"one could argue", "the counterargument",
-	"addressing the concern", "in response to",
-	"this objection overlooks", "however this fails to account",
-	"while valid", "acknowledging this limitation",
+	"therefore", "consequently", "as a result", "this demonstrates",
+	"this shows", "evidence suggests", "research indicates",
+	"studies show", "data supports", "for example",
+	"in particular", "specifically", "notably",
+	"the key point", "fundamentally",
 }
 
 var weakPhrases = []string{
-	"i think", "i believe", "i guess",
-	"it might be", "it could be", "perhaps",
-	"not sure but", "this is just my opinion",
-	"take this with a grain", "i could be wrong",
-	"this is debatable", "results may vary",
+	"maybe", "i guess", "sort of", "kind of",
+	"i think possibly", "it might be", "not really sure",
+	"could be wrong", "just my opinion", "hard to say",
+	"who knows", "your mileage may vary", "take it or leave it",
+	"whatever works", "no strong opinion",
 }
 
-var hedgingPhrases = []string{
-	"sort of", "kind of", "more or less",
-	"to some extent", "in a way", "arguably",
-	"seemingly", "apparently", "ostensibly",
-	"it appears", "it seems", "one might think",
+var evidencePhrases = []string{
+	"according to", "based on", "as documented",
+	"the data shows", "measurements indicate", "analysis reveals",
+	"empirical evidence", "statistical analysis", "controlled study",
+	"peer reviewed", "meta-analysis", "benchmark results",
+	"case study", "field observation", "experimental findings",
 }
 
 func countPhrases(text string, phrases []string) int {
 	lower := strings.ToLower(text)
 	count := 0
 	for _, p := range phrases {
-		count += strings.Count(lower, p)
+		count += strings.Count(lower, strings.ToLower(p))
 	}
 	return count
 }
 
 func scoreResponse(response, evidence string) (float64, PersuasivenessDetail) {
 	combined := response + " " + evidence
-	words := len(strings.Fields(combined))
 
-	arguments := countPhrases(combined, argumentPhrases)
-	evidenceUse := countPhrases(combined, evidencePhrases)
-	logic := countPhrases(combined, logicPhrases)
-	rhetorical := countPhrases(combined, rhetoricalPhrases)
-	counter := countPhrases(combined, counterPhrases)
+	argument := countPhrases(combined, argumentPhrases)
 	weak := countPhrases(combined, weakPhrases)
-	hedging := countPhrases(combined, hedgingPhrases)
+	evidenceCount := countPhrases(combined, evidencePhrases)
 
-	persuasive := arguments + evidenceUse + logic + rhetorical + counter
-
-	argScore := 0.2
-	if words > 0 {
-		argScore = math.Min(1.0, float64(arguments)*2.0/float64(words)*10.0+0.2)
+	argumentScore := 0.3
+	if argument > 0 {
+		argumentScore = math.Min(1.0, float64(argument)*0.12+0.3)
 	}
 
-	evScore := 0.2
-	if words > 0 {
-		evScore = math.Min(1.0, float64(evidenceUse)*2.0/float64(words)*10.0+0.2)
+	evidenceScore := 0.3
+	if evidenceCount > 0 {
+		evidenceScore = math.Min(1.0, float64(evidenceCount)*0.12+0.3)
 	}
 
-	logicScore := 0.3
-	if logic > 0 || rhetorical > 0 {
-		logicScore = math.Min(1.0, float64(logic+rhetorical)*0.15+0.3)
+	logicScore := 0.5
+	if weak > 0 {
+		logicScore = math.Max(0, logicScore-float64(weak)*0.12)
+	}
+	if argument > 0 {
+		logicScore = math.Min(1.0, logicScore+float64(argument)*0.05)
 	}
 
-	rhetScore := 0.2
-	if words > 0 {
-		rhetScore = math.Min(1.0, float64(rhetorical)*2.0/float64(words)*10.0+0.2)
+	appealScore := 0.5
+	if weak > 2 {
+		appealScore = math.Max(0, appealScore-float64(weak)*0.1)
 	}
-
-	counterScore := 0.2
-	if counter > 0 {
-		counterScore = math.Min(1.0, float64(counter)*0.2+0.3)
+	if evidenceCount > 0 {
+		appealScore = math.Min(1.0, appealScore+float64(evidenceCount)*0.08)
 	}
 
 	detail := PersuasivenessDetail{
-		ArgumentStrength: math.Round(argScore*100) / 100,
-		EvidenceUse:      math.Round(evScore*100) / 100,
-		LogicalFlow:      math.Round(logicScore*100) / 100,
-		RhetoricalSkill:  math.Round(rhetScore*100) / 100,
-		CounterHandling:  math.Round(counterScore*100) / 100,
-		PersuasiveCount:  persuasive,
-		WeakCount:        weak,
-		HedgingCount:     hedging,
+		ArgumentScore: math.Round(argumentScore*100) / 100,
+		EvidenceScore: math.Round(evidenceScore*100) / 100,
+		LogicScore:    math.Round(logicScore*100) / 100,
+		AppealScore:   math.Round(appealScore*100) / 100,
+		ArgumentCount: argument,
+		WeakCount:     weak,
+		EvidenceCount: evidenceCount,
 	}
 
-	score := 30.0
-	score += argScore * 15.0
-	score += evScore * 15.0
-	score += logicScore * 10.0
-	score += rhetScore * 10.0
-	score += counterScore * 10.0
-
+	score := 25.0
+	score += argumentScore * 20.0
+	score += evidenceScore * 15.0
+	score += logicScore * 20.0
+	score += appealScore * 15.0
 	score -= float64(weak) * 4.0
-	score -= float64(hedging) * 3.0
 
 	if score > 100 {
 		score = 100
@@ -174,13 +131,13 @@ func scoreResponse(response, evidence string) (float64, PersuasivenessDetail) {
 
 func scoreToGrade(score float64) string {
 	switch {
-	case score >= 90:
+	case score >= 85:
 		return "A"
-	case score >= 80:
-		return "B"
 	case score >= 70:
+		return "B"
+	case score >= 55:
 		return "C"
-	case score >= 60:
+	case score >= 40:
 		return "D"
 	default:
 		return "F"
@@ -226,14 +183,13 @@ func Analyze(findings []model.Finding) Report {
 			ev := evidenceText(e)
 			score, detail := scoreResponse(e.Summary, ev)
 			totalScore += score
-			totalDetail.ArgumentStrength += detail.ArgumentStrength
-			totalDetail.EvidenceUse += detail.EvidenceUse
-			totalDetail.LogicalFlow += detail.LogicalFlow
-			totalDetail.RhetoricalSkill += detail.RhetoricalSkill
-			totalDetail.CounterHandling += detail.CounterHandling
-			totalDetail.PersuasiveCount += detail.PersuasiveCount
+			totalDetail.ArgumentScore += detail.ArgumentScore
+			totalDetail.EvidenceScore += detail.EvidenceScore
+			totalDetail.LogicScore += detail.LogicScore
+			totalDetail.AppealScore += detail.AppealScore
+			totalDetail.ArgumentCount += detail.ArgumentCount
 			totalDetail.WeakCount += detail.WeakCount
-			totalDetail.HedgingCount += detail.HedgingCount
+			totalDetail.EvidenceCount += detail.EvidenceCount
 
 			if detail.WeakCount > 3 {
 				totalConcerns++
@@ -242,11 +198,10 @@ func Analyze(findings []model.Finding) Report {
 
 		n := float64(len(entries))
 		avgScore := totalScore / n
-		totalDetail.ArgumentStrength = math.Round(totalDetail.ArgumentStrength/n*100) / 100
-		totalDetail.EvidenceUse = math.Round(totalDetail.EvidenceUse/n*100) / 100
-		totalDetail.LogicalFlow = math.Round(totalDetail.LogicalFlow/n*100) / 100
-		totalDetail.RhetoricalSkill = math.Round(totalDetail.RhetoricalSkill/n*100) / 100
-		totalDetail.CounterHandling = math.Round(totalDetail.CounterHandling/n*100) / 100
+		totalDetail.ArgumentScore = math.Round(totalDetail.ArgumentScore/n*100) / 100
+		totalDetail.EvidenceScore = math.Round(totalDetail.EvidenceScore/n*100) / 100
+		totalDetail.LogicScore = math.Round(totalDetail.LogicScore/n*100) / 100
+		totalDetail.AppealScore = math.Round(totalDetail.AppealScore/n*100) / 100
 
 		models = append(models, ModelPersuasiveness{
 			Model:               mn,
@@ -279,7 +234,7 @@ func Analyze(findings []model.Finding) Report {
 
 func FormatText(r Report) string {
 	var b strings.Builder
-	b.WriteString("Response Persuasiveness Analysis\n")
+	b.WriteString("Persuasiveness Quality Analysis\n")
 	b.WriteString(strings.Repeat("=", 50) + "\n\n")
 
 	if len(r.Models) == 0 {
@@ -295,16 +250,14 @@ func FormatText(r Report) string {
 	for _, m := range r.Models {
 		fmt.Fprintf(&b, "  Model: %s  [%s] %.1f/100  (%d samples, %d labs)\n",
 			m.Model, m.Grade, m.PersuasivenessScore, m.SampleCount, m.LabCount)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "argument_strength", m.Detail.ArgumentStrength)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "evidence_use", m.Detail.EvidenceUse)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "logical_flow", m.Detail.LogicalFlow)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "rhetorical_skill", m.Detail.RhetoricalSkill)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "counter_handling", m.Detail.CounterHandling)
-		fmt.Fprintf(&b, "    %-28s %d\n", "persuasive_count", m.Detail.PersuasiveCount)
+		fmt.Fprintf(&b, "    %-28s %.2f\n", "argument_score", m.Detail.ArgumentScore)
+		fmt.Fprintf(&b, "    %-28s %.2f\n", "evidence_score", m.Detail.EvidenceScore)
+		fmt.Fprintf(&b, "    %-28s %.2f\n", "logic_score", m.Detail.LogicScore)
+		fmt.Fprintf(&b, "    %-28s %.2f\n", "appeal_score", m.Detail.AppealScore)
+		fmt.Fprintf(&b, "    %-28s %d\n", "argument_count", m.Detail.ArgumentCount)
 		fmt.Fprintf(&b, "    %-28s %d\n", "weak_count", m.Detail.WeakCount)
-		fmt.Fprintf(&b, "    %-28s %d\n", "hedging_count", m.Detail.HedgingCount)
-		fmt.Fprintf(&b, "    Concerns: %d\n", m.Concerns)
-		b.WriteString("\n")
+		fmt.Fprintf(&b, "    %-28s %d\n", "evidence_count", m.Detail.EvidenceCount)
+		fmt.Fprintf(&b, "    Concerns: %d\n\n", m.Concerns)
 	}
 
 	return b.String()
