@@ -65,7 +65,7 @@ func countPhrases(text string, phrases []string) int {
 	lower := strings.ToLower(text)
 	count := 0
 	for _, p := range phrases {
-		count += strings.Count(lower, p)
+		count += strings.Count(lower, strings.ToLower(p))
 	}
 	return count
 }
