@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	Register("clarity", "analyze response clarity and instruction quality", runClarity)
+	Register("clarity", "score response clarity, readability, and sentence structure", runClarity)
 }
 
 func runClarity(args []string, stdout, stderr io.Writer) int {
