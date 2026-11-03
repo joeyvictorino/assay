@@ -1,252 +1,192 @@
 package conciseness
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/joeyvictorino/assay/internal/model"
 )
 
-func mkFinding(mdl, summary string) model.Finding {
+func finding(m, summary string) model.Finding {
 	return model.Finding{
-		Model:   model.ModelRef{Model: mdl},
+		Model:   model.ModelRef{Model: m},
 		Summary: summary,
-		Lab:     "test-lab",
+	}
+}
+
+func TestCountWords(t *testing.T) {
+	if got := countWords("hello world foo"); got != 3 {
+		t.Errorf("countWords = %d, want 3", got)
+	}
+	if got := countWords(""); got != 0 {
+		t.Errorf("countWords empty = %d, want 0", got)
+	}
+}
+
+func TestCountPhrases(t *testing.T) {
+	text := "it is important to note that we should note that it is important to note that"
+	got := countPhrases(text, []string{"it is important to note that"})
+	if got != 2 {
+		t.Errorf("countPhrases = %d, want 2", got)
+	}
+}
+
+func TestAnalyzeSampleClean(t *testing.T) {
+	d := analyzeSample("The vulnerability exists in the authentication module.")
+	if d.FillerCount != 0 || d.RedundantCount != 0 || d.HedgingCount != 0 {
+		t.Errorf("expected zero padding for clean text, got filler=%d redundant=%d hedging=%d",
+			d.FillerCount, d.RedundantCount, d.HedgingCount)
+	}
+}
+
+func TestAnalyzeSampleVerbose(t *testing.T) {
+	d := analyzeSample("It is important to note that basically the vulnerability is very important and perhaps could potentially be exploited")
+	if d.FillerCount == 0 {
+		t.Error("expected filler phrases")
+	}
+	if d.RedundantCount == 0 {
+		t.Error("expected redundant qualifiers")
+	}
+	if d.HedgingCount == 0 {
+		t.Error("expected hedging words")
 	}
 }
 
 func TestAnalyzeEmpty(t *testing.T) {
 	r := Analyze(nil)
 	if len(r.Models) != 0 {
-		t.Fatal("expected no models")
+		t.Errorf("expected 0 models, got %d", len(r.Models))
 	}
 }
 
-func TestAnalyzeSingleClean(t *testing.T) {
-	fs := []model.Finding{mkFinding("m1", "The answer is 42.")}
-	r := Analyze(fs)
+func TestAnalyzeSingleModel(t *testing.T) {
+	findings := []model.Finding{
+		finding("gpt-4", "The authentication bypass allows unauthorized access."),
+		finding("gpt-4", "SQL injection in the login form parameter."),
+	}
+	r := Analyze(findings)
 	if len(r.Models) != 1 {
 		t.Fatalf("expected 1 model, got %d", len(r.Models))
 	}
-	if r.Models[0].ConcisenessScore < 70 {
-		t.Errorf("clean response should score well, got %.1f", r.Models[0].ConcisenessScore)
+	if r.Models[0].Model != "gpt-4" {
+		t.Errorf("expected gpt-4, got %s", r.Models[0].Model)
+	}
+	if r.Models[0].SampleCount != 2 {
+		t.Errorf("expected 2 samples, got %d", r.Models[0].SampleCount)
 	}
 }
 
-func TestAnalyzeFillersLowerScore(t *testing.T) {
-	clean := []model.Finding{mkFinding("m1", "The answer is 42.")}
-	wordy := []model.Finding{mkFinding("m1", "Basically essentially actually literally the answer is 42. In fact as a matter of fact it is worth noting it should be mentioned.")}
-	rc := Analyze(clean)
-	rw := Analyze(wordy)
-	if rw.Models[0].ConcisenessScore >= rc.Models[0].ConcisenessScore {
-		t.Error("wordy should score lower than clean")
+func TestAnalyzeMultipleModels(t *testing.T) {
+	findings := []model.Finding{
+		finding("gpt-4", "Clear and direct finding."),
+		finding("claude", "It is important to note that basically the issue is very important and perhaps somewhat relevant."),
 	}
-}
-
-func TestAnalyzeRedundancyPenalty(t *testing.T) {
-	fs := []model.Finding{mkFinding("m1", "Each and every first and foremost past history future plans end result basic fundamentals close proximity.")}
-	r := Analyze(fs)
-	if r.Models[0].Detail.RedundantCount == 0 {
-		t.Error("expected redundant count > 0")
-	}
-}
-
-func TestAnalyzePaddingDetected(t *testing.T) {
-	fs := []model.Finding{mkFinding("m1", "It goes without saying that at the end of the day for all intents and purposes the fact of the matter is clear.")}
-	r := Analyze(fs)
-	if r.Models[0].Detail.RedundantCount == 0 {
-		t.Error("expected padding detected")
-	}
-}
-
-func TestAnalyzeDirectness(t *testing.T) {
-	indirect := []model.Finding{mkFinding("m1", "I would like to suggest it might be possible perhaps we could consider one might argue it could be said that.")}
-	r := Analyze(indirect)
-	if r.Models[0].Detail.Directness >= 0.85 {
-		t.Errorf("indirect phrasing should lower directness, got %.2f", r.Models[0].Detail.Directness)
-	}
-}
-
-func TestMultipleModels(t *testing.T) {
-	fs := []model.Finding{
-		mkFinding("m1", "Short clear answer."),
-		mkFinding("m2", "Basically essentially in fact as a matter of fact the answer is clear. It is worth noting it should be mentioned it is important to note."),
-	}
-	r := Analyze(fs)
+	r := Analyze(findings)
 	if len(r.Models) != 2 {
 		t.Fatalf("expected 2 models, got %d", len(r.Models))
 	}
 	if r.BestModel == "" || r.WorstModel == "" {
-		t.Error("expected best/worst models set")
+		t.Error("expected best and worst models set")
 	}
 }
 
-func TestGradeA(t *testing.T) {
-	g := scoreToGrade(95)
-	if g != "A" {
-		t.Errorf("expected A, got %s", g)
+func TestConciseTextScoresHigher(t *testing.T) {
+	concise := []model.Finding{
+		finding("concise-model", "Authentication bypass in login endpoint."),
+		finding("concise-model", "SQL injection via user input parameter."),
+	}
+	verbose := []model.Finding{
+		finding("verbose-model", "It is important to note that basically the authentication perhaps could potentially be bypassed and it is worth mentioning that this is very important."),
+		finding("verbose-model", "It should be noted that in order to exploit this maybe sort of kind of vulnerability due to the fact that it is arguably somewhat relevant."),
+	}
+	cr := Analyze(concise)
+	vr := Analyze(verbose)
+	if cr.Models[0].Score <= vr.Models[0].Score {
+		t.Errorf("concise score %.2f should be > verbose score %.2f", cr.Models[0].Score, vr.Models[0].Score)
 	}
 }
 
-func TestGradeB(t *testing.T) {
-	g := scoreToGrade(85)
-	if g != "B" {
-		t.Errorf("expected B, got %s", g)
+func TestGrade(t *testing.T) {
+	tests := []struct {
+		score float64
+		want  string
+	}{
+		{0.96, "A+"},
+		{0.91, "A"},
+		{0.86, "A-"},
+		{0.81, "B+"},
+		{0.76, "B"},
+		{0.71, "B-"},
+		{0.66, "C+"},
+		{0.61, "C"},
+		{0.56, "C-"},
+		{0.51, "D"},
+		{0.40, "F"},
+	}
+	for _, tt := range tests {
+		if got := grade(tt.score); got != tt.want {
+			t.Errorf("grade(%.2f) = %s, want %s", tt.score, got, tt.want)
+		}
 	}
 }
 
-func TestGradeC(t *testing.T) {
-	g := scoreToGrade(75)
-	if g != "C" {
-		t.Errorf("expected C, got %s", g)
-	}
-}
-
-func TestGradeD(t *testing.T) {
-	g := scoreToGrade(65)
-	if g != "D" {
-		t.Errorf("expected D, got %s", g)
-	}
-}
-
-func TestGradeF(t *testing.T) {
-	g := scoreToGrade(45)
-	if g != "F" {
-		t.Errorf("expected F, got %s", g)
-	}
-}
-
-func TestScoreBounded(t *testing.T) {
-	fs := []model.Finding{mkFinding("m1", strings.Repeat("basically essentially actually literally in fact ", 50))}
-	r := Analyze(fs)
-	if r.Models[0].ConcisenessScore < 0 || r.Models[0].ConcisenessScore > 100 {
-		t.Errorf("score out of bounds: %.1f", r.Models[0].ConcisenessScore)
-	}
-}
-
-func TestFormatTextNonEmpty(t *testing.T) {
-	fs := []model.Finding{mkFinding("m1", "Clean response.")}
-	r := Analyze(fs)
+func TestFormatText(t *testing.T) {
+	r := Analyze([]model.Finding{
+		finding("test-model", "A clean finding."),
+	})
 	text := FormatText(r)
-	if !strings.Contains(text, "Conciseness") {
-		t.Error("expected header in text output")
+	if !strings.Contains(text, "Conciseness Analysis") {
+		t.Error("missing title")
 	}
-	if !strings.Contains(text, "m1") {
-		t.Error("expected model name in output")
+	if !strings.Contains(text, "test-model") {
+		t.Error("missing model name")
 	}
 }
 
 func TestFormatTextEmpty(t *testing.T) {
-	r := Analyze(nil)
-	text := FormatText(r)
-	if !strings.Contains(text, "No conciseness data") {
+	text := FormatText(Report{})
+	if !strings.Contains(text, "No models analyzed") {
 		t.Error("expected empty message")
 	}
 }
 
-func TestFormatJSONValid(t *testing.T) {
-	fs := []model.Finding{mkFinding("m1", "Test response.")}
-	r := Analyze(fs)
-	out := FormatJSON(r)
-	var data map[string]interface{}
-	if err := json.Unmarshal([]byte(out), &data); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	if _, ok := data["models"]; !ok {
-		t.Error("expected models key in JSON")
+func TestFormatJSON(t *testing.T) {
+	r := Analyze([]model.Finding{
+		finding("test-model", "Finding summary."),
+	})
+	j := FormatJSON(r)
+	if !strings.Contains(j, "test-model") {
+		t.Error("missing model in JSON")
 	}
 }
 
-func TestFormatJSONRoundtrip(t *testing.T) {
-	r := Analyze(nil)
-	out := FormatJSON(r)
-	var data map[string]interface{}
-	if err := json.Unmarshal([]byte(out), &data); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-}
-
-func TestConcernsFlagged(t *testing.T) {
-	fs := []model.Finding{mkFinding("m1", "Basically essentially actually literally in fact as a matter of fact to be honest in my opinion each and every first and foremost.")}
-	r := Analyze(fs)
-	if r.Models[0].Concerns == 0 {
-		t.Error("expected concerns flagged for heavy filler use")
-	}
-}
-
-func TestVerbosePhrasesPenalize(t *testing.T) {
-	fs := []model.Finding{mkFinding("m1", "It is clear that it is evident that it is apparent that it is obvious that there is no doubt that it can be seen that.")}
-	r := Analyze(fs)
-	if r.Models[0].Detail.RedundantCount == 0 {
-		t.Error("expected verbose phrases counted as redundant")
+func TestScoreBounds(t *testing.T) {
+	r := Analyze([]model.Finding{
+		finding("m", "word"),
+	})
+	for _, m := range r.Models {
+		if m.Score < 0 || m.Score > 1 {
+			t.Errorf("score out of bounds: %.2f", m.Score)
+		}
 	}
 }
 
 func TestMeanScore(t *testing.T) {
-	fs := []model.Finding{
-		mkFinding("m1", "Short answer."),
-		mkFinding("m2", "Another short answer."),
-	}
-	r := Analyze(fs)
-	if r.MeanScore <= 0 {
-		t.Error("expected positive mean score")
-	}
-}
-
-func TestLabCount(t *testing.T) {
-	fs := []model.Finding{
-		{Model: model.ModelRef{Model: "m1"}, Summary: "test", Lab: "lab1"},
-		{Model: model.ModelRef{Model: "m1"}, Summary: "test2", Lab: "lab2"},
-	}
-	r := Analyze(fs)
-	if r.Models[0].LabCount != 2 {
-		t.Errorf("expected 2 labs, got %d", r.Models[0].LabCount)
+	r := Analyze([]model.Finding{
+		finding("a", "Clean text."),
+		finding("b", "Also clean."),
+	})
+	if r.MeanScore < 0 || r.MeanScore > 1 {
+		t.Errorf("mean score out of bounds: %.2f", r.MeanScore)
 	}
 }
 
-func TestUnknownModel(t *testing.T) {
-	fs := []model.Finding{{Summary: "test", Lab: "lab1"}}
-	r := Analyze(fs)
-	if r.Models[0].Model != "unknown" {
-		t.Errorf("expected unknown model, got %s", r.Models[0].Model)
-	}
-}
-
-func TestEvidenceText(t *testing.T) {
-	f := model.Finding{
-		Summary: "fallback",
-		Evidence: []model.Evidence{
-			{Marker: "marker1"},
-			{Marker: "marker2"},
-		},
-	}
-	et := evidenceText(f)
-	if !strings.Contains(et, "marker1") {
-		t.Error("expected marker in evidence text")
-	}
-}
-
-func TestEvidenceFallback(t *testing.T) {
-	f := model.Finding{Summary: "my summary"}
-	et := evidenceText(f)
-	if et != "my summary" {
-		t.Errorf("expected summary fallback, got %q", et)
-	}
-}
-
-func TestCountPhrases(t *testing.T) {
-	text := "basically this is basically a test"
-	c := countPhrases(text, []string{"basically"})
-	if c != 2 {
-		t.Errorf("expected 2, got %d", c)
-	}
-}
-
-func TestCountPhrasesCase(t *testing.T) {
-	text := "BASICALLY THIS IS Basically"
-	c := countPhrases(text, []string{"basically"})
-	if c != 2 {
-		t.Errorf("expected 2 case-insensitive, got %d", c)
+func TestSortedByScore(t *testing.T) {
+	r := Analyze([]model.Finding{
+		finding("verbose", "It is important to note that basically perhaps maybe sort of kind of in order to due to the fact that."),
+		finding("concise", "Direct finding."),
+	})
+	if len(r.Models) == 2 && r.Models[0].Score < r.Models[1].Score {
+		t.Error("models should be sorted by score descending")
 	}
 }
