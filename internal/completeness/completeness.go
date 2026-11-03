@@ -10,185 +10,172 @@ import (
 	"github.com/joeyvictorino/assay/internal/model"
 )
 
-var stopWords = map[string]bool{
-	"a": true, "an": true, "the": true, "is": true, "are": true,
-	"was": true, "were": true, "be": true, "been": true, "being": true,
-	"have": true, "has": true, "had": true, "do": true, "does": true,
-	"did": true, "will": true, "would": true, "could": true, "should": true,
-	"may": true, "might": true, "shall": true, "can": true, "need": true,
-	"to": true, "of": true, "in": true, "for": true, "on": true,
-	"with": true, "at": true, "by": true, "from": true, "as": true,
-	"into": true, "through": true, "during": true, "before": true,
-	"after": true, "above": true, "below": true, "between": true,
-	"and": true, "but": true, "or": true, "nor": true, "not": true,
-	"so": true, "yet": true, "both": true, "either": true, "neither": true,
-	"this": true, "that": true, "these": true, "those": true,
-	"it": true, "its": true, "i": true, "we": true, "you": true,
-	"he": true, "she": true, "they": true, "me": true, "him": true,
-	"her": true, "us": true, "them": true, "my": true, "your": true,
-	"his": true, "our": true, "their": true,
-}
-
 type CompletenessDetail struct {
-	ComponentCoverage float64 `json:"component_coverage"`
-	DepthScore        float64 `json:"depth_score"`
-	TrailOffPenalty   float64 `json:"trail_off_penalty"`
-	StructureScore    float64 `json:"structure_score"`
+	TopicCoverage   float64 `json:"topic_coverage"`
+	DepthScore      float64 `json:"depth_score"`
+	StructureScore  float64 `json:"structure_score"`
+	ExamplePresence float64 `json:"example_presence"`
+	ClosureScore    float64 `json:"closure_score"`
+	WordCount       int     `json:"word_count"`
+	SentenceCount   int     `json:"sentence_count"`
+	QuestionCount   int     `json:"question_count"`
 }
 
 type ModelCompleteness struct {
-	Model            string             `json:"model"`
-	CompletenessScore float64           `json:"completeness_score"`
-	Grade            string             `json:"grade"`
-	Detail           CompletenessDetail `json:"detail"`
-	SampleCount      int                `json:"sample_count"`
-	PartialCount     int                `json:"partial_count"`
-	TruncatedCount   int                `json:"truncated_count"`
+	Model             string             `json:"model"`
+	CompletenessScore float64            `json:"completeness_score"`
+	Grade             string             `json:"grade"`
+	Detail            CompletenessDetail `json:"detail"`
+	SampleCount       int                `json:"sample_count"`
+	LabCount          int                `json:"lab_count"`
+	Concerns          int                `json:"concerns"`
 }
 
 type Report struct {
-	Models        []ModelCompleteness `json:"models"`
-	MostComplete  string              `json:"most_complete"`
-	LeastComplete string              `json:"least_complete"`
-	MeanScore     float64             `json:"mean_score"`
+	Models     []ModelCompleteness `json:"models"`
+	BestModel  string              `json:"best_model"`
+	WorstModel string              `json:"worst_model"`
+	MeanScore  float64             `json:"mean_score"`
 }
 
-func extractKeywords(text string) map[string]int {
-	words := strings.Fields(strings.ToLower(text))
-	kw := map[string]int{}
-	for _, w := range words {
-		clean := strings.Trim(w, ".,;:!?\"'()[]{}")
-		if len(clean) < 2 || stopWords[clean] {
-			continue
-		}
-		kw[clean]++
-	}
-	return kw
+var topicIndicators = []string{
+	"first", "second", "third", "additionally", "furthermore",
+	"moreover", "also", "in addition", "another point",
+	"on the other hand", "however", "meanwhile",
+	"subsequently", "consequently", "therefore",
+	"as a result", "for example", "for instance",
 }
 
-func componentCoverage(lab, summary string) float64 {
-	labKW := extractKeywords(lab)
-	sumKW := extractKeywords(summary)
-	if len(labKW) == 0 {
-		return 50
-	}
-	covered := 0
-	for k := range labKW {
-		if sumKW[k] > 0 {
-			covered++
-			continue
-		}
-		for sk := range sumKW {
-			if strings.Contains(sk, k) || strings.Contains(k, sk) {
-				covered++
-				break
-			}
-		}
-	}
-	return math.Min(100, float64(covered)/float64(len(labKW))*100)
+var depthIndicators = []string{
+	"because", "the reason", "this means", "specifically",
+	"in detail", "more precisely", "to elaborate",
+	"in particular", "notably", "importantly",
+	"the key factor", "the underlying", "fundamentally",
+	"at its core", "the mechanism", "this works by",
 }
 
-func depthScore(summary string) float64 {
-	words := strings.Fields(summary)
-	wordCount := len(words)
-	if wordCount == 0 {
-		return 0
-	}
-
-	depthIndicators := []string{
-		"because", "therefore", "specifically", "additionally",
-		"furthermore", "moreover", "example", "instance",
-		"detail", "explains", "caused", "results", "leads",
-		"step", "first", "second", "third", "finally",
-	}
-
-	lower := strings.ToLower(summary)
-	indicatorCount := 0
-	for _, ind := range depthIndicators {
-		if strings.Contains(lower, ind) {
-			indicatorCount++
-		}
-	}
-
-	lengthScore := math.Min(100, float64(wordCount)/50*100)
-	indicatorScore := math.Min(100, float64(indicatorCount)/3*100)
-
-	return math.Round((lengthScore*0.4+indicatorScore*0.6)*10) / 10
+var structureIndicators = []string{
+	"in summary", "to conclude", "in conclusion",
+	"overview", "introduction", "background",
+	"step 1", "step 2", "step 3",
+	"firstly", "secondly", "thirdly",
+	"the following", "as follows", "listed below",
 }
 
-func trailOffPenalty(summary string) float64 {
-	lower := strings.ToLower(strings.TrimSpace(summary))
-	score := 100.0
-
-	trailOffPhrases := []string{
-		"etc", "and so on", "and more", "among others",
-		"...", "to name a few", "and similar",
-	}
-	for _, p := range trailOffPhrases {
-		if strings.HasSuffix(lower, p) || strings.HasSuffix(lower, p+".") {
-			score -= 20
-			break
-		}
-	}
-
-	if strings.Count(lower, "...") > 0 {
-		score -= float64(strings.Count(lower, "...")) * 10
-	}
-
-	words := strings.Fields(summary)
-	if len(words) > 3 {
-		last3 := strings.ToLower(strings.Join(words[len(words)-3:], " "))
-		abruptEndings := []string{"but i", "however i", "although", "but we", "however we"}
-		for _, ae := range abruptEndings {
-			if strings.Contains(last3, ae) {
-				score -= 25
-				break
-			}
-		}
-	}
-
-	if score < 0 {
-		score = 0
-	}
-	return math.Round(score*10) / 10
+var exampleIndicators = []string{
+	"for example", "for instance", "such as",
+	"consider the case", "to illustrate", "an example",
+	"e.g.", "like this", "demonstrated by",
+	"as shown", "as seen in", "a concrete example",
 }
 
-func structureScore(summary string) float64 {
-	if len(strings.TrimSpace(summary)) == 0 {
-		return 0
-	}
+var closureIndicators = []string{
+	"in summary", "to summarize", "in conclusion",
+	"to conclude", "overall", "in short",
+	"the bottom line", "to sum up", "finally",
+	"in closing", "all in all", "thus",
+}
 
-	sentences := 0
-	for _, c := range summary {
-		if c == '.' || c == '!' || c == '?' {
-			sentences++
+var incompletePhrases = []string{
+	"i don't know", "i'm not sure", "i cannot",
+	"this is beyond", "outside my scope",
+	"i lack the ability", "unable to determine",
+	"no information available", "data not found",
+	"insufficient data", "not enough context",
+	"further research needed", "remains unclear",
+}
+
+func countIndicators(text string, indicators []string) int {
+	lower := strings.ToLower(text)
+	count := 0
+	for _, ind := range indicators {
+		count += strings.Count(lower, ind)
+	}
+	return count
+}
+
+func countSentences(text string) int {
+	count := 0
+	for _, r := range text {
+		if r == '.' || r == '!' || r == '?' {
+			count++
 		}
 	}
-	if sentences == 0 {
-		sentences = 1
+	if count == 0 && len(strings.TrimSpace(text)) > 0 {
+		count = 1
+	}
+	return count
+}
+
+func countQuestions(text string) int {
+	return strings.Count(text, "?")
+}
+
+func scoreResponse(response, evidence string) (float64, CompletenessDetail) {
+	combined := response + " " + evidence
+	words := len(strings.Fields(combined))
+	sentences := countSentences(combined)
+	questions := countQuestions(combined)
+
+	topics := countIndicators(combined, topicIndicators)
+	depth := countIndicators(combined, depthIndicators)
+	structure := countIndicators(combined, structureIndicators)
+	examples := countIndicators(combined, exampleIndicators)
+	closure := countIndicators(combined, closureIndicators)
+	incomplete := countIndicators(combined, incompletePhrases)
+
+	topicScore := math.Min(1.0, float64(topics)*0.15+0.3)
+	if words > 50 {
+		topicScore = math.Min(1.0, topicScore+0.1)
 	}
 
-	score := 50.0
-
-	if sentences >= 2 {
-		score += 20
-	}
-	if sentences >= 3 {
-		score += 10
+	depthScore := math.Min(1.0, float64(depth)*0.12+0.3)
+	if sentences > 3 {
+		depthScore = math.Min(1.0, depthScore+0.1)
 	}
 
-	words := strings.Fields(summary)
-	if len(words) >= 10 {
-		score += 10
+	structureScore := math.Min(1.0, float64(structure)*0.15+0.2)
+	if sentences > 5 {
+		structureScore = math.Min(1.0, structureScore+0.1)
 	}
-	if len(words) >= 25 {
-		score += 10
+
+	exampleScore := math.Min(1.0, float64(examples)*0.2+0.2)
+
+	closureScore := math.Min(1.0, float64(closure)*0.2+0.2)
+
+	if incomplete > 0 {
+		penalty := float64(incomplete) * 0.15
+		topicScore = math.Max(0, topicScore-penalty)
+		depthScore = math.Max(0, depthScore-penalty)
 	}
+
+	detail := CompletenessDetail{
+		TopicCoverage:   math.Round(topicScore*100) / 100,
+		DepthScore:      math.Round(depthScore*100) / 100,
+		StructureScore:  math.Round(structureScore*100) / 100,
+		ExamplePresence: math.Round(exampleScore*100) / 100,
+		ClosureScore:    math.Round(closureScore*100) / 100,
+		WordCount:       words,
+		SentenceCount:   sentences,
+		QuestionCount:   questions,
+	}
+
+	score := 20.0
+	score += topicScore * 18.0
+	score += depthScore * 18.0
+	score += structureScore * 15.0
+	score += exampleScore * 15.0
+	score += closureScore * 12.0
+
+	score -= float64(incomplete) * 4.0
 
 	if score > 100 {
 		score = 100
 	}
-	return math.Round(score*10) / 10
+	if score < 0 {
+		score = 0
+	}
+	return math.Round(score*10) / 10, detail
 }
 
 func scoreToGrade(score float64) string {
@@ -206,38 +193,17 @@ func scoreToGrade(score float64) string {
 	}
 }
 
-func isPartial(lab, summary string) bool {
-	labKW := extractKeywords(lab)
-	sumKW := extractKeywords(summary)
-	if len(labKW) == 0 {
-		return false
-	}
-	covered := 0
-	for k := range labKW {
-		if sumKW[k] > 0 {
-			covered++
+func evidenceText(f model.Finding) string {
+	var parts []string
+	for _, e := range f.Evidence {
+		if e.Marker != "" {
+			parts = append(parts, e.Marker)
 		}
 	}
-	ratio := float64(covered) / float64(len(labKW))
-	return ratio > 0 && ratio < 0.5
-}
-
-func isTruncated(summary string) bool {
-	trimmed := strings.TrimSpace(summary)
-	if len(trimmed) == 0 {
-		return false
+	if len(parts) == 0 {
+		return f.Summary
 	}
-	last := trimmed[len(trimmed)-1]
-	if last != '.' && last != '!' && last != '?' && last != '"' && last != ')' && last != ']' {
-		words := strings.Fields(trimmed)
-		if len(words) > 5 {
-			return true
-		}
-	}
-	if strings.HasSuffix(trimmed, "...") {
-		return true
-	}
-	return false
+	return strings.Join(parts, " ")
 }
 
 func Analyze(findings []model.Finding) Report {
@@ -245,65 +211,57 @@ func Analyze(findings []model.Finding) Report {
 		return Report{}
 	}
 
-	type pair struct {
-		lab     string
-		summary string
-	}
-	modelPairs := map[string][]pair{}
+	modelEntries := map[string][]model.Finding{}
 	for _, f := range findings {
 		mn := f.Model.Model
 		if mn == "" {
 			mn = "unknown"
 		}
-		modelPairs[mn] = append(modelPairs[mn], pair{lab: f.Lab, summary: f.Summary})
+		modelEntries[mn] = append(modelEntries[mn], f)
 	}
 
 	var models []ModelCompleteness
-	for mn, pairs := range modelPairs {
-		var sumCov, sumDepth, sumTrail, sumStruct float64
-		partialCount := 0
-		truncCount := 0
+	for mn, entries := range modelEntries {
+		var totalScore float64
+		var totalDetail CompletenessDetail
+		totalConcerns := 0
 
-		for _, p := range pairs {
-			cov := componentCoverage(p.lab, p.summary)
-			depth := depthScore(p.summary)
-			trail := trailOffPenalty(p.summary)
-			structure := structureScore(p.summary)
+		labs := map[string]bool{}
+		for _, e := range entries {
+			labs[e.Lab] = true
+			evidence := evidenceText(e)
+			score, detail := scoreResponse(e.Summary, evidence)
+			totalScore += score
+			totalDetail.TopicCoverage += detail.TopicCoverage
+			totalDetail.DepthScore += detail.DepthScore
+			totalDetail.StructureScore += detail.StructureScore
+			totalDetail.ExamplePresence += detail.ExamplePresence
+			totalDetail.ClosureScore += detail.ClosureScore
+			totalDetail.WordCount += detail.WordCount
+			totalDetail.SentenceCount += detail.SentenceCount
+			totalDetail.QuestionCount += detail.QuestionCount
 
-			sumCov += cov
-			sumDepth += depth
-			sumTrail += trail
-			sumStruct += structure
-
-			if isPartial(p.lab, p.summary) {
-				partialCount++
-			}
-			if isTruncated(p.summary) {
-				truncCount++
+			if detail.TopicCoverage < 0.4 || detail.DepthScore < 0.4 {
+				totalConcerns++
 			}
 		}
 
-		n := float64(len(pairs))
-		avgCov := sumCov / n
-		avgDepth := sumDepth / n
-		avgTrail := sumTrail / n
-		avgStruct := sumStruct / n
-
-		overall := (avgCov*0.35 + avgDepth*0.25 + avgTrail*0.20 + avgStruct*0.20)
+		n := float64(len(entries))
+		avgScore := totalScore / n
+		totalDetail.TopicCoverage = math.Round(totalDetail.TopicCoverage/n*100) / 100
+		totalDetail.DepthScore = math.Round(totalDetail.DepthScore/n*100) / 100
+		totalDetail.StructureScore = math.Round(totalDetail.StructureScore/n*100) / 100
+		totalDetail.ExamplePresence = math.Round(totalDetail.ExamplePresence/n*100) / 100
+		totalDetail.ClosureScore = math.Round(totalDetail.ClosureScore/n*100) / 100
 
 		models = append(models, ModelCompleteness{
-			Model:            mn,
-			CompletenessScore: math.Round(overall*10) / 10,
-			Grade:            scoreToGrade(overall),
-			Detail: CompletenessDetail{
-				ComponentCoverage: math.Round(avgCov*10) / 10,
-				DepthScore:        math.Round(avgDepth*10) / 10,
-				TrailOffPenalty:   math.Round(avgTrail*10) / 10,
-				StructureScore:    math.Round(avgStruct*10) / 10,
-			},
-			SampleCount:    len(pairs),
-			PartialCount:   partialCount,
-			TruncatedCount: truncCount,
+			Model:             mn,
+			CompletenessScore: math.Round(avgScore*10) / 10,
+			Grade:             scoreToGrade(avgScore),
+			Detail:            totalDetail,
+			SampleCount:       len(entries),
+			LabCount:          len(labs),
+			Concerns:          totalConcerns,
 		})
 	}
 
@@ -318,8 +276,8 @@ func Analyze(findings []model.Finding) Report {
 
 	r := Report{Models: models}
 	if len(models) > 0 {
-		r.MostComplete = models[0].Model
-		r.LeastComplete = models[len(models)-1].Model
+		r.BestModel = models[0].Model
+		r.WorstModel = models[len(models)-1].Model
 		r.MeanScore = math.Round(sumScore/float64(len(models))*10) / 10
 	}
 	return r
@@ -335,20 +293,23 @@ func FormatText(r Report) string {
 		return b.String()
 	}
 
-	fmt.Fprintf(&b, "  Models evaluated:    %d\n", len(r.Models))
-	fmt.Fprintf(&b, "  Mean score:          %.1f\n", r.MeanScore)
-	fmt.Fprintf(&b, "  Most complete:       %s\n", r.MostComplete)
-	fmt.Fprintf(&b, "  Least complete:      %s\n\n", r.LeastComplete)
+	fmt.Fprintf(&b, "  Models evaluated:     %d\n", len(r.Models))
+	fmt.Fprintf(&b, "  Mean score:           %.1f\n", r.MeanScore)
+	fmt.Fprintf(&b, "  Best model:           %s\n", r.BestModel)
+	fmt.Fprintf(&b, "  Worst model:          %s\n\n", r.WorstModel)
 
 	for _, m := range r.Models {
-		fmt.Fprintf(&b, "  Model: %s  [%s] %.1f/100  (%d samples)\n",
-			m.Model, m.Grade, m.CompletenessScore, m.SampleCount)
-		fmt.Fprintf(&b, "    %-28s %.1f\n", "component_coverage", m.Detail.ComponentCoverage)
-		fmt.Fprintf(&b, "    %-28s %.1f\n", "depth_score", m.Detail.DepthScore)
-		fmt.Fprintf(&b, "    %-28s %.1f\n", "trail_off_penalty", m.Detail.TrailOffPenalty)
-		fmt.Fprintf(&b, "    %-28s %.1f\n", "structure_score", m.Detail.StructureScore)
-		fmt.Fprintf(&b, "    Partial answers: %d  Truncated: %d\n",
-			m.PartialCount, m.TruncatedCount)
+		fmt.Fprintf(&b, "  Model: %s  [%s] %.1f/100  (%d samples, %d labs)\n",
+			m.Model, m.Grade, m.CompletenessScore, m.SampleCount, m.LabCount)
+		fmt.Fprintf(&b, "    %-28s %.2f\n", "topic_coverage", m.Detail.TopicCoverage)
+		fmt.Fprintf(&b, "    %-28s %.2f\n", "depth_score", m.Detail.DepthScore)
+		fmt.Fprintf(&b, "    %-28s %.2f\n", "structure_score", m.Detail.StructureScore)
+		fmt.Fprintf(&b, "    %-28s %.2f\n", "example_presence", m.Detail.ExamplePresence)
+		fmt.Fprintf(&b, "    %-28s %.2f\n", "closure_score", m.Detail.ClosureScore)
+		fmt.Fprintf(&b, "    %-28s %d\n", "word_count", m.Detail.WordCount)
+		fmt.Fprintf(&b, "    %-28s %d\n", "sentence_count", m.Detail.SentenceCount)
+		fmt.Fprintf(&b, "    %-28s %d\n", "question_count", m.Detail.QuestionCount)
+		fmt.Fprintf(&b, "    Concerns: %d\n", m.Concerns)
 		b.WriteString("\n")
 	}
 

@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	Register("completeness", "analyze response completeness scoring", runCompleteness)
+	Register("completeness", "score response completeness and topic coverage", runCompleteness)
 }
 
 func runCompleteness(args []string, stdout, stderr io.Writer) int {
