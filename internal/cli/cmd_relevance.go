@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	Register("relevance", "analyze response relevance to prompts", runRelevance)
+	Register("relevance", "score response relevance to prompt", runRelevance)
 }
 
 func runRelevance(args []string, stdout, stderr io.Writer) int {

@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	Register("conciseness", "score response conciseness across models", runConciseness)
+	Register("conciseness", "score response conciseness and word economy", runConciseness)
 }
 
 func runConciseness(args []string, stdout, stderr io.Writer) int {

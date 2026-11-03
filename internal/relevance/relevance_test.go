@@ -1,153 +1,253 @@
 package relevance
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/joeyvictorino/assay/internal/model"
 )
 
-func mkFinding(modelName, lab, summary string) model.Finding {
+func mkFinding(mdl, lab, summary string) model.Finding {
 	return model.Finding{
-		Model:   model.ModelRef{Model: modelName},
+		Model:   model.ModelRef{Model: mdl},
 		Lab:     lab,
 		Summary: summary,
 	}
 }
 
-func TestEmptyFindings(t *testing.T) {
+func TestAnalyzeEmpty(t *testing.T) {
 	r := Analyze(nil)
 	if len(r.Models) != 0 {
-		t.Fatalf("expected 0 models, got %d", len(r.Models))
+		t.Fatal("expected no models")
 	}
 }
 
-func TestHighRelevance(t *testing.T) {
-	findings := []model.Finding{
-		mkFinding("focused-model", "SQL injection in login endpoint", "SQL injection found in the login endpoint via unsanitized user input"),
+func TestAnalyzeSingleRelevant(t *testing.T) {
+	fs := []model.Finding{mkFinding("m1", "security vulnerability scan", "The security vulnerability scan found SQL injection.")}
+	r := Analyze(fs)
+	if len(r.Models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(r.Models))
 	}
-	r := Analyze(findings)
-	if r.Models[0].RelevanceScore < 50 {
-		t.Errorf("high-relevance response should score well, got %.1f", r.Models[0].RelevanceScore)
-	}
-}
-
-func TestLowRelevance(t *testing.T) {
-	findings := []model.Finding{
-		mkFinding("drifty-model", "SQL injection in login", "The weather today is sunny with clear skies and temperatures around seventy degrees fahrenheit"),
-	}
-	r := Analyze(findings)
-	if r.Models[0].RelevanceScore > 70 {
-		t.Errorf("off-topic response should score low, got %.1f", r.Models[0].RelevanceScore)
+	if r.Models[0].RelevanceScore < 70 {
+		t.Errorf("relevant response should score well, got %.1f", r.Models[0].RelevanceScore)
 	}
 }
 
-func TestTopicDrift(t *testing.T) {
-	findings := []model.Finding{
-		mkFinding("drifter", "XSS vulnerability analysis", "The system uses various cloud computing paradigms and microservice architectures to process data"),
+func TestTangentLowersScore(t *testing.T) {
+	relevant := []model.Finding{mkFinding("m1", "test lab", "The test results show clear pass.")}
+	tangent := []model.Finding{mkFinding("m1", "test lab", "By the way on a side note speaking of which incidentally as an aside this reminds me of something off topic.")}
+	rr := Analyze(relevant)
+	rt := Analyze(tangent)
+	if rt.Models[0].RelevanceScore >= rr.Models[0].RelevanceScore {
+		t.Error("tangent-heavy response should score lower")
 	}
-	r := Analyze(findings)
-	if r.Models[0].DriftCount < 1 {
-		t.Errorf("expected drift warning for off-topic response, got %d", r.Models[0].DriftCount)
+}
+
+func TestEvasivePhrasesPenalize(t *testing.T) {
+	fs := []model.Finding{mkFinding("m1", "lab", "That is a good question. It depends on many factors. It is hard to say. Opinions vary. There is no simple answer.")}
+	r := Analyze(fs)
+	if r.Models[0].Detail.TangentRate >= 0.9 {
+		t.Error("evasive phrases should lower tangent rate score")
+	}
+}
+
+func TestVaguePhrasesPenalize(t *testing.T) {
+	fs := []model.Finding{mkFinding("m1", "lab", "Things and stuff sort of kind of more or less various aspects in some ways.")}
+	r := Analyze(fs)
+	if r.Models[0].Detail.SpecificityScr >= 0.8 {
+		t.Errorf("vague phrases should lower specificity, got %.2f", r.Models[0].Detail.SpecificityScr)
+	}
+}
+
+func TestTermOverlapEmpty(t *testing.T) {
+	shared, cov := termOverlap("", "some response text")
+	if shared != 0 || cov != 1.0 {
+		t.Errorf("empty prompt should yield 0 shared, 1.0 coverage; got %d, %.2f", shared, cov)
+	}
+}
+
+func TestTermOverlapMatch(t *testing.T) {
+	shared, _ := termOverlap("security vulnerability detection", "The security vulnerability was detected successfully.")
+	if shared < 2 {
+		t.Errorf("expected at least 2 shared terms, got %d", shared)
 	}
 }
 
 func TestMultipleModels(t *testing.T) {
-	findings := []model.Finding{
-		mkFinding("good-model", "CSRF protection missing", "CSRF protection is missing on the form submission endpoint"),
-		mkFinding("bad-model", "CSRF protection missing", "Machine learning algorithms optimize gradient descent for neural network training"),
+	fs := []model.Finding{
+		mkFinding("m1", "code review", "The code review found buffer overflow."),
+		mkFinding("m2", "code review", "By the way on a side note things are complicated. It depends."),
 	}
-	r := Analyze(findings)
+	r := Analyze(fs)
 	if len(r.Models) != 2 {
 		t.Fatalf("expected 2 models, got %d", len(r.Models))
 	}
-	if r.MostRelevant == r.LeastRelevant {
-		t.Error("most and least relevant should differ")
+	if r.BestModel == "" || r.WorstModel == "" {
+		t.Error("expected best/worst models set")
 	}
 }
 
-func TestKeywordOverlapFunc(t *testing.T) {
-	labKW := extractKeywords("SQL injection vulnerability")
-	sumKW := extractKeywords("SQL injection found in endpoint")
-	overlap := keywordOverlap(labKW, sumKW)
-	if overlap < 30 {
-		t.Errorf("overlapping keywords should score > 30, got %.1f", overlap)
+func TestGradeA(t *testing.T) {
+	if scoreToGrade(95) != "A" {
+		t.Error("expected A")
 	}
 }
 
-func TestExtractKeywordsStopWords(t *testing.T) {
-	kw := extractKeywords("the is a an of in for to")
-	if len(kw) != 0 {
-		t.Errorf("expected 0 keywords from stop words, got %d", len(kw))
+func TestGradeB(t *testing.T) {
+	if scoreToGrade(85) != "B" {
+		t.Error("expected B")
 	}
 }
 
-func TestAnswerDirectnessPenalty(t *testing.T) {
-	hedgy := "It depends on various factors. Generally speaking, there are many considerations. On the other hand, it varies."
-	score := answerDirectness(hedgy)
-	if score > 70 {
-		t.Errorf("hedging response should score low on directness, got %.1f", score)
+func TestGradeC(t *testing.T) {
+	if scoreToGrade(75) != "C" {
+		t.Error("expected C")
 	}
 }
 
-func TestAnswerDirectnessClean(t *testing.T) {
-	direct := "SQL injection vulnerability in the login endpoint allows authentication bypass."
-	score := answerDirectness(direct)
-	if score < 90 {
-		t.Errorf("direct response should score high, got %.1f", score)
+func TestGradeD(t *testing.T) {
+	if scoreToGrade(65) != "D" {
+		t.Error("expected D")
 	}
 }
 
-func TestGradeAssignment(t *testing.T) {
-	tests := []struct {
-		score float64
-		grade string
-	}{
-		{95, "A"},
-		{85, "B"},
-		{75, "C"},
-		{65, "D"},
-		{45, "F"},
-	}
-	for _, tc := range tests {
-		got := scoreToGrade(tc.score)
-		if got != tc.grade {
-			t.Errorf("scoreToGrade(%.0f) = %q, want %q", tc.score, got, tc.grade)
-		}
+func TestGradeF(t *testing.T) {
+	if scoreToGrade(45) != "F" {
+		t.Error("expected F")
 	}
 }
 
-func TestFormatText(t *testing.T) {
-	findings := []model.Finding{
-		mkFinding("test-model", "test lab", "test summary"),
+func TestScoreBounded(t *testing.T) {
+	fs := []model.Finding{mkFinding("m1", "lab", strings.Repeat("by the way on a side note things stuff kind of sort of ", 30))}
+	r := Analyze(fs)
+	if r.Models[0].RelevanceScore < 0 || r.Models[0].RelevanceScore > 100 {
+		t.Errorf("score out of bounds: %.1f", r.Models[0].RelevanceScore)
 	}
-	r := Analyze(findings)
+}
+
+func TestFormatTextNonEmpty(t *testing.T) {
+	fs := []model.Finding{mkFinding("m1", "lab", "Relevant response.")}
+	r := Analyze(fs)
 	text := FormatText(r)
 	if !strings.Contains(text, "Relevance") {
 		t.Error("expected header in text output")
 	}
-	if !strings.Contains(text, "test-model") {
-		t.Error("expected model name in text output")
+	if !strings.Contains(text, "m1") {
+		t.Error("expected model name in output")
 	}
 }
 
-func TestFormatJSON(t *testing.T) {
-	findings := []model.Finding{
-		mkFinding("test-model", "test lab", "test summary"),
+func TestFormatTextEmpty(t *testing.T) {
+	r := Analyze(nil)
+	text := FormatText(r)
+	if !strings.Contains(text, "No relevance data") {
+		t.Error("expected empty message")
 	}
-	r := Analyze(findings)
+}
+
+func TestFormatJSONValid(t *testing.T) {
+	fs := []model.Finding{mkFinding("m1", "lab", "Test response.")}
+	r := Analyze(fs)
 	out := FormatJSON(r)
-	if !strings.Contains(out, `"relevance_score"`) {
-		t.Error("expected relevance_score in JSON output")
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &data); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if _, ok := data["models"]; !ok {
+		t.Error("expected models key in JSON")
 	}
 }
 
-func TestEmptyModelName(t *testing.T) {
-	findings := []model.Finding{
-		{Model: model.ModelRef{}, Lab: "test", Summary: "test"},
+func TestFormatJSONRoundtrip(t *testing.T) {
+	r := Analyze(nil)
+	out := FormatJSON(r)
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &data); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
 	}
-	r := Analyze(findings)
+}
+
+func TestConcernsFlagged(t *testing.T) {
+	fs := []model.Finding{mkFinding("m1", "lab", "By the way on a side note speaking of which incidentally as an aside changing the subject.")}
+	r := Analyze(fs)
+	if r.Models[0].Concerns == 0 {
+		t.Error("expected concerns for heavy tangent use")
+	}
+}
+
+func TestSharedTermsBoostSpecificity(t *testing.T) {
+	fs := []model.Finding{mkFinding("m1", "network security firewall configuration audit", "The network security firewall configuration audit revealed open ports and misconfigured rules.")}
+	r := Analyze(fs)
+	if r.Models[0].Detail.SharedTerms < 3 {
+		t.Errorf("expected shared terms >= 3, got %d", r.Models[0].Detail.SharedTerms)
+	}
+}
+
+func TestMeanScore(t *testing.T) {
+	fs := []model.Finding{
+		mkFinding("m1", "lab1", "Relevant response."),
+		mkFinding("m2", "lab2", "Another relevant answer."),
+	}
+	r := Analyze(fs)
+	if r.MeanScore <= 0 {
+		t.Error("expected positive mean score")
+	}
+}
+
+func TestLabCount(t *testing.T) {
+	fs := []model.Finding{
+		{Model: model.ModelRef{Model: "m1"}, Summary: "test", Lab: "lab1"},
+		{Model: model.ModelRef{Model: "m1"}, Summary: "test2", Lab: "lab2"},
+	}
+	r := Analyze(fs)
+	if r.Models[0].LabCount != 2 {
+		t.Errorf("expected 2 labs, got %d", r.Models[0].LabCount)
+	}
+}
+
+func TestUnknownModel(t *testing.T) {
+	fs := []model.Finding{{Summary: "test", Lab: "lab1"}}
+	r := Analyze(fs)
 	if r.Models[0].Model != "unknown" {
-		t.Errorf("expected 'unknown' for empty model, got %q", r.Models[0].Model)
+		t.Errorf("expected unknown model, got %s", r.Models[0].Model)
+	}
+}
+
+func TestEvidenceText(t *testing.T) {
+	f := model.Finding{
+		Summary: "fallback",
+		Evidence: []model.Evidence{
+			{Marker: "marker1"},
+			{Marker: "marker2"},
+		},
+	}
+	et := evidenceText(f)
+	if !strings.Contains(et, "marker1") {
+		t.Error("expected marker in evidence text")
+	}
+}
+
+func TestEvidenceFallback(t *testing.T) {
+	f := model.Finding{Summary: "my summary"}
+	et := evidenceText(f)
+	if et != "my summary" {
+		t.Errorf("expected summary fallback, got %q", et)
+	}
+}
+
+func TestContentWordsFilters(t *testing.T) {
+	words := contentWords("The quick brown fox is a great animal")
+	for _, w := range words {
+		if stopWords[w] {
+			t.Errorf("stop word %q not filtered", w)
+		}
+	}
+}
+
+func TestCountPhrasesCase(t *testing.T) {
+	c := countPhrases("BY THE WAY this is By The Way", []string{"by the way"})
+	if c != 2 {
+		t.Errorf("expected 2 case-insensitive, got %d", c)
 	}
 }
