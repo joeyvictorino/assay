@@ -11,14 +11,13 @@ import (
 )
 
 type RecallDetail struct {
-	TopicCoverage    float64 `json:"topic_coverage"`
-	EdgeCaseHandling float64 `json:"edge_case_handling"`
-	DepthScore       float64 `json:"depth_score"`
-	ExhaustiveScore  float64 `json:"exhaustive_score"`
-	GapResistance    float64 `json:"gap_resistance"`
-	CoveredCount     int     `json:"covered_count"`
-	OmittedCount     int     `json:"omitted_count"`
-	PartialCount     int     `json:"partial_count"`
+	CompletenessCount int     `json:"completeness_count"`
+	CoverageCount     int     `json:"coverage_count"`
+	SkippedCount      int     `json:"skipped_count"`
+	OmittedCount      int     `json:"omitted_count"`
+	PartialCount      int     `json:"partial_count"`
+	RecallRatio       float64 `json:"recall_ratio"`
+	WordCount         int     `json:"word_count"`
 }
 
 type ModelRecall struct {
@@ -28,7 +27,6 @@ type ModelRecall struct {
 	Detail      RecallDetail `json:"detail"`
 	SampleCount int          `json:"sample_count"`
 	LabCount    int          `json:"lab_count"`
-	Concerns    int          `json:"concerns"`
 }
 
 type Report struct {
@@ -38,56 +36,43 @@ type Report struct {
 	MeanScore  float64       `json:"mean_score"`
 }
 
+var completenessPhrases = []string{
+	"addressing all", "covering each", "comprehensively",
+	"in its entirety", "all aspects", "every component",
+	"thoroughly", "exhaustively", "fully addressed",
+	"complete analysis", "all points covered", "end to end",
+	"holistic", "all facets", "nothing omitted",
+}
+
 var coveragePhrases = []string{
-	"first", "second", "third", "additionally",
-	"furthermore", "moreover", "also", "in addition",
-	"another aspect", "another consideration",
-	"on one hand", "on the other hand",
-	"regarding", "with respect to", "as for",
+	"additionally", "furthermore", "also considering",
+	"another important factor", "equally important",
+	"not to overlook", "it is also worth noting",
+	"in addition", "beyond that", "coupled with",
+	"as well as", "together with", "along with",
+	"supplementing", "complementing",
 }
 
-var edgeCasePhrases = []string{
-	"edge case", "corner case", "special case",
-	"exception", "caveat", "limitation",
-	"however", "note that", "be aware",
-	"important to note", "keep in mind",
-	"watch out for", "pitfall",
-	"unless", "except when",
+var skippedPhrases = []string{
+	"skipping", "omitting", "leaving out",
+	"not addressed", "beyond the scope", "out of scope",
+	"will not discuss", "setting aside",
+	"ignoring", "disregarding", "passing over",
 }
 
-var depthPhrases = []string{
-	"in detail", "specifically", "in particular",
-	"for example", "for instance", "such as",
-	"to elaborate", "more precisely",
-	"this means that", "the reason is",
-	"because", "therefore", "consequently",
-	"the underlying", "fundamentally",
-}
-
-var exhaustivePhrases = []string{
-	"comprehensive", "thorough", "complete",
-	"all aspects", "every", "each of",
-	"the full", "entirely", "in its entirety",
-	"no exception", "without exception",
-	"covers all", "addresses all",
-}
-
-var omissionPhrases = []string{
-	"i won't cover", "beyond the scope",
-	"i'll skip", "not going into",
-	"that's a separate topic", "out of scope",
-	"let's focus on", "only covering",
-	"briefly", "in short", "to summarize",
-	"long story short", "tldr",
+var omittedPhrases = []string{
+	"i forgot to", "i should have included",
+	"missing from my analysis", "i overlooked",
+	"an important omission", "i neglected",
+	"left unaddressed", "gap in coverage",
+	"incomplete coverage", "not fully explored",
 }
 
 var partialPhrases = []string{
-	"partially", "to some extent",
-	"not fully", "incomplete",
-	"more or less", "roughly",
-	"approximately", "sort of",
-	"kind of", "in a way",
-	"somewhat", "a bit",
+	"partially", "to some extent", "in part",
+	"only briefly", "a surface-level", "cursory",
+	"not in depth", "superficially", "limited coverage",
+	"high-level only", "touching on", "briefly mentioned",
 }
 
 func countPhrases(text string, phrases []string) int {
@@ -103,62 +88,41 @@ func scoreResponse(response, evidence string) (float64, RecallDetail) {
 	combined := response + " " + evidence
 	words := len(strings.Fields(combined))
 
+	completeness := countPhrases(combined, completenessPhrases)
 	coverage := countPhrases(combined, coveragePhrases)
-	edgeCases := countPhrases(combined, edgeCasePhrases)
-	depth := countPhrases(combined, depthPhrases)
-	exhaustive := countPhrases(combined, exhaustivePhrases)
-	omission := countPhrases(combined, omissionPhrases)
+	skipped := countPhrases(combined, skippedPhrases)
+	omitted := countPhrases(combined, omittedPhrases)
 	partial := countPhrases(combined, partialPhrases)
 
-	covered := coverage + edgeCases + depth + exhaustive
+	recallSignals := float64(completeness + coverage)
+	gapSignals := float64(skipped + omitted + partial)
 
-	topicScore := 0.2
-	if words > 0 {
-		topicScore = math.Min(1.0, float64(coverage)*2.0/float64(words)*10.0+0.2)
-	}
-
-	edgeScore := 0.2
-	if words > 0 {
-		edgeScore = math.Min(1.0, float64(edgeCases)*2.0/float64(words)*10.0+0.2)
-	}
-
-	depthScore := 0.3
-	if depth > 0 || exhaustive > 0 {
-		depthScore = math.Min(1.0, float64(depth+exhaustive)*0.15+0.3)
-	}
-
-	exhaustiveScore := 0.2
-	if words > 0 {
-		exhaustiveScore = math.Min(1.0, float64(exhaustive)*2.0/float64(words)*10.0+0.2)
-	}
-
-	gapScore := 0.2
-	if omission == 0 && partial == 0 {
-		gapScore = 0.8
-	} else if omission+partial < 3 {
-		gapScore = 0.5
+	ratio := 0.5
+	if recallSignals+gapSignals > 0 {
+		ratio = recallSignals / (recallSignals + gapSignals)
 	}
 
 	detail := RecallDetail{
-		TopicCoverage:    math.Round(topicScore*100) / 100,
-		EdgeCaseHandling: math.Round(edgeScore*100) / 100,
-		DepthScore:       math.Round(depthScore*100) / 100,
-		ExhaustiveScore:  math.Round(exhaustiveScore*100) / 100,
-		GapResistance:    math.Round(gapScore*100) / 100,
-		CoveredCount:     covered,
-		OmittedCount:     omission,
-		PartialCount:     partial,
+		CompletenessCount: completeness,
+		CoverageCount:     coverage,
+		SkippedCount:      skipped,
+		OmittedCount:      omitted,
+		PartialCount:      partial,
+		RecallRatio:       math.Round(ratio*100) / 100,
+		WordCount:         words,
 	}
 
-	score := 30.0
-	score += topicScore * 15.0
-	score += edgeScore * 15.0
-	score += depthScore * 10.0
-	score += exhaustiveScore * 10.0
-	score += gapScore * 10.0
+	score := 40.0
+	score += ratio * 35.0
+	score += math.Min(float64(completeness)*3.0, 15.0)
+	score += math.Min(float64(coverage)*2.5, 12.0)
+	score -= float64(skipped) * 4.0
+	score -= float64(omitted) * 5.0
+	score -= float64(partial) * 2.5
 
-	score -= float64(omission) * 4.0
-	score -= float64(partial) * 5.0
+	if words > 200 && coverage > 2 {
+		score += 5.0
+	}
 
 	if score > 100 {
 		score = 100
@@ -215,35 +179,24 @@ func Analyze(findings []model.Finding) Report {
 	for mn, entries := range modelEntries {
 		var totalScore float64
 		var totalDetail RecallDetail
-		totalConcerns := 0
-
 		labs := map[string]bool{}
+
 		for _, e := range entries {
 			labs[e.Lab] = true
 			evidence := evidenceText(e)
 			score, detail := scoreResponse(e.Summary, evidence)
 			totalScore += score
-			totalDetail.TopicCoverage += detail.TopicCoverage
-			totalDetail.EdgeCaseHandling += detail.EdgeCaseHandling
-			totalDetail.DepthScore += detail.DepthScore
-			totalDetail.ExhaustiveScore += detail.ExhaustiveScore
-			totalDetail.GapResistance += detail.GapResistance
-			totalDetail.CoveredCount += detail.CoveredCount
+			totalDetail.CompletenessCount += detail.CompletenessCount
+			totalDetail.CoverageCount += detail.CoverageCount
+			totalDetail.SkippedCount += detail.SkippedCount
 			totalDetail.OmittedCount += detail.OmittedCount
 			totalDetail.PartialCount += detail.PartialCount
-
-			if detail.OmittedCount > 3 {
-				totalConcerns++
-			}
+			totalDetail.WordCount += detail.WordCount
 		}
 
 		n := float64(len(entries))
 		avgScore := totalScore / n
-		totalDetail.TopicCoverage = math.Round(totalDetail.TopicCoverage/n*100) / 100
-		totalDetail.EdgeCaseHandling = math.Round(totalDetail.EdgeCaseHandling/n*100) / 100
-		totalDetail.DepthScore = math.Round(totalDetail.DepthScore/n*100) / 100
-		totalDetail.ExhaustiveScore = math.Round(totalDetail.ExhaustiveScore/n*100) / 100
-		totalDetail.GapResistance = math.Round(totalDetail.GapResistance/n*100) / 100
+		totalDetail.RecallRatio = math.Round(totalDetail.RecallRatio/n*100) / 100
 
 		models = append(models, ModelRecall{
 			Model:       mn,
@@ -252,7 +205,6 @@ func Analyze(findings []model.Finding) Report {
 			Detail:      totalDetail,
 			SampleCount: len(entries),
 			LabCount:    len(labs),
-			Concerns:    totalConcerns,
 		})
 	}
 
@@ -292,18 +244,13 @@ func FormatText(r Report) string {
 	for _, m := range r.Models {
 		fmt.Fprintf(&b, "  Model: %s  [%s] %.1f/100  (%d samples, %d labs)\n",
 			m.Model, m.Grade, m.RecallScore, m.SampleCount, m.LabCount)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "topic_coverage", m.Detail.TopicCoverage)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "edge_case_handling", m.Detail.EdgeCaseHandling)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "depth_score", m.Detail.DepthScore)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "exhaustive_score", m.Detail.ExhaustiveScore)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "gap_resistance", m.Detail.GapResistance)
-		fmt.Fprintf(&b, "    %-28s %d\n", "covered_count", m.Detail.CoveredCount)
+		fmt.Fprintf(&b, "    %-28s %d\n", "completeness_count", m.Detail.CompletenessCount)
+		fmt.Fprintf(&b, "    %-28s %d\n", "coverage_count", m.Detail.CoverageCount)
+		fmt.Fprintf(&b, "    %-28s %d\n", "skipped_count", m.Detail.SkippedCount)
 		fmt.Fprintf(&b, "    %-28s %d\n", "omitted_count", m.Detail.OmittedCount)
 		fmt.Fprintf(&b, "    %-28s %d\n", "partial_count", m.Detail.PartialCount)
-		fmt.Fprintf(&b, "    Concerns: %d\n", m.Concerns)
 		b.WriteString("\n")
 	}
-
 	return b.String()
 }
 

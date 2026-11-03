@@ -11,14 +11,13 @@ import (
 )
 
 type PrecisionDetail struct {
-	FactualCitation   float64 `json:"factual_citation"`
-	SpecificDetail    float64 `json:"specific_detail"`
-	QuantitativeData  float64 `json:"quantitative_data"`
-	SourceAttribution float64 `json:"source_attribution"`
-	TechnicalAccuracy float64 `json:"technical_accuracy"`
-	CitationCount     int     `json:"citation_count"`
-	VagueCount        int     `json:"vague_count"`
-	NumberCount       int     `json:"number_count"`
+	DirectAnswerCount int     `json:"direct_answer_count"`
+	SpecificRefCount  int     `json:"specific_ref_count"`
+	TangentCount      int     `json:"tangent_count"`
+	FillerCount       int     `json:"filler_count"`
+	OverExplainCount  int     `json:"over_explain_count"`
+	PrecisionRatio    float64 `json:"precision_ratio"`
+	WordCount         int     `json:"word_count"`
 }
 
 type ModelPrecision struct {
@@ -28,7 +27,6 @@ type ModelPrecision struct {
 	Detail         PrecisionDetail `json:"detail"`
 	SampleCount    int             `json:"sample_count"`
 	LabCount       int             `json:"lab_count"`
-	Concerns       int             `json:"concerns"`
 }
 
 type Report struct {
@@ -38,61 +36,44 @@ type Report struct {
 	MeanScore  float64          `json:"mean_score"`
 }
 
-var citationPhrases = []string{
-	"according to", "as documented in",
-	"per the specification", "referenced in",
-	"as stated in", "defined by",
-	"described in", "see section",
-	"as per", "the documentation states",
-	"the standard requires", "rfc",
-	"specification", "the manual states",
-	"official documentation", "technical reference",
+var directAnswerPhrases = []string{
+	"the answer is", "specifically", "in short",
+	"to directly answer", "the result is", "precisely",
+	"exactly", "the key point is", "in summary",
+	"to be specific", "the solution is", "concretely",
+	"the direct cause", "narrowly", "succinctly",
 }
 
-var specificPhrases = []string{
-	"specifically", "in particular", "exactly",
-	"precisely", "the exact value", "measured at",
-	"observed at", "recorded as", "pinpointed",
-	"identified as", "determined to be",
-	"confirmed at", "verified as",
-	"the specific", "narrowed down to",
+var specificRefPhrases = []string{
+	"as shown in", "according to", "based on the data",
+	"the evidence shows", "referencing", "as documented",
+	"per the specification", "as defined in", "citing",
+	"from the source", "as measured by", "validated by",
+	"as demonstrated", "confirmed by", "cross-referenced",
 }
 
-var quantPhrases = []string{
-	"percent", "percentage", "ratio",
-	"approximately", "roughly", "about",
-	"measured", "calculated", "computed",
-	"on average", "median", "mean",
-	"standard deviation", "variance",
-	"rate of", "frequency of",
+var tangentPhrases = []string{
+	"by the way", "on a related note", "incidentally",
+	"speaking of which", "as an aside", "while we're at it",
+	"it's worth mentioning", "tangentially", "on another note",
+	"as a side note", "unrelated but", "off topic",
 }
 
-var sourcePhrases = []string{
-	"source:", "cited from", "from the",
-	"based on data from", "published by",
-	"reported by", "authored by",
-	"released by", "maintained by",
-	"provided by", "compiled from",
-	"sourced from", "attributed to",
+var fillerPhrases = []string{
+	"as you may know", "it goes without saying",
+	"needless to say", "obviously", "of course",
+	"as everyone knows", "naturally", "clearly",
+	"it is well known", "as always", "as usual",
+	"without a doubt", "undeniably", "inevitably",
 }
 
-var technicalPhrases = []string{
-	"algorithm", "implementation", "protocol",
-	"architecture", "framework", "methodology",
-	"mechanism", "interface", "specification",
-	"configuration", "parameter", "constraint",
-	"dependency", "module", "component",
-	"runtime", "compilation", "execution",
-}
-
-var vaguePhrases = []string{
-	"some people say", "it is believed",
-	"many experts", "sources say",
-	"it is known", "generally accepted",
-	"widely reported", "commonly thought",
-	"it is said", "rumored to",
-	"supposedly", "apparently",
-	"might be", "could possibly",
+var overExplainPhrases = []string{
+	"to elaborate further", "in other words",
+	"let me explain in more detail", "to put it another way",
+	"what i mean is", "to clarify further",
+	"breaking this down further", "expanding on this",
+	"to reiterate", "once again", "as mentioned before",
+	"to repeat", "restating",
 }
 
 func countPhrases(text string, phrases []string) int {
@@ -104,79 +85,45 @@ func countPhrases(text string, phrases []string) int {
 	return count
 }
 
-func countNumbers(text string) int {
-	count := 0
-	inNum := false
-	for _, ch := range text {
-		if ch >= '0' && ch <= '9' {
-			if !inNum {
-				count++
-				inNum = true
-			}
-		} else {
-			inNum = false
-		}
-	}
-	return count
-}
-
 func scoreResponse(response, evidence string) (float64, PrecisionDetail) {
 	combined := response + " " + evidence
 	words := len(strings.Fields(combined))
 
-	citations := countPhrases(combined, citationPhrases)
-	specifics := countPhrases(combined, specificPhrases)
-	quant := countPhrases(combined, quantPhrases)
-	sources := countPhrases(combined, sourcePhrases)
-	technical := countPhrases(combined, technicalPhrases)
-	vague := countPhrases(combined, vaguePhrases)
-	numbers := countNumbers(combined)
+	direct := countPhrases(combined, directAnswerPhrases)
+	specific := countPhrases(combined, specificRefPhrases)
+	tangent := countPhrases(combined, tangentPhrases)
+	filler := countPhrases(combined, fillerPhrases)
+	overExplain := countPhrases(combined, overExplainPhrases)
 
-	citScore := 0.2
-	if words > 0 {
-		citScore = math.Min(1.0, float64(citations)*2.0/float64(words)*10.0+0.2)
-	}
+	precisionSignals := float64(direct + specific)
+	noiseSignals := float64(tangent + filler + overExplain)
 
-	specScore := 0.2
-	if words > 0 {
-		specScore = math.Min(1.0, float64(specifics)*2.0/float64(words)*10.0+0.2)
-	}
-
-	quantScore := 0.2
-	if words > 0 {
-		quantScore = math.Min(1.0, float64(quant)*2.5/float64(words)*10.0+0.2)
-	}
-
-	sourceScore := 0.3
-	if sources > 0 {
-		sourceScore = math.Min(1.0, float64(sources)*0.25+0.3)
-	}
-
-	techScore := 0.2
-	if words > 0 {
-		techScore = math.Min(1.0, float64(technical)*1.5/float64(words)*10.0+0.2)
+	ratio := 0.5
+	if precisionSignals+noiseSignals > 0 {
+		ratio = precisionSignals / (precisionSignals + noiseSignals)
 	}
 
 	detail := PrecisionDetail{
-		FactualCitation:   math.Round(citScore*100) / 100,
-		SpecificDetail:    math.Round(specScore*100) / 100,
-		QuantitativeData:  math.Round(quantScore*100) / 100,
-		SourceAttribution: math.Round(sourceScore*100) / 100,
-		TechnicalAccuracy: math.Round(techScore*100) / 100,
-		CitationCount:     citations,
-		VagueCount:        vague,
-		NumberCount:       numbers,
+		DirectAnswerCount: direct,
+		SpecificRefCount:  specific,
+		TangentCount:      tangent,
+		FillerCount:       filler,
+		OverExplainCount:  overExplain,
+		PrecisionRatio:    math.Round(ratio*100) / 100,
+		WordCount:         words,
 	}
 
-	score := 30.0
-	score += citScore * 15.0
-	score += specScore * 15.0
-	score += quantScore * 10.0
-	score += sourceScore * 10.0
-	score += techScore * 10.0
+	score := 40.0
+	score += ratio * 40.0
+	score += math.Min(float64(direct)*3.0, 15.0)
+	score += math.Min(float64(specific)*2.0, 10.0)
+	score -= float64(tangent) * 4.0
+	score -= float64(filler) * 3.0
+	score -= float64(overExplain) * 2.0
 
-	score -= float64(vague) * 4.0
-	score += math.Min(5.0, float64(numbers)*0.5)
+	if words > 500 && precisionSignals < 2 {
+		score -= 10.0
+	}
 
 	if score > 100 {
 		score = 100
@@ -233,35 +180,24 @@ func Analyze(findings []model.Finding) Report {
 	for mn, entries := range modelEntries {
 		var totalScore float64
 		var totalDetail PrecisionDetail
-		totalConcerns := 0
-
 		labs := map[string]bool{}
+
 		for _, e := range entries {
 			labs[e.Lab] = true
 			evidence := evidenceText(e)
 			score, detail := scoreResponse(e.Summary, evidence)
 			totalScore += score
-			totalDetail.FactualCitation += detail.FactualCitation
-			totalDetail.SpecificDetail += detail.SpecificDetail
-			totalDetail.QuantitativeData += detail.QuantitativeData
-			totalDetail.SourceAttribution += detail.SourceAttribution
-			totalDetail.TechnicalAccuracy += detail.TechnicalAccuracy
-			totalDetail.CitationCount += detail.CitationCount
-			totalDetail.VagueCount += detail.VagueCount
-			totalDetail.NumberCount += detail.NumberCount
-
-			if detail.VagueCount > 3 {
-				totalConcerns++
-			}
+			totalDetail.DirectAnswerCount += detail.DirectAnswerCount
+			totalDetail.SpecificRefCount += detail.SpecificRefCount
+			totalDetail.TangentCount += detail.TangentCount
+			totalDetail.FillerCount += detail.FillerCount
+			totalDetail.OverExplainCount += detail.OverExplainCount
+			totalDetail.WordCount += detail.WordCount
 		}
 
 		n := float64(len(entries))
 		avgScore := totalScore / n
-		totalDetail.FactualCitation = math.Round(totalDetail.FactualCitation/n*100) / 100
-		totalDetail.SpecificDetail = math.Round(totalDetail.SpecificDetail/n*100) / 100
-		totalDetail.QuantitativeData = math.Round(totalDetail.QuantitativeData/n*100) / 100
-		totalDetail.SourceAttribution = math.Round(totalDetail.SourceAttribution/n*100) / 100
-		totalDetail.TechnicalAccuracy = math.Round(totalDetail.TechnicalAccuracy/n*100) / 100
+		totalDetail.PrecisionRatio = math.Round(totalDetail.PrecisionRatio/n*100) / 100
 
 		models = append(models, ModelPrecision{
 			Model:          mn,
@@ -270,7 +206,6 @@ func Analyze(findings []model.Finding) Report {
 			Detail:         totalDetail,
 			SampleCount:    len(entries),
 			LabCount:       len(labs),
-			Concerns:       totalConcerns,
 		})
 	}
 
@@ -294,7 +229,7 @@ func Analyze(findings []model.Finding) Report {
 
 func FormatText(r Report) string {
 	var b strings.Builder
-	b.WriteString("Response Factual Precision Analysis\n")
+	b.WriteString("Response Precision Analysis\n")
 	b.WriteString(strings.Repeat("=", 50) + "\n\n")
 
 	if len(r.Models) == 0 {
@@ -310,18 +245,13 @@ func FormatText(r Report) string {
 	for _, m := range r.Models {
 		fmt.Fprintf(&b, "  Model: %s  [%s] %.1f/100  (%d samples, %d labs)\n",
 			m.Model, m.Grade, m.PrecisionScore, m.SampleCount, m.LabCount)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "factual_citation", m.Detail.FactualCitation)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "specific_detail", m.Detail.SpecificDetail)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "quantitative_data", m.Detail.QuantitativeData)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "source_attribution", m.Detail.SourceAttribution)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "technical_accuracy", m.Detail.TechnicalAccuracy)
-		fmt.Fprintf(&b, "    %-28s %d\n", "citation_count", m.Detail.CitationCount)
-		fmt.Fprintf(&b, "    %-28s %d\n", "vague_count", m.Detail.VagueCount)
-		fmt.Fprintf(&b, "    %-28s %d\n", "number_count", m.Detail.NumberCount)
-		fmt.Fprintf(&b, "    Concerns: %d\n", m.Concerns)
+		fmt.Fprintf(&b, "    %-28s %d\n", "direct_answer_count", m.Detail.DirectAnswerCount)
+		fmt.Fprintf(&b, "    %-28s %d\n", "specific_ref_count", m.Detail.SpecificRefCount)
+		fmt.Fprintf(&b, "    %-28s %d\n", "tangent_count", m.Detail.TangentCount)
+		fmt.Fprintf(&b, "    %-28s %d\n", "filler_count", m.Detail.FillerCount)
+		fmt.Fprintf(&b, "    %-28s %d\n", "over_explain_count", m.Detail.OverExplainCount)
 		b.WriteString("\n")
 	}
-
 	return b.String()
 }
 

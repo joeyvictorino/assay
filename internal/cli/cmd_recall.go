@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	Register("recall", "score response recall, completeness, and topic coverage", runRecall)
+	Register("recall", "score how completely responses cover expected key points", runRecall)
 }
 
 func runRecall(args []string, stdout, stderr io.Writer) int {

@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	Register("precision", "score response factual precision, citation quality, and technical accuracy", runPrecision)
+	Register("precision", "score how precisely responses answer without irrelevant content", runPrecision)
 }
 
 func runPrecision(args []string, stdout, stderr io.Writer) int {
