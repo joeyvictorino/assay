@@ -1,6 +1,7 @@
 package readability
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -265,4 +266,9 @@ func FormatText(r Report) string {
 		r.BestModel, r.WorstModel, r.MeanScore)
 
 	return b.String()
+}
+
+func FormatJSON(r Report) string {
+	data, _ := json.MarshalIndent(r, "", "  ")
+	return string(data)
 }

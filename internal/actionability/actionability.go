@@ -4,131 +4,112 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/joeyvictorino/assay/internal/model"
 )
 
-var actionTerms = []string{
-	"fix", "patch", "update", "upgrade", "migrate",
-	"replace", "remove", "disable", "enable", "configure",
-	"sanitize", "validate", "escape", "encode", "parameterize",
-	"restrict", "limit", "block", "deny", "allow",
-	"implement", "add", "set", "change", "modify",
-	"apply", "install", "deploy", "rotate", "revoke",
-}
-
-var remedyPhrases = []string{
-	"to fix", "to resolve", "to mitigate", "to remediate",
-	"should be", "must be", "needs to be", "recommend",
-	"workaround", "solution", "mitigation", "remediation",
-	"best practice", "instead of", "rather than",
-	"by adding", "by removing", "by changing", "by setting",
-	"upgrade to", "update to", "migrate to", "switch to",
-}
-
-var codePatterns = []string{
-	"```", "`", "=>", "->", "==", "!=", "+=",
-	"()", "{}", "[]", "if ", "for ", "while ",
-	"return ", "import ", "from ", "require(",
-}
-
-var stepMarkers = []string{
-	"step 1", "step 2", "step 3",
-	"first,", "second,", "third,", "then,", "finally,",
-	"1.", "2.", "3.",
-	"- [ ]", "- [x]",
-}
-
 type ActionabilityDetail struct {
-	ActionTermScore    float64 `json:"action_term_score"`
-	RemedyPhraseScore  float64 `json:"remedy_phrase_score"`
-	CodeExampleScore   float64 `json:"code_example_score"`
-	StepGuidanceScore  float64 `json:"step_guidance_score"`
+	ActionVerbCount  int `json:"action_verb_count"`
+	CodeBlockCount   int `json:"code_block_count"`
+	StepCount        int `json:"step_count"`
+	ConditionalCount int `json:"conditional_count"`
+	VagueAdviceCount int `json:"vague_advice_count"`
+	WordCount        int `json:"word_count"`
 }
 
 type ModelActionability struct {
-	Model             string              `json:"model"`
-	ActionabilityScore float64            `json:"actionability_score"`
-	Grade             string              `json:"grade"`
-	Detail            ActionabilityDetail `json:"detail"`
-	SampleCount       int                 `json:"sample_count"`
-	ActionableCount   int                 `json:"actionable_count"`
-	VagueCount        int                 `json:"vague_count"`
+	Model       string              `json:"model"`
+	Score       float64             `json:"score"`
+	Grade       string              `json:"grade"`
+	Detail      ActionabilityDetail `json:"detail"`
+	SampleCount int                 `json:"sample_count"`
+	LabCount    int                 `json:"lab_count"`
 }
 
 type Report struct {
-	Models          []ModelActionability `json:"models"`
-	MostActionable  string               `json:"most_actionable"`
-	LeastActionable string               `json:"least_actionable"`
-	MeanScore       float64              `json:"mean_score"`
+	Models     []ModelActionability `json:"models"`
+	BestModel  string               `json:"best_model"`
+	WorstModel string               `json:"worst_model"`
+	MeanScore  float64              `json:"mean_score"`
 }
 
-func actionTermScore(summary string) float64 {
-	lower := strings.ToLower(summary)
-	matches := 0
-	for _, term := range actionTerms {
-		if strings.Contains(lower, term) {
-			matches++
-		}
-	}
-	score := math.Min(100, float64(matches)/4*100)
-	return math.Round(score*10) / 10
+var actionVerbs = []string{
+	"run", "execute", "install", "configure", "add",
+	"remove", "update", "create", "delete", "modify",
+	"set", "enable", "disable", "deploy", "restart",
 }
 
-func remedyPhraseScore(summary string) float64 {
-	lower := strings.ToLower(summary)
-	matches := 0
-	for _, phrase := range remedyPhrases {
-		if strings.Contains(lower, phrase) {
-			matches++
-		}
-	}
-	score := math.Min(100, float64(matches)/3*100)
-	return math.Round(score*10) / 10
+var stepIndicators = []string{
+	"step 1", "step 2", "step 3", "first,", "second,",
+	"then,", "next,", "finally,",
 }
 
-func codeExampleScore(summary string) float64 {
-	lower := strings.ToLower(summary)
-	score := 20.0
-	for _, pat := range codePatterns {
-		if strings.Contains(lower, pat) {
-			score += 12
-		}
+var vagueAdvice = []string{
+	"you should consider", "it might be worth", "you could try",
+	"it depends", "that's up to you",
+}
+
+var codeBlockPattern = regexp.MustCompile("(?s)```.*?```")
+var conditionalPattern = regexp.MustCompile(`(?i)\b(if\s+.+?\s+then|when\s+.+?\s+you\s+should|in\s+case\s+of)\b`)
+
+func AnalyzeText(text string) (float64, ActionabilityDetail) {
+	words := strings.Fields(text)
+	wordCount := len(words)
+	if wordCount == 0 {
+		return 50.0, ActionabilityDetail{}
 	}
+
+	lower := strings.ToLower(text)
+
+	actionVerbCount := 0
+	for _, v := range actionVerbs {
+		actionVerbCount += strings.Count(lower, v)
+	}
+
+	codeBlockCount := len(codeBlockPattern.FindAllString(text, -1))
+
+	stepCount := 0
+	for _, s := range stepIndicators {
+		stepCount += strings.Count(lower, s)
+	}
+
+	conditionalCount := len(conditionalPattern.FindAllString(lower, -1))
+
+	vagueAdviceCount := 0
+	for _, v := range vagueAdvice {
+		vagueAdviceCount += strings.Count(lower, v)
+	}
+
+	score := 50.0
+	score += float64(actionVerbCount) * 3.0
+	score += float64(codeBlockCount) * 8.0
+	score += float64(stepCount) * 5.0
+	score += float64(conditionalCount) * 4.0
+	score -= float64(vagueAdviceCount) * 6.0
+
+	density := float64(actionVerbCount+stepCount+codeBlockCount) / float64(wordCount) * 100
+	score += density * 1.5
+
 	if score > 100 {
 		score = 100
 	}
-	return math.Round(score*10) / 10
-}
-
-func stepGuidanceScore(summary string) float64 {
-	lower := strings.ToLower(summary)
-	score := 20.0
-	for _, marker := range stepMarkers {
-		if strings.Contains(lower, marker) {
-			score += 15
-		}
+	if score < 0 {
+		score = 0
 	}
 
-	sentences := strings.Count(summary, ".") + strings.Count(summary, "!")
-	if sentences >= 3 {
-		score += 10
+	detail := ActionabilityDetail{
+		ActionVerbCount:  actionVerbCount,
+		CodeBlockCount:   codeBlockCount,
+		StepCount:        stepCount,
+		ConditionalCount: conditionalCount,
+		VagueAdviceCount: vagueAdviceCount,
+		WordCount:        wordCount,
 	}
 
-	if score > 100 {
-		score = 100
-	}
-	return math.Round(score*10) / 10
-}
-
-func isActionable(summary string) bool {
-	return actionTermScore(summary) >= 50 && remedyPhraseScore(summary) >= 30
-}
-
-func isVagueRemedy(summary string) bool {
-	return actionTermScore(summary) < 25 && remedyPhraseScore(summary) < 20
+	return math.Round(score*10) / 10, detail
 }
 
 func scoreToGrade(score float64) string {
@@ -151,81 +132,59 @@ func Analyze(findings []model.Finding) Report {
 		return Report{}
 	}
 
-	type pair struct {
-		lab     string
-		summary string
-	}
-	modelPairs := map[string][]pair{}
+	modelEntries := map[string][]model.Finding{}
 	for _, f := range findings {
 		mn := f.Model.Model
 		if mn == "" {
 			mn = "unknown"
 		}
-		modelPairs[mn] = append(modelPairs[mn], pair{lab: f.Lab, summary: f.Summary})
+		modelEntries[mn] = append(modelEntries[mn], f)
 	}
 
 	var models []ModelActionability
-	for mn, pairs := range modelPairs {
-		var sumAction, sumRemedy, sumCode, sumStep float64
-		actionableCount := 0
-		vagueCount := 0
+	for mn, entries := range modelEntries {
+		var totalScore float64
+		var aggDetail ActionabilityDetail
+		labs := map[string]bool{}
 
-		for _, p := range pairs {
-			a := actionTermScore(p.summary)
-			r := remedyPhraseScore(p.summary)
-			c := codeExampleScore(p.summary)
-			s := stepGuidanceScore(p.summary)
-
-			sumAction += a
-			sumRemedy += r
-			sumCode += c
-			sumStep += s
-
-			if isActionable(p.summary) {
-				actionableCount++
-			}
-			if isVagueRemedy(p.summary) {
-				vagueCount++
-			}
+		for _, e := range entries {
+			labs[e.Lab] = true
+			score, detail := AnalyzeText(e.Summary)
+			totalScore += score
+			aggDetail.ActionVerbCount += detail.ActionVerbCount
+			aggDetail.CodeBlockCount += detail.CodeBlockCount
+			aggDetail.StepCount += detail.StepCount
+			aggDetail.ConditionalCount += detail.ConditionalCount
+			aggDetail.VagueAdviceCount += detail.VagueAdviceCount
+			aggDetail.WordCount += detail.WordCount
 		}
 
-		n := float64(len(pairs))
-		avgA := sumAction / n
-		avgR := sumRemedy / n
-		avgC := sumCode / n
-		avgS := sumStep / n
-
-		overall := avgA*0.30 + avgR*0.30 + avgC*0.20 + avgS*0.20
+		n := float64(len(entries))
+		avgScore := totalScore / n
 
 		models = append(models, ModelActionability{
-			Model:             mn,
-			ActionabilityScore: math.Round(overall*10) / 10,
-			Grade:             scoreToGrade(overall),
-			Detail: ActionabilityDetail{
-				ActionTermScore:   math.Round(avgA*10) / 10,
-				RemedyPhraseScore: math.Round(avgR*10) / 10,
-				CodeExampleScore:  math.Round(avgC*10) / 10,
-				StepGuidanceScore: math.Round(avgS*10) / 10,
-			},
-			SampleCount:     len(pairs),
-			ActionableCount: actionableCount,
-			VagueCount:      vagueCount,
+			Model:       mn,
+			Score:       math.Round(avgScore*10) / 10,
+			Grade:       scoreToGrade(avgScore),
+			Detail:      aggDetail,
+			SampleCount: len(entries),
+			LabCount:    len(labs),
 		})
 	}
 
 	sort.Slice(models, func(i, j int) bool {
-		return models[i].ActionabilityScore > models[j].ActionabilityScore
+		return models[i].Score > models[j].Score
 	})
 
 	var sumScore float64
 	for _, m := range models {
-		sumScore += m.ActionabilityScore
+		sumScore += m.Score
 	}
 
 	r := Report{Models: models}
 	if len(models) > 0 {
-		r.MostActionable = models[0].Model
-		r.LeastActionable = models[len(models)-1].Model
+		r.BestModel = models[0].Model
+		r.WorstModel = models[len(models)-1].Model
 		r.MeanScore = math.Round(sumScore/float64(len(models))*10) / 10
 	}
 	return r
@@ -241,27 +200,24 @@ func FormatText(r Report) string {
 		return b.String()
 	}
 
-	fmt.Fprintf(&b, "  Models evaluated:      %d\n", len(r.Models))
-	fmt.Fprintf(&b, "  Mean score:            %.1f\n", r.MeanScore)
-	fmt.Fprintf(&b, "  Most actionable:       %s\n", r.MostActionable)
-	fmt.Fprintf(&b, "  Least actionable:      %s\n\n", r.LeastActionable)
-
 	for _, m := range r.Models {
-		fmt.Fprintf(&b, "  Model: %s  [%s] %.1f/100  (%d samples)\n",
-			m.Model, m.Grade, m.ActionabilityScore, m.SampleCount)
-		fmt.Fprintf(&b, "    %-28s %.1f\n", "action_term_score", m.Detail.ActionTermScore)
-		fmt.Fprintf(&b, "    %-28s %.1f\n", "remedy_phrase_score", m.Detail.RemedyPhraseScore)
-		fmt.Fprintf(&b, "    %-28s %.1f\n", "code_example_score", m.Detail.CodeExampleScore)
-		fmt.Fprintf(&b, "    %-28s %.1f\n", "step_guidance_score", m.Detail.StepGuidanceScore)
-		fmt.Fprintf(&b, "    Actionable: %d  Vague: %d\n",
-			m.ActionableCount, m.VagueCount)
-		b.WriteString("\n")
+		fmt.Fprintf(&b, "  Model: %s\n", m.Model)
+		fmt.Fprintf(&b, "    Score: %.1f  Grade: %s\n", m.Score, m.Grade)
+		fmt.Fprintf(&b, "    Action Verbs: %d  Code Blocks: %d  Steps: %d\n",
+			m.Detail.ActionVerbCount, m.Detail.CodeBlockCount, m.Detail.StepCount)
+		fmt.Fprintf(&b, "    Conditionals: %d  Vague: %d\n",
+			m.Detail.ConditionalCount, m.Detail.VagueAdviceCount)
+		fmt.Fprintf(&b, "    Samples: %d  Labs: %d\n\n",
+			m.SampleCount, m.LabCount)
 	}
+
+	fmt.Fprintf(&b, "  Best: %s  Worst: %s  Mean: %.1f\n",
+		r.BestModel, r.WorstModel, r.MeanScore)
 
 	return b.String()
 }
 
 func FormatJSON(r Report) string {
 	data, _ := json.MarshalIndent(r, "", "  ")
-	return string(data) + "\n"
+	return string(data)
 }

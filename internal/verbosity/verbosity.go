@@ -4,109 +4,42 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"sort"
 	"strings"
 
 	"github.com/joeyvictorino/assay/internal/model"
 )
 
 type VerbosityDetail struct {
-	WordCount          int     `json:"word_count"`
-	SentenceCount      int     `json:"sentence_count"`
-	FillerPhrases      int     `json:"filler_phrases"`
-	RedundantPhrases   int     `json:"redundant_phrases"`
-	OverQualifications int     `json:"over_qualifications"`
-	InfoDensity        float64 `json:"info_density"`
+	WordCount       int     `json:"word_count"`
+	SentenceCount   int     `json:"sentence_count"`
+	AvgSentenceLen  float64 `json:"avg_sentence_len"`
+	RepetitionScore float64 `json:"repetition_score"`
+	FillerCount     int     `json:"filler_count"`
 }
 
 type ModelVerbosity struct {
-	Model          string          `json:"model"`
-	VerbosityScore float64         `json:"verbosity_score"`
-	Grade          string          `json:"grade"`
-	Detail         VerbosityDetail `json:"detail"`
-	SampleCount    int             `json:"sample_count"`
-	LabCount       int             `json:"lab_count"`
-	TooVerbose     int             `json:"too_verbose"`
+	Model       string          `json:"model"`
+	Score       float64         `json:"score"`
+	Grade       string          `json:"grade"`
+	Detail      VerbosityDetail `json:"detail"`
+	SampleCount int             `json:"sample_count"`
+	LabCount    int             `json:"lab_count"`
 }
 
 type Report struct {
-	Models       []ModelVerbosity `json:"models"`
-	MostConcise  string           `json:"most_concise"`
-	MostVerbose  string           `json:"most_verbose"`
-	MeanScore    float64          `json:"mean_score"`
+	Models     []ModelVerbosity `json:"models"`
+	BestModel  string           `json:"best_model"`
+	WorstModel string           `json:"worst_model"`
+	MeanScore  float64          `json:"mean_score"`
 }
 
 var fillerPhrases = []string{
-	"it is important to note that",
-	"it should be noted that",
-	"it is worth mentioning that",
-	"as a matter of fact",
-	"in order to",
-	"for the purpose of",
-	"due to the fact that",
-	"in the event that",
-	"at this point in time",
-	"as previously mentioned",
-	"it goes without saying",
-	"needless to say",
-	"in terms of",
-	"with regard to",
-	"with respect to",
-	"on the other hand",
-	"having said that",
-	"that being said",
-	"it is also worth noting",
-	"basically",
-	"essentially",
-	"actually",
+	"as i mentioned", "it's important to note", "as you can see",
+	"in other words", "to be more specific", "let me explain",
+	"basically", "essentially",
 }
 
-var redundantPhrases = []string{
-	"past history",
-	"future plans",
-	"end result",
-	"free gift",
-	"added bonus",
-	"close proximity",
-	"each and every",
-	"first and foremost",
-	"various different",
-	"completely eliminate",
-	"absolutely essential",
-	"true fact",
-	"basic fundamentals",
-	"final outcome",
-	"general consensus",
-	"new innovation",
-	"completely finished",
-	"repeat again",
-}
-
-var overQualPhrases = []string{
-	"i think that perhaps",
-	"it might be possible that",
-	"it could potentially be",
-	"there is a possibility that",
-	"it is somewhat likely",
-	"it may or may not be",
-	"to some extent",
-	"in some cases",
-	"more or less",
-	"sort of",
-	"kind of",
-	"arguably",
-}
-
-func countPhrases(text string, phrases []string) int {
-	lower := strings.ToLower(text)
-	count := 0
-	for _, p := range phrases {
-		count += strings.Count(lower, p)
-	}
-	return count
-}
-
-func splitSentences(text string) int {
+func countSentences(text string) int {
 	count := 0
 	for _, r := range text {
 		if r == '.' || r == '!' || r == '?' {
@@ -119,53 +52,70 @@ func splitSentences(text string) int {
 	return count
 }
 
-func infoDensity(text string) float64 {
-	words := strings.Fields(text)
-	if len(words) == 0 {
-		return 1.0
+func countFillers(text string) int {
+	lower := strings.ToLower(text)
+	count := 0
+	for _, p := range fillerPhrases {
+		count += strings.Count(lower, p)
 	}
-	unique := map[string]bool{}
-	for _, w := range words {
-		unique[strings.ToLower(w)] = true
-	}
-	return float64(len(unique)) / float64(len(words))
+	return count
 }
 
-func scoreResponse(text string) (float64, VerbosityDetail) {
-	words := strings.Fields(text)
-	wordCount := len(words)
-	sentCount := splitSentences(text)
-	fillers := countPhrases(text, fillerPhrases)
-	redundant := countPhrases(text, redundantPhrases)
-	overQual := countPhrases(text, overQualPhrases)
-	density := infoDensity(text)
-
-	detail := VerbosityDetail{
-		WordCount:          wordCount,
-		SentenceCount:      sentCount,
-		FillerPhrases:      fillers,
-		RedundantPhrases:   redundant,
-		OverQualifications: overQual,
-		InfoDensity:        math.Round(density*100) / 100,
+func countRepetition(text string) float64 {
+	words := strings.Fields(strings.ToLower(text))
+	if len(words) < 3 {
+		return 0
 	}
+	trigrams := map[string]int{}
+	for i := 0; i <= len(words)-3; i++ {
+		tri := words[i] + " " + words[i+1] + " " + words[i+2]
+		trigrams[tri]++
+	}
+	repeated := 0
+	for _, c := range trigrams {
+		if c > 1 {
+			repeated += c - 1
+		}
+	}
+	total := len(words) - 2
+	if total == 0 {
+		return 0
+	}
+	return float64(repeated) / float64(total) * 100
+}
+
+func AnalyzeText(prompt, response string) (float64, VerbosityDetail) {
+	respWords := strings.Fields(response)
+	promptWords := strings.Fields(prompt)
+	wordCount := len(respWords)
+	promptLen := len(promptWords)
 
 	if wordCount == 0 {
-		return 100, detail
+		return 50.0, VerbosityDetail{}
 	}
 
-	score := 85.0
+	sentenceCount := countSentences(response)
+	avgSentenceLen := float64(wordCount) / float64(sentenceCount)
+	fillerCount := countFillers(response)
+	repetitionScore := countRepetition(response)
 
-	fillerPenalty := float64(fillers) * 3.0
-	redundantPenalty := float64(redundant) * 4.0
-	overQualPenalty := float64(overQual) * 2.5
-	score -= fillerPenalty + redundantPenalty + overQualPenalty
-
-	if density < 0.3 {
-		score -= (0.3 - density) * 40
+	ratio := 1.0
+	if promptLen > 0 {
+		ratio = float64(wordCount) / float64(promptLen)
 	}
 
-	if wordCount > 500 {
-		score -= float64(wordCount-500) * 0.02
+	score := 50.0
+	if ratio > 5 {
+		score += (ratio - 5) * 3.0
+	} else if ratio < 1 {
+		score -= (1 - ratio) * 10.0
+	}
+
+	score += float64(fillerCount) * 5.0
+	score += repetitionScore * 2.0
+
+	if avgSentenceLen > 30 {
+		score += (avgSentenceLen - 30) * 1.0
 	}
 
 	if score > 100 {
@@ -175,18 +125,27 @@ func scoreResponse(text string) (float64, VerbosityDetail) {
 		score = 0
 	}
 
+	detail := VerbosityDetail{
+		WordCount:       wordCount,
+		SentenceCount:   sentenceCount,
+		AvgSentenceLen:  math.Round(avgSentenceLen*10) / 10,
+		RepetitionScore: math.Round(repetitionScore*10) / 10,
+		FillerCount:     fillerCount,
+	}
+
 	return math.Round(score*10) / 10, detail
 }
 
 func scoreToGrade(score float64) string {
+	diff := math.Abs(score - 50)
 	switch {
-	case score >= 90:
+	case diff <= 5:
 		return "A"
-	case score >= 80:
+	case diff <= 10:
 		return "B"
-	case score >= 70:
+	case diff <= 20:
 		return "C"
-	case score >= 60:
+	case diff <= 30:
 		return "D"
 	default:
 		return "F"
@@ -210,61 +169,64 @@ func Analyze(findings []model.Finding) Report {
 	var models []ModelVerbosity
 	for mn, entries := range modelEntries {
 		var totalScore float64
-		var totalDetail VerbosityDetail
-		tooVerbose := 0
+		var aggDetail VerbosityDetail
 		labs := map[string]bool{}
 
 		for _, e := range entries {
 			labs[e.Lab] = true
-			score, detail := scoreResponse(e.Summary)
+			score, detail := AnalyzeText(e.Lab, e.Summary)
 			totalScore += score
-			totalDetail.WordCount += detail.WordCount
-			totalDetail.SentenceCount += detail.SentenceCount
-			totalDetail.FillerPhrases += detail.FillerPhrases
-			totalDetail.RedundantPhrases += detail.RedundantPhrases
-			totalDetail.OverQualifications += detail.OverQualifications
-			totalDetail.InfoDensity += detail.InfoDensity
-			if score < 50 {
-				tooVerbose++
-			}
+			aggDetail.WordCount += detail.WordCount
+			aggDetail.SentenceCount += detail.SentenceCount
+			aggDetail.FillerCount += detail.FillerCount
+			aggDetail.RepetitionScore += detail.RepetitionScore
+			aggDetail.AvgSentenceLen += detail.AvgSentenceLen
 		}
 
 		n := float64(len(entries))
 		avgScore := totalScore / n
-		totalDetail.InfoDensity = math.Round(totalDetail.InfoDensity/n*100) / 100
+		aggDetail.AvgSentenceLen = math.Round(aggDetail.AvgSentenceLen/n*10) / 10
+		aggDetail.RepetitionScore = math.Round(aggDetail.RepetitionScore/n*10) / 10
 
 		models = append(models, ModelVerbosity{
-			Model:          mn,
-			VerbosityScore: math.Round(avgScore*10) / 10,
-			Grade:          scoreToGrade(avgScore),
-			Detail:         totalDetail,
-			SampleCount:    len(entries),
-			LabCount:       len(labs),
-			TooVerbose:     tooVerbose,
+			Model:       mn,
+			Score:       math.Round(avgScore*10) / 10,
+			Grade:       scoreToGrade(avgScore),
+			Detail:      aggDetail,
+			SampleCount: len(entries),
+			LabCount:    len(labs),
 		})
 	}
 
-	sort.Slice(models, func(i, j int) bool {
-		return models[i].VerbosityScore > models[j].VerbosityScore
-	})
-
+	var bestScore float64 = 100
+	var worstScore float64 = 0
+	var bestModel, worstModel string
 	var sumScore float64
+
 	for _, m := range models {
-		sumScore += m.VerbosityScore
+		sumScore += m.Score
+		diff := math.Abs(m.Score - 50)
+		if diff < math.Abs(bestScore-50) {
+			bestScore = m.Score
+			bestModel = m.Model
+		}
+		if diff > math.Abs(worstScore-50) {
+			worstScore = m.Score
+			worstModel = m.Model
+		}
 	}
 
-	r := Report{Models: models}
-	if len(models) > 0 {
-		r.MostConcise = models[0].Model
-		r.MostVerbose = models[len(models)-1].Model
-		r.MeanScore = math.Round(sumScore/float64(len(models))*10) / 10
+	return Report{
+		Models:     models,
+		BestModel:  bestModel,
+		WorstModel: worstModel,
+		MeanScore:  math.Round(sumScore/float64(len(models))*10) / 10,
 	}
-	return r
 }
 
 func FormatText(r Report) string {
 	var b strings.Builder
-	b.WriteString("Verbosity Analysis\n")
+	b.WriteString("Response Verbosity Analysis\n")
 	b.WriteString(strings.Repeat("=", 50) + "\n\n")
 
 	if len(r.Models) == 0 {
@@ -272,28 +234,24 @@ func FormatText(r Report) string {
 		return b.String()
 	}
 
-	fmt.Fprintf(&b, "  Models evaluated:     %d\n", len(r.Models))
-	fmt.Fprintf(&b, "  Mean score:           %.1f\n", r.MeanScore)
-	fmt.Fprintf(&b, "  Most concise:         %s\n", r.MostConcise)
-	fmt.Fprintf(&b, "  Most verbose:         %s\n\n", r.MostVerbose)
-
 	for _, m := range r.Models {
-		fmt.Fprintf(&b, "  Model: %s  [%s] %.1f/100  (%d samples, %d labs)\n",
-			m.Model, m.Grade, m.VerbosityScore, m.SampleCount, m.LabCount)
-		fmt.Fprintf(&b, "    %-28s %d\n", "word_count", m.Detail.WordCount)
-		fmt.Fprintf(&b, "    %-28s %d\n", "sentence_count", m.Detail.SentenceCount)
-		fmt.Fprintf(&b, "    %-28s %d\n", "filler_phrases", m.Detail.FillerPhrases)
-		fmt.Fprintf(&b, "    %-28s %d\n", "redundant_phrases", m.Detail.RedundantPhrases)
-		fmt.Fprintf(&b, "    %-28s %d\n", "over_qualifications", m.Detail.OverQualifications)
-		fmt.Fprintf(&b, "    %-28s %.2f\n", "info_density", m.Detail.InfoDensity)
-		fmt.Fprintf(&b, "    Too verbose: %d\n", m.TooVerbose)
-		b.WriteString("\n")
+		fmt.Fprintf(&b, "  Model: %s\n", m.Model)
+		fmt.Fprintf(&b, "    Score: %.1f  Grade: %s\n", m.Score, m.Grade)
+		fmt.Fprintf(&b, "    Words: %d  Sentences: %d  Avg Len: %.1f\n",
+			m.Detail.WordCount, m.Detail.SentenceCount, m.Detail.AvgSentenceLen)
+		fmt.Fprintf(&b, "    Fillers: %d  Repetition: %.1f%%\n",
+			m.Detail.FillerCount, m.Detail.RepetitionScore)
+		fmt.Fprintf(&b, "    Samples: %d  Labs: %d\n\n",
+			m.SampleCount, m.LabCount)
 	}
+
+	fmt.Fprintf(&b, "  Best: %s  Worst: %s  Mean: %.1f\n",
+		r.BestModel, r.WorstModel, r.MeanScore)
 
 	return b.String()
 }
 
 func FormatJSON(r Report) string {
 	data, _ := json.MarshalIndent(r, "", "  ")
-	return string(data) + "\n"
+	return string(data)
 }
