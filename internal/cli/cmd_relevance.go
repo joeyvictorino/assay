@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	Register("relevance", "score response relevance to prompt", runRelevance)
+	Register("relevance", "score topical relevance: on-topic focus vs digressions, tangents, filler", runRelevance)
 }
 
 func runRelevance(args []string, stdout, stderr io.Writer) int {

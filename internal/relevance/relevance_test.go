@@ -7,46 +7,154 @@ import (
 	"github.com/joeyvictorino/assay/internal/model"
 )
 
-func finding(m, summary string) model.Finding {
+func mkFinding(modelName, lab, summary string) model.Finding {
 	return model.Finding{
-		Model:   model.ModelRef{Model: m},
+		Model:   model.ModelRef{Model: modelName},
+		Lab:     lab,
 		Summary: summary,
 	}
 }
 
-func TestCountWords(t *testing.T) {
-	if got := countWords("one two three"); got != 3 {
-		t.Errorf("countWords = %d, want 3", got)
+func TestAnalyzeTextOnTopic(t *testing.T) {
+	text := "To answer your question, the root cause is the missing validation. The solution is to fix this specifically. In response to the report, to summarize the key point is the core problem is clear. In short, most importantly it works."
+	score, detail := AnalyzeText(text)
+	if score <= 50 {
+		t.Errorf("on-topic text should score above 50, got %.1f", score)
 	}
-	if got := countWords(""); got != 0 {
-		t.Errorf("countWords empty = %d, want 0", got)
+	if detail.OnTopicCount == 0 {
+		t.Error("expected on-topic phrases")
 	}
-}
-
-func TestCountPhrases(t *testing.T) {
-	got := countPhrases("sql injection and another sql injection", []string{"sql injection"})
-	if got != 2 {
-		t.Errorf("countPhrases = %d, want 2", got)
+	if detail.FocusCount == 0 {
+		t.Error("expected focus phrases")
 	}
 }
 
-func TestAnalyzeSampleRelevant(t *testing.T) {
-	d := analyzeSample("SQL injection vulnerability in the authentication endpoint allows remote code execution. Remediation: sanitize input parameter.")
-	if d.SecurityCount == 0 {
-		t.Error("expected security terms")
+func TestAnalyzeTextOffTopic(t *testing.T) {
+	text := "By the way, on a side note, as an aside, incidentally, while we're at it this is tangentially related. Let me tell you about a fun fact, did you know this interesting trivia? It reminds me of another issue. You know, at the end of the day obviously."
+	score, detail := AnalyzeText(text)
+	if score >= 50 {
+		t.Errorf("off-topic text should score below 50, got %.1f", score)
 	}
-	if d.TechnicalCount == 0 {
-		t.Error("expected technical terms")
+	if detail.OffTopicCount == 0 {
+		t.Error("expected off-topic phrases")
 	}
-	if d.ActionCount == 0 {
-		t.Error("expected action terms")
+	if detail.DigressionCount == 0 {
+		t.Error("expected digression phrases")
 	}
 }
 
-func TestAnalyzeSampleDigression(t *testing.T) {
-	d := analyzeSample("By the way this is off topic and as an aside here is a fun fact on a different note.")
-	if d.DigressionCount == 0 {
-		t.Error("expected digression markers")
+func TestAnalyzeTextEmpty(t *testing.T) {
+	score, detail := AnalyzeText("")
+	if score != 50.0 {
+		t.Errorf("empty text should score 50, got %.1f", score)
+	}
+	if detail.WordCount != 0 {
+		t.Errorf("empty text should have 0 words, got %d", detail.WordCount)
+	}
+}
+
+func TestOnTopicDetection(t *testing.T) {
+	text := "To answer your question, the root cause is clear. The solution is to fix this. In response to the report, the issue is well documented. Specifically the problem is here."
+	count := countPhrases(text, onTopicPhrases)
+	if count < 3 {
+		t.Errorf("expected at least 3 on-topic phrases, got %d", count)
+	}
+}
+
+func TestOffTopicDetection(t *testing.T) {
+	text := "By the way, on a side note, as an aside, incidentally, while we're at it let me mention something unrelated."
+	count := countPhrases(text, offTopicPhrases)
+	if count < 4 {
+		t.Errorf("expected at least 4 off-topic phrases, got %d", count)
+	}
+}
+
+func TestDigressionDetection(t *testing.T) {
+	text := "Let me tell you about a fun fact. Did you know this interesting trivia? It reminds me of something similar. While i'm at it, historically speaking this is worth noting."
+	count := countPhrases(text, digressionPhrases)
+	if count < 3 {
+		t.Errorf("expected at least 3 digression phrases, got %d", count)
+	}
+}
+
+func TestFocusDetection(t *testing.T) {
+	text := "To summarize, the core problem is the missing check. The key point is the validation flaw. In short, most importantly the crux is the boundary condition. In conclusion, bottom line it needs a fix."
+	count := countPhrases(text, focusPhrases)
+	if count < 3 {
+		t.Errorf("expected at least 3 focus phrases, got %d", count)
+	}
+}
+
+func TestFillerDetection(t *testing.T) {
+	text := "You know, obviously this is clear. As you can see, at the end of the day, needless to say, having said that it goes without saying. Of course, clearly the answer is here."
+	count := countPhrases(text, fillerPhrases)
+	if count < 4 {
+		t.Errorf("expected at least 4 filler phrases, got %d", count)
+	}
+}
+
+func TestScoreToGrade(t *testing.T) {
+	tests := []struct {
+		score float64
+		want  string
+	}{
+		{95, "A"}, {85, "B"}, {75, "C"}, {65, "D"}, {40, "F"},
+	}
+	for _, tt := range tests {
+		if got := scoreToGrade(tt.score); got != tt.want {
+			t.Errorf("scoreToGrade(%.0f) = %s, want %s", tt.score, got, tt.want)
+		}
+	}
+}
+
+func TestScoreClamping(t *testing.T) {
+	offtopic := "by the way on a side note as an aside incidentally " +
+		"going off on a tangent this is unrelated to digress " +
+		"beside the point another topic entirely you know basically " +
+		"i mean it's like at the end of the day the thing is"
+	score, _ := AnalyzeText(offtopic)
+	if score < 0 || score > 100 {
+		t.Errorf("score should be clamped to [0,100], got %.1f", score)
+	}
+}
+
+func TestAnalyzeSingleModel(t *testing.T) {
+	findings := []model.Finding{
+		mkFinding("gpt-4", "lab1", "Specifically addressing the question, the root cause is the missing validation. Directly relates to the input flaw."),
+	}
+	r := Analyze(findings)
+	if len(r.Models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(r.Models))
+	}
+	if r.Models[0].Model != "gpt-4" {
+		t.Errorf("expected gpt-4, got %s", r.Models[0].Model)
+	}
+	if r.BestModel != "gpt-4" {
+		t.Errorf("expected best model gpt-4, got %s", r.BestModel)
+	}
+}
+
+func TestAnalyzeMultipleModels(t *testing.T) {
+	findings := []model.Finding{
+		mkFinding("gpt-4", "lab1", "Specifically addressing the question, the root cause is clear. Regarding the original query, the fix targets the exact issue. The key point is the validation check."),
+		mkFinding("claude", "lab1", "By the way, this reminds me of something. On a side note, going off on a tangent, this is somewhat unrelated. You know, basically, I mean."),
+	}
+	r := Analyze(findings)
+	if len(r.Models) != 2 {
+		t.Fatalf("expected 2 models, got %d", len(r.Models))
+	}
+	if r.BestModel == r.WorstModel {
+		t.Error("best and worst should differ with different quality texts")
+	}
+}
+
+func TestAnalyzeUnknownModel(t *testing.T) {
+	findings := []model.Finding{
+		mkFinding("", "lab1", "Specifically addressing the question asked."),
+	}
+	r := Analyze(findings)
+	if r.Models[0].Model != "unknown" {
+		t.Errorf("expected unknown, got %s", r.Models[0].Model)
 	}
 }
 
@@ -57,145 +165,75 @@ func TestAnalyzeEmpty(t *testing.T) {
 	}
 }
 
-func TestAnalyzeSingleModel(t *testing.T) {
+func TestLabCounting(t *testing.T) {
 	findings := []model.Finding{
-		finding("gpt-4", "SQL injection vulnerability in login endpoint."),
-		finding("gpt-4", "XSS in the response header parameter."),
+		mkFinding("gpt-4", "lab1", "Specifically addressing the question."),
+		mkFinding("gpt-4", "lab2", "The root cause is the issue."),
+		mkFinding("gpt-4", "lab1", "Directly relates to the flaw."),
 	}
 	r := Analyze(findings)
-	if len(r.Models) != 1 {
-		t.Fatalf("expected 1 model, got %d", len(r.Models))
+	if r.Models[0].LabCount != 2 {
+		t.Errorf("expected 2 labs, got %d", r.Models[0].LabCount)
 	}
-	if r.Models[0].Model != "gpt-4" {
-		t.Errorf("expected gpt-4, got %s", r.Models[0].Model)
-	}
-	if r.Models[0].SampleCount != 2 {
-		t.Errorf("expected 2 samples, got %d", r.Models[0].SampleCount)
-	}
-}
-
-func TestAnalyzeMultipleModels(t *testing.T) {
-	findings := []model.Finding{
-		finding("focused", "SQL injection vulnerability in authentication endpoint requires input sanitization."),
-		finding("rambling", "By the way on a different note as an aside here is a fun fact incidentally speaking of which."),
-	}
-	r := Analyze(findings)
-	if len(r.Models) != 2 {
-		t.Fatalf("expected 2 models, got %d", len(r.Models))
-	}
-	if r.BestModel == "" || r.WorstModel == "" {
-		t.Error("expected best and worst models")
-	}
-}
-
-func TestRelevantScoresHigher(t *testing.T) {
-	relevant := []model.Finding{
-		finding("relevant", "SQL injection vulnerability in the authentication endpoint allows privilege escalation via unsanitized parameter input."),
-		finding("relevant", "Cross-site scripting exploit in response header. Remediation: implement input validation and encoding."),
-	}
-	irrelevant := []model.Finding{
-		finding("irrelevant", "By the way on a different note as an aside here is something unrelated. Speaking of which, incidentally, this reminds me of nothing."),
-		finding("irrelevant", "Fun fact tangentially not directly related but on another note changing the subject before i forget."),
-	}
-	rr := Analyze(relevant)
-	ir := Analyze(irrelevant)
-	if rr.Models[0].Score <= ir.Models[0].Score {
-		t.Errorf("relevant score %.2f should be > irrelevant score %.2f", rr.Models[0].Score, ir.Models[0].Score)
-	}
-}
-
-func TestGrade(t *testing.T) {
-	tests := []struct {
-		score float64
-		want  string
-	}{
-		{0.96, "A+"},
-		{0.91, "A"},
-		{0.86, "A-"},
-		{0.81, "B+"},
-		{0.76, "B"},
-		{0.71, "B-"},
-		{0.66, "C+"},
-		{0.61, "C"},
-		{0.56, "C-"},
-		{0.51, "D"},
-		{0.40, "F"},
-	}
-	for _, tt := range tests {
-		if got := grade(tt.score); got != tt.want {
-			t.Errorf("grade(%.2f) = %s, want %s", tt.score, got, tt.want)
-		}
+	if r.Models[0].SampleCount != 3 {
+		t.Errorf("expected 3 samples, got %d", r.Models[0].SampleCount)
 	}
 }
 
 func TestFormatText(t *testing.T) {
-	r := Analyze([]model.Finding{
-		finding("test-model", "Vulnerability in endpoint."),
-	})
+	findings := []model.Finding{
+		mkFinding("gpt-4", "lab1", "Specifically addressing the question, the root cause is clear."),
+	}
+	r := Analyze(findings)
 	text := FormatText(r)
-	if !strings.Contains(text, "Relevance Analysis") {
+	if !strings.Contains(text, "Response Relevance Analysis") {
 		t.Error("missing title")
 	}
-	if !strings.Contains(text, "test-model") {
+	if !strings.Contains(text, "gpt-4") {
 		t.Error("missing model name")
 	}
 }
 
 func TestFormatTextEmpty(t *testing.T) {
 	text := FormatText(Report{})
-	if !strings.Contains(text, "No models analyzed") {
-		t.Error("expected empty message")
+	if !strings.Contains(text, "No relevance data") {
+		t.Error("missing empty message")
 	}
 }
 
 func TestFormatJSON(t *testing.T) {
-	r := Analyze([]model.Finding{
-		finding("test-model", "Finding about vulnerability."),
-	})
-	j := FormatJSON(r)
-	if !strings.Contains(j, "test-model") {
-		t.Error("missing model in JSON")
+	findings := []model.Finding{
+		mkFinding("gpt-4", "lab1", "Specifically addressing the question asked."),
 	}
-}
-
-func TestScoreBounds(t *testing.T) {
-	r := Analyze([]model.Finding{
-		finding("m", "word"),
-	})
-	for _, m := range r.Models {
-		if m.Score < 0 || m.Score > 1 {
-			t.Errorf("score out of bounds: %.2f", m.Score)
-		}
+	r := Analyze(findings)
+	j := FormatJSON(r)
+	if !strings.Contains(j, "gpt-4") {
+		t.Error("expected model in JSON output")
 	}
 }
 
 func TestMeanScore(t *testing.T) {
-	r := Analyze([]model.Finding{
-		finding("a", "Vulnerability exploit."),
-		finding("b", "Another injection."),
-	})
-	if r.MeanScore < 0 || r.MeanScore > 1 {
-		t.Errorf("mean score out of bounds: %.2f", r.MeanScore)
+	findings := []model.Finding{
+		mkFinding("m1", "lab1", "Specifically addressing the question, the root cause is clear."),
+		mkFinding("m2", "lab1", "By the way, on a side note, this is unrelated."),
+	}
+	r := Analyze(findings)
+	if r.MeanScore <= 0 {
+		t.Error("mean score should be positive")
 	}
 }
 
-func TestSortedByScore(t *testing.T) {
-	r := Analyze([]model.Finding{
-		finding("irrelevant", "By the way on a different note tangentially speaking of which incidentally."),
-		finding("relevant", "SQL injection vulnerability in authentication endpoint parameter."),
-	})
-	if len(r.Models) == 2 && r.Models[0].Score < r.Models[1].Score {
-		t.Error("models should be sorted by score descending")
+func TestFocusRatio(t *testing.T) {
+	_, detail := AnalyzeText("Specifically addressing the question, the root cause is clear. But by the way, on a side note, this tangent is unrelated.")
+	if detail.FocusRatio <= 0 || detail.FocusRatio >= 1 {
+		t.Errorf("focus ratio should be between 0 and 1 exclusive, got %.2f", detail.FocusRatio)
 	}
 }
 
-func TestDigressionPenalty(t *testing.T) {
-	clean := analyzeSample("SQL injection vulnerability in endpoint parameter.")
-	dirty := analyzeSample("SQL injection vulnerability in endpoint parameter. By the way on a different note as an aside.")
-	if dirty.DigressionCount == 0 {
-		t.Error("expected digressions detected")
-	}
-	if dirty.RelevanceRatio >= clean.RelevanceRatio {
-		t.Error("digression should lower relevance ratio")
+func TestQuestionRefDetection(t *testing.T) {
+	text := "As you asked about the API, answering your question about auth, the query you raised is valid."
+	count := len(questionRefPattern.FindAllString(strings.ToLower(text), -1))
+	if count < 2 {
+		t.Errorf("expected at least 2 question references, got %d", count)
 	}
 }
